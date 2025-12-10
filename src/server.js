@@ -130,6 +130,91 @@ app.get('/api/market/stats', async (req, res) => {
   }
 });
 
+// New enhanced endpoints
+app.get('/api/today-prices', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+    const sortBy = req.query.sortBy || 'symbol';
+    const order = req.query.order === 'desc' ? 'DESC' : 'ASC';
+
+    const prices = await getLatestPrices(null, { limit, offset, sortBy, order });
+    res.json(formatResponse({
+      data: prices,
+      pagination: {
+        limit,
+        offset,
+        total: prices.length
+      }
+    }));
+  } catch (e) {
+    console.error('API Today Prices Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+});
+
+app.get('/api/market/gainers', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const gainers = await getLatestPrices(null, {
+      limit,
+      sortBy: 'percentage_change',
+      order: 'DESC',
+      filter: 'gainers'
+    });
+    res.json(formatResponse(gainers));
+  } catch (e) {
+    console.error('API Gainers Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+});
+
+app.get('/api/market/losers', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const losers = await getLatestPrices(null, {
+      limit,
+      sortBy: 'percentage_change',
+      order: 'ASC',
+      filter: 'losers'
+    });
+    res.json(formatResponse(losers));
+  } catch (e) {
+    console.error('API Losers Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+});
+
+app.get('/api/market/summary', async (req, res) => {
+  try {
+    const stats = await getCompanyStats();
+    const recentPrices = await getLatestPrices(null, { limit: 10 });
+
+    // Calculate market summary
+    const totalVolume = recentPrices.reduce((sum, stock) => sum + (stock.volume || 0), 0);
+    const totalTurnover = recentPrices.reduce((sum, stock) => sum + (stock.turnover || 0), 0);
+    const gainers = recentPrices.filter(s => (s.change || 0) > 0).length;
+    const losers = recentPrices.filter(s => (s.change || 0) < 0).length;
+    const unchanged = recentPrices.filter(s => (s.change || 0) === 0).length;
+
+    res.json(formatResponse({
+      ...stats,
+      marketMetrics: {
+        totalVolume,
+        totalTurnover,
+        gainers,
+        losers,
+        unchanged,
+        totalStocks: recentPrices.length
+      },
+      timestamp: new Date().toISOString()
+    }));
+  } catch (e) {
+    console.error('API Market Summary Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+});
+
 app.get('/api', (req, res) => {
   const endpoints = [
     { method: 'GET', path: '/api/search?q=QUERY', description: 'Search for stocks by symbol or name' },
@@ -139,13 +224,17 @@ app.get('/api', (req, res) => {
     { method: 'GET', path: '/api/companies?limit=100&offset=0', description: 'Get paginated list of all companies' },
     { method: 'GET', path: '/api/companies/sector/SECTOR_NAME?limit=50', description: 'Get companies by sector' },
     { method: 'GET', path: '/api/companies/top/20', description: 'Get top companies by market capitalization' },
-    { method: 'GET', path: '/api/market/stats', description: 'Get market statistics and summary' }
+    { method: 'GET', path: '/api/market/stats', description: 'Get market statistics and summary' },
+    { method: 'GET', path: '/api/today-prices?limit=100&sortBy=symbol&order=asc', description: 'Get today\'s prices with pagination and sorting' },
+    { method: 'GET', path: '/api/market/gainers?limit=20', description: 'Get top gainers of the day' },
+    { method: 'GET', path: '/api/market/losers?limit=20', description: 'Get top losers of the day' },
+    { method: 'GET', path: '/api/market/summary', description: 'Get comprehensive market summary with metrics' }
   ];
 
   res.json(formatResponse({
     title: 'NEPSE Portfolio API',
-    version: '2.0.0',
-    description: 'Enhanced API with comprehensive company data including logos, financial metrics, and market statistics',
+    version: '2.1.0',
+    description: 'Enhanced API with comprehensive company data, real-time prices via API capture, market analytics, and financial metrics',
     endpoints
   }));
 });

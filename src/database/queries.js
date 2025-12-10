@@ -50,14 +50,66 @@ function getScriptDetails(symbol) {
   });
 }
 
-function getLatestPrices(symbols) {
+function getLatestPrices(symbols, options = {}) {
   return new Promise((resolve, reject) => {
-    if (!symbols || symbols.length === 0) return resolve([]);
+    const {
+      limit = 100,
+      offset = 0,
+      sortBy = 'symbol',
+      order = 'ASC',
+      filter = null
+    } = options;
 
-    const placeholders = symbols.map(() => '?').join(',');
-    const sql = `SELECT * FROM stock_prices WHERE symbol IN (${placeholders})`;
+    // If symbols array is provided, use the original logic
+    if (symbols && Array.isArray(symbols) && symbols.length > 0) {
+      const placeholders = symbols.map(() => '?').join(',');
+      const sql = `
+        SELECT sp.*, cd.company_name, cd.sector_name 
+        FROM stock_prices sp
+        LEFT JOIN company_details cd ON sp.symbol = cd.symbol
+        WHERE sp.symbol IN (${placeholders})
+        ORDER BY sp.symbol
+      `;
 
-    db.all(sql, symbols, (err, rows) => {
+      db.all(sql, symbols, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+      return;
+    }
+
+    // Enhanced query for getting all latest prices with options
+    let sql = `
+      SELECT 
+        sp.*,
+        cd.company_name,
+        cd.sector_name,
+        cd.market_capitalization as company_market_cap
+      FROM stock_prices sp
+      LEFT JOIN company_details cd ON sp.symbol = cd.symbol
+      WHERE sp.business_date = (
+        SELECT MAX(business_date) FROM stock_prices sp2 WHERE sp2.symbol = sp.symbol
+      )
+    `;
+
+    // Add filter conditions
+    if (filter === 'gainers') {
+      sql += ' AND sp.change > 0';
+    } else if (filter === 'losers') {
+      sql += ' AND sp.change < 0';
+    }
+
+    // Add sorting
+    const allowedSortColumns = ['symbol', 'close_price', 'change', 'percentage_change', 'volume', 'turnover', 'market_capitalization'];
+    const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'symbol';
+    const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+    sql += ` ORDER BY sp.${sortColumn} ${sortOrder}`;
+
+    // Add pagination
+    sql += ` LIMIT ? OFFSET ?`;
+
+    db.all(sql, [limit, offset], (err, rows) => {
       if (err) reject(err);
       else resolve(rows);
     });

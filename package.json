@@ -1,6 +1,6 @@
 {
   "name": "nepse-portfolio-api",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Enhanced NEPSE stock market data scraper and portfolio API",
   "main": "nepse.js",
   "bin": {

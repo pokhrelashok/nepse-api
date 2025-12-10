@@ -43,3 +43,5 @@ coverage/
 *.7z
 .nyc_output/
 downloads/
+*.db
+temp/
