@@ -56,8 +56,8 @@ chown $APP_USER:$APP_USER $APP_DIR
 
 # Copy application files
 echo "📋 Copying application files..."
-# Copy main application (excluding deploy directory to avoid conflicts)
-rsync -av --exclude='deploy/' . $APP_DIR/
+# Copy main application (excluding unnecessary directories and files)
+rsync -av --exclude='deploy/' --exclude='.git/' --exclude='node_modules/' --exclude='*.log' --exclude='.DS_Store' --exclude='*.db' . $APP_DIR/
 # Remove any existing symlink and copy ecosystem config directly
 rm -f $APP_DIR/ecosystem.config.js
 cp $DEPLOY_DIR/ecosystem.config.js $APP_DIR/
