@@ -3,6 +3,11 @@
 # NEPSE API Initial Data Population Script
 cd APP_DIR_PLACEHOLDER
 
+# Source NVM
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use default
+
 echo "📊 Starting initial data population..."
 echo "⏱️ This may take several minutes depending on the number of companies"
 

@@ -5,6 +5,11 @@ cd APP_DIR_PLACEHOLDER
 
 echo "🔄 Updating NEPSE API..."
 
+# Source NVM
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use default
+
 # Pull latest code
 echo "📥 Pulling latest code..."
 git pull origin main

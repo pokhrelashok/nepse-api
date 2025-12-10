@@ -48,10 +48,41 @@ apt install -y \
     libasound2-dev \
     xdg-utils
 
-# Install Node.js 18.x
-echo "📦 Installing Node.js..."
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt install -y nodejs
+# Install Node.js using NVM
+echo "📦 Installing Node.js via NVM..."
+# Install NVM for the app user
+sudo -u $APP_USER bash << 'NVM_EOF'
+# Download and install NVM
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | bash
+
+# Source NVM to make it available in current session
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"
+
+# Install Node.js LTS and set as default
+nvm install --lts
+nvm use --lts
+nvm alias default node
+
+# Verify installation
+node --version
+npm --version
+NVM_EOF
+
+# Also create a global symlink for system-wide access (needed for PM2 global install)
+sudo -u $APP_USER bash << 'SYMLINK_EOF'
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+# Create symlinks for global access
+NODE_PATH=$(nvm which current)
+NPM_PATH=$(dirname $NODE_PATH)/npm
+
+# Create symlinks in /usr/local/bin for system-wide access
+sudo ln -sf $NODE_PATH /usr/local/bin/node
+sudo ln -sf $NPM_PATH /usr/local/bin/npm
+SYMLINK_EOF
 
 # Install Google Chrome for Puppeteer
 echo "📦 Installing Google Chrome..."
@@ -106,9 +137,17 @@ if ! apt install -y google-chrome-stable; then
     fi
 fi
 
-# Install PM2 globally
+# Install PM2 globally using NVM's Node.js
 echo "📦 Installing PM2..."
+sudo -u $APP_USER bash << 'PM2_EOF'
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use default
 npm install -g pm2
+PM2_EOF
+
+# Also install PM2 globally via symlink for system access
+/usr/local/bin/npm install -g pm2
 
 # Create application user
 echo "👤 Creating application user..."
@@ -143,18 +182,24 @@ chown -R $APP_USER:$APP_USER $APP_DIR
 
 # Switch to app user for Node.js operations
 echo "📦 Installing Node.js dependencies..."
-sudo -u $APP_USER bash << EOF
+sudo -u $APP_USER bash << 'DEPS_EOF'
 cd $APP_DIR
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use default
 npm ci --production
 mkdir -p logs public/images
-EOF
+DEPS_EOF
 
 # Initialize database
 echo "🗃️ Initializing database..."
-sudo -u $APP_USER bash << EOF
+sudo -u $APP_USER bash << 'DB_EOF'
 cd $APP_DIR
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use default
 node src/database/database.js
-EOF
+DB_EOF
 
 # Setup Nginx
 echo "🔧 Configuring Nginx..."
@@ -200,13 +245,16 @@ sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" /etc/systemd/system/nepse-pm2.service
 
 # Initialize PM2 for the app user and start services
 echo "🚀 Starting PM2 services..."
-sudo -u $APP_USER bash << EOF
+sudo -u $APP_USER bash << 'PM2_START_EOF'
 cd $APP_DIR
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use default
 export PM2_HOME=/home/$APP_USER/.pm2
 pm2 start ecosystem.config.js
 pm2 save
 pm2 startup systemd -u $APP_USER --hp /home/$APP_USER
-EOF
+PM2_START_EOF
 
 # Enable and start the systemd service
 systemctl daemon-reload
@@ -250,7 +298,7 @@ echo "📝 Creating maintenance scripts..."
 cat > /usr/local/bin/nepse-status << EOL
 #!/bin/bash
 echo "=== NEPSE API Status ==="
-sudo -u $APP_USER pm2 status
+sudo -u $APP_USER bash -c 'export NVM_DIR="\$HOME/.nvm"; [ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"; nvm use default; pm2 status'
 echo ""
 echo "=== Nginx Status ==="
 systemctl status nginx --no-pager -l
@@ -266,7 +314,7 @@ chmod +x /usr/local/bin/nepse-status
 cat > /usr/local/bin/nepse-logs << EOL
 #!/bin/bash
 echo "=== Recent API Logs ==="
-sudo -u $APP_USER pm2 logs --lines 50
+sudo -u $APP_USER bash -c 'export NVM_DIR="\$HOME/.nvm"; [ -s "\$NVM_DIR/nvm.sh" ] && \. "\$NVM_DIR/nvm.sh"; nvm use default; pm2 logs --lines 50'
 EOL
 chmod +x /usr/local/bin/nepse-logs
 

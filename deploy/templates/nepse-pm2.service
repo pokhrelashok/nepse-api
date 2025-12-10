@@ -9,12 +9,14 @@ User=APP_USER_PLACEHOLDER
 LimitNOFILE=infinity
 LimitNPROC=infinity
 LimitCORE=infinity
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PATH=/home/APP_USER_PLACEHOLDER/.nvm/versions/node/*/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PM2_HOME=/home/APP_USER_PLACEHOLDER/.pm2
+Environment=NVM_DIR=/home/APP_USER_PLACEHOLDER/.nvm
 PIDFile=/home/APP_USER_PLACEHOLDER/.pm2/pm2.pid
-ExecStart=/usr/bin/pm2 start APP_DIR_PLACEHOLDER/ecosystem.config.js
-ExecReload=/usr/bin/pm2 reload APP_DIR_PLACEHOLDER/ecosystem.config.js
-ExecStop=/usr/bin/pm2 kill
+ExecStartPre=/bin/bash -c 'source /home/APP_USER_PLACEHOLDER/.nvm/nvm.sh && nvm use default'
+ExecStart=/bin/bash -c 'source /home/APP_USER_PLACEHOLDER/.nvm/nvm.sh && nvm use default && pm2 start APP_DIR_PLACEHOLDER/ecosystem.config.js'
+ExecReload=/bin/bash -c 'source /home/APP_USER_PLACEHOLDER/.nvm/nvm.sh && nvm use default && pm2 reload APP_DIR_PLACEHOLDER/ecosystem.config.js'
+ExecStop=/bin/bash -c 'source /home/APP_USER_PLACEHOLDER/.nvm/nvm.sh && nvm use default && pm2 kill'
 Restart=always
 RestartSec=10
 KillMode=process
