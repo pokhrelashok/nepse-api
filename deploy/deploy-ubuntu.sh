@@ -55,15 +55,56 @@ apt install -y nodejs
 
 # Install Google Chrome for Puppeteer
 echo "📦 Installing Google Chrome..."
+
+# Check available disk space and memory
+echo "🔍 Checking system resources..."
+df -h /var/cache/apt/archives
+free -h
+
+# Clean up package cache to free space
+apt clean
+apt autoremove -y
+
+# Download Chrome GPG key
 wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | apt-key add -
 echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" > /etc/apt/sources.list.d/google-chrome.list
 apt update
-# Install Chrome and let apt handle dependencies
-apt install -y google-chrome-stable || {
-    echo "🔧 Chrome installation failed, trying to fix dependencies..."
+
+# Try installing Chrome with better error handling
+echo "📦 Attempting Chrome installation..."
+if ! apt install -y google-chrome-stable; then
+    echo "🔧 Chrome installation failed, trying alternative approaches..."
+    
+    # Clean up any partial installation
     apt --fix-broken install -y
-    apt install -y google-chrome-stable
-}
+    apt clean
+    
+    # Try downloading and installing manually with more space
+    cd /tmp
+    wget -O chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+    
+    # Install with dpkg and fix dependencies
+    if dpkg -i chrome.deb; then
+        echo "✅ Chrome installed successfully via dpkg"
+    else
+        echo "🔧 Fixing Chrome dependencies..."
+        apt --fix-broken install -y
+        dpkg -i chrome.deb || apt install -f -y
+    fi
+    
+    # Clean up
+    rm -f chrome.deb
+    
+    # Verify installation
+    if which google-chrome-stable >/dev/null 2>&1; then
+        echo "✅ Chrome installation verified"
+    else
+        echo "❌ Chrome installation failed completely"
+        echo "⚠️ Will try to use Puppeteer's bundled Chromium instead"
+        # Remove the Chrome executable path requirement
+        export SKIP_CHROME_INSTALL=true
+    fi
+fi
 
 # Install PM2 globally
 echo "📦 Installing PM2..."
@@ -90,6 +131,14 @@ rsync -av --exclude='deploy/' --exclude='.git/' --exclude='node_modules/' --excl
 # Remove any existing symlink and copy ecosystem config directly
 rm -f $APP_DIR/ecosystem.config.js
 cp $DEPLOY_DIR/ecosystem.config.js $APP_DIR/
+
+# Update ecosystem config based on Chrome installation status
+if [ "$SKIP_CHROME_INSTALL" = "true" ]; then
+    echo "🔧 Configuring for Puppeteer's bundled Chromium..."
+    # Remove Chrome executable path from ecosystem config
+    sed -i '/PUPPETEER_EXECUTABLE_PATH/d' $APP_DIR/ecosystem.config.js
+fi
+
 chown -R $APP_USER:$APP_USER $APP_DIR
 
 # Switch to app user for Node.js operations
