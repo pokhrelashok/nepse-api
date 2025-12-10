@@ -18,8 +18,8 @@ class Scheduler {
 
     console.log('🚀 Starting price update scheduler...');
 
-    // Price updates every 15 minutes during market hours (10 AM - 3 PM)
-    const priceJob = cron.schedule('*/15 10-15 * * 1-5', async () => {
+    // Price updates every 2 minutes during market hours (10 AM - 3 PM)
+    const priceJob = cron.schedule('*/2 10-15 * * 1-5', async () => {
       await this.updatePricesAndStatus('DURING_HOURS');
     }, {
       scheduled: false,
@@ -41,7 +41,7 @@ class Scheduler {
     closeJob.start();
 
     this.isRunning = true;
-    console.log('📅 Price update schedule started (every 15 min during hours + close update)');
+    console.log('📅 Price update schedule started (every 2 min during hours + close update)');
   }
 
   async updatePricesAndStatus(phase) {

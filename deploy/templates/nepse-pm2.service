@@ -1,0 +1,24 @@
+[Unit]
+Description=PM2 process manager for NEPSE API
+Documentation=https://pm2.keymetrics.io/
+After=network.target
+
+[Service]
+Type=forking
+User=APP_USER_PLACEHOLDER
+LimitNOFILE=infinity
+LimitNPROC=infinity
+LimitCORE=infinity
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=PM2_HOME=/home/APP_USER_PLACEHOLDER/.pm2
+PIDFile=/home/APP_USER_PLACEHOLDER/.pm2/pm2.pid
+ExecStart=/usr/bin/pm2 start APP_DIR_PLACEHOLDER/ecosystem.config.js
+ExecReload=/usr/bin/pm2 reload APP_DIR_PLACEHOLDER/ecosystem.config.js
+ExecStop=/usr/bin/pm2 kill
+Restart=always
+RestartSec=10
+KillMode=process
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target

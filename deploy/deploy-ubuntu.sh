@@ -8,6 +8,7 @@ set -e  # Exit on any error
 DOMAIN=${1:-"localhost"}
 APP_USER="nepse"
 APP_DIR="/var/www/nepse-api"
+DEPLOY_DIR="$(dirname "$(realpath "$0")")"
 NGINX_AVAILABLE="/etc/nginx/sites-available/nepse-api"
 NGINX_ENABLED="/etc/nginx/sites-enabled/nepse-api"
 
@@ -55,7 +56,10 @@ chown $APP_USER:$APP_USER $APP_DIR
 
 # Copy application files
 echo "📋 Copying application files..."
-cp -r . $APP_DIR/
+# Copy main application (excluding deploy directory to avoid conflicts)
+rsync -av --exclude='deploy/' . $APP_DIR/
+# Copy ecosystem config to app directory
+cp $DEPLOY_DIR/ecosystem.config.js $APP_DIR/
 chown -R $APP_USER:$APP_USER $APP_DIR
 
 # Switch to app user for Node.js operations
@@ -75,79 +79,26 @@ EOF
 
 # Setup Nginx
 echo "🔧 Configuring Nginx..."
-cat > $NGINX_AVAILABLE << EOL
-server {
-    listen 80;
-    server_name $DOMAIN www.$DOMAIN;
-    
-    # Security headers
-    add_header X-Frame-Options "SAMEORIGIN" always;
-    add_header X-XSS-Protection "1; mode=block" always;
-    add_header X-Content-Type-Options "nosniff" always;
-    add_header Referrer-Policy "no-referrer-when-downgrade" always;
-    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
-    
-    # Serve static images
-    location /images/ {
-        alias $APP_DIR/public/images/;
-        expires 7d;
-        add_header Cache-Control "public, immutable";
-        access_log off;
-    }
-    
-    # API routes
-    location /api/ {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_cache_bypass \$http_upgrade;
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
-        
-        # Rate limiting
-        limit_req zone=api burst=20 nodelay;
-    }
-    
-    # Health check
-    location /health {
-        proxy_pass http://127.0.0.1:3000;
-        access_log off;
-    }
-    
-    # Root redirect
-    location / {
-        return 301 /api/stocks/prices;
-    }
-    
-    # Deny access to sensitive files
-    location ~ /\\. {
-        deny all;
-    }
-    
-    location ~ \\.(db|log)\$ {
-        deny all;
-    }
-}
 
-# Rate limiting zone
-http {
-    limit_req_zone \$binary_remote_addr zone=api:10m rate=10r/s;
-}
-EOL
+# Create site configuration from template
+cp $DEPLOY_DIR/templates/nginx-site.conf $NGINX_AVAILABLE
+# Replace placeholders in the nginx configuration
+sed -i "s/DOMAIN_PLACEHOLDER/$DOMAIN/g" $NGINX_AVAILABLE
+sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" $NGINX_AVAILABLE
 
 # Enable Nginx site
 ln -sf $NGINX_AVAILABLE $NGINX_ENABLED
 rm -f /etc/nginx/sites-enabled/default
 
 # Test and reload Nginx
-nginx -t && systemctl reload nginx
-echo "✅ Nginx configured and reloaded"
+if nginx -t; then
+    systemctl reload nginx
+    echo "✅ Nginx configured and reloaded"
+else
+    echo "❌ Nginx configuration test failed"
+    echo "Check the configuration file: $NGINX_AVAILABLE"
+    exit 1
+fi
 
 # Setup UFW firewall
 echo "🔥 Configuring firewall..."
@@ -161,32 +112,12 @@ echo "✅ Firewall configured"
 
 # Create systemd service for PM2
 echo "⚙️ Setting up PM2 systemd service..."
-cat > /etc/systemd/system/nepse-pm2.service << EOL
-[Unit]
-Description=PM2 process manager for NEPSE API
-Documentation=https://pm2.keymetrics.io/
-After=network.target
 
-[Service]
-Type=forking
-User=$APP_USER
-LimitNOFILE=infinity
-LimitNPROC=infinity
-LimitCORE=infinity
-Environment=PATH=/usr/local/bin:/usr/bin:/bin
-Environment=PM2_HOME=/home/$APP_USER/.pm2
-PIDFile=/home/$APP_USER/.pm2/pm2.pid
-ExecStart=/usr/bin/pm2 start $APP_DIR/ecosystem.config.js
-ExecReload=/usr/bin/pm2 reload $APP_DIR/ecosystem.config.js
-ExecStop=/usr/bin/pm2 kill
-Restart=always
-RestartSec=10
-KillMode=process
-TimeoutStopSec=120
-
-[Install]
-WantedBy=multi-user.target
-EOL
+# Create systemd service from template
+cp $DEPLOY_DIR/templates/nepse-pm2.service /etc/systemd/system/nepse-pm2.service
+# Replace placeholders in the service file
+sed -i "s/APP_USER_PLACEHOLDER/$APP_USER/g" /etc/systemd/system/nepse-pm2.service
+sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" /etc/systemd/system/nepse-pm2.service
 
 # Initialize PM2 for the app user and start services
 echo "🚀 Starting PM2 services..."
@@ -205,28 +136,15 @@ systemctl start nepse-pm2
 
 # Create update script
 echo "📝 Creating update script..."
-cat > $APP_DIR/update.sh << EOL
-#!/bin/bash
-cd $APP_DIR
-git pull origin main
-npm ci --production
-pm2 reload ecosystem.config.js
-echo "✅ Application updated successfully!"
-EOL
+cp $DEPLOY_DIR/scripts/update-app.sh $APP_DIR/update.sh
+sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" $APP_DIR/update.sh
 chmod +x $APP_DIR/update.sh
 chown $APP_USER:$APP_USER $APP_DIR/update.sh
 
 # Create data population script
 echo "📝 Creating data population script..."
-cat > $APP_DIR/populate-data.sh << EOL
-#!/bin/bash
-cd $APP_DIR
-echo "📊 Populating stock prices..."
-node src/index.js prices --save
-echo "🏢 Populating company details..."
-node src/index.js companies --save
-echo "✅ Data population completed!"
-EOL
+cp $DEPLOY_DIR/scripts/populate-initial-data.sh $APP_DIR/populate-data.sh
+sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" $APP_DIR/populate-data.sh
 chmod +x $APP_DIR/populate-data.sh
 chown $APP_USER:$APP_USER $APP_DIR/populate-data.sh
 
@@ -241,20 +159,12 @@ fi
 
 # Setup log rotation
 echo "📋 Setting up log rotation..."
-cat > /etc/logrotate.d/nepse-api << EOL
-$APP_DIR/logs/*.log {
-    daily
-    missingok
-    rotate 30
-    compress
-    delaycompress
-    notifempty
-    create 644 $APP_USER $APP_USER
-    postrotate
-        sudo -u $APP_USER pm2 reloadLogs
-    endscript
-}
-EOL
+
+# Create logrotate configuration from template
+cp $DEPLOY_DIR/templates/nepse-logrotate.conf /etc/logrotate.d/nepse-api
+# Replace placeholders in logrotate config
+sed -i "s/APP_USER_PLACEHOLDER/$APP_USER/g" /etc/logrotate.d/nepse-api
+sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" /etc/logrotate.d/nepse-api
 
 # Create maintenance script
 echo "📝 Creating maintenance scripts..."

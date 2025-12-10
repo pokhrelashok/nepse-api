@@ -41,6 +41,35 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
+// Hello route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Hello! Welcome to NEPSE Portfolio API',
+    version: '2.1.0',
+    endpoints: {
+      market: '/api/market/status',
+      stocks: '/api/stocks/prices',
+      companies: '/api/companies',
+      search: '/api/stocks/search?q=NABIL',
+      health: '/health'
+    },
+    documentation: 'https://github.com/pokhrelashok/nepal-stock-scraper'
+  });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+    services: {
+      database: 'connected',
+      api: 'running'
+    }
+  });
+});
+
 // Scheduler endpoints
 app.post('/api/scheduler/start', async (req, res) => {
   try {

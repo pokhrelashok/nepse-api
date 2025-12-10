@@ -6,10 +6,10 @@ Deploy your NEPSE Portfolio API on Ubuntu server with a single command!
 
 ```bash
 # Download and run deployment script
-sudo ./deploy-ubuntu.sh yourdomain.com
+sudo deploy/deploy-ubuntu.sh yourdomain.com
 
 # OR for localhost (no SSL)
-sudo ./deploy-ubuntu.sh localhost
+sudo deploy/deploy-ubuntu.sh localhost
 ```
 
 ## 📋 What This Does
