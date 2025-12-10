@@ -45,4 +45,4 @@ coverage/
 downloads/
 *.db
 temp/
-public/
+public
