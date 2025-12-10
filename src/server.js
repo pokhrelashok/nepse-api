@@ -48,9 +48,9 @@ app.get('/', (req, res) => {
     version: '2.1.0',
     endpoints: {
       market: '/api/market/status',
-      stocks: '/api/stocks/prices',
+      stocks: '/api/prices',
       companies: '/api/companies',
-      search: '/api/stocks/search?q=NABIL',
+      search: '/api/search?q=NABIL',
       health: '/health'
     },
     documentation: 'https://github.com/pokhrelashok/nepal-stock-scraper'

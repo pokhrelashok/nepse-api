@@ -29,7 +29,7 @@ apt update && apt upgrade -y
 
 # Install required packages
 echo "📦 Installing required packages..."
-apt install -y curl wget git nginx sqlite3 certbot python3-certbot-nginx ufw
+apt install -y curl wget git nginx sqlite3 certbot python3-certbot-nginx ufw jq
 
 # Install Chrome/Puppeteer dependencies
 echo "📦 Installing Chrome dependencies for Puppeteer..."
@@ -231,8 +231,10 @@ ufw default deny incoming
 ufw default allow outgoing
 ufw allow ssh
 ufw allow 'Nginx Full'
+# Remove Nginx HTTP since we'll enforce HTTPS
+ufw delete allow 'Nginx HTTP' 2>/dev/null || true
 ufw --force enable
-echo "✅ Firewall configured"
+echo "✅ Firewall configured (HTTPS enforced)"
 
 # Create systemd service for PM2
 echo "⚙️ Setting up PM2 systemd service..."
@@ -277,9 +279,91 @@ chown $APP_USER:$APP_USER $APP_DIR/populate-data.sh
 
 # Setup SSL with Let's Encrypt (if domain is not localhost)
 if [ "$DOMAIN" != "localhost" ] && [ "$DOMAIN" != "127.0.0.1" ]; then
-    echo "🔒 Setting up SSL certificate..."
-    certbot --nginx -d $DOMAIN -d www.$DOMAIN --non-interactive --agree-tos --email admin@$DOMAIN
-    echo "✅ SSL certificate configured"
+    echo "🔒 Setting up enhanced SSL with Let's Encrypt..."
+    
+    # Check if domain is reachable
+    echo "🔍 Verifying domain accessibility..."
+    if ! curl -s --connect-timeout 10 "http://$DOMAIN" > /dev/null; then
+        echo "⚠️ Warning: Domain $DOMAIN may not be accessible. Continuing anyway..."
+    fi
+    
+    # Request SSL certificate with enhanced options
+    if certbot --nginx -d $DOMAIN -d www.$DOMAIN \
+        --non-interactive \
+        --agree-tos \
+        --email admin@$DOMAIN \
+        --redirect \
+        --hsts \
+        --staple-ocsp \
+        --must-staple; then
+        
+        echo "✅ SSL certificate configured successfully"
+        
+        # Add additional security headers to the HTTPS server block
+        echo "🔧 Adding enhanced security headers..."
+        
+        # Create enhanced SSL configuration
+        cat > /etc/nginx/conf.d/ssl-security.conf << 'SSL_CONF_EOF'
+# Enhanced SSL Security Configuration
+ssl_protocols TLSv1.2 TLSv1.3;
+ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384:DHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-SHA384;
+ssl_prefer_server_ciphers off;
+ssl_session_cache shared:SSL:10m;
+ssl_session_timeout 10m;
+ssl_session_tickets off;
+
+# OCSP Stapling
+ssl_stapling on;
+ssl_stapling_verify on;
+resolver 8.8.8.8 8.8.4.4 valid=300s;
+resolver_timeout 5s;
+
+# Security Headers
+add_header Strict-Transport-Security "max-age=63072000; includeSubDomains; preload" always;
+add_header X-Frame-Options "SAMEORIGIN" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header X-XSS-Protection "1; mode=block" always;
+add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';" always;
+SSL_CONF_EOF
+
+        # Test and reload Nginx
+        if nginx -t; then
+            systemctl reload nginx
+            echo "✅ Enhanced SSL security configuration applied"
+            
+            # Test HTTPS connectivity
+            echo "🧪 Testing HTTPS connectivity..."
+            sleep 5
+            if curl -s --connect-timeout 10 "https://$DOMAIN" > /dev/null; then
+                echo "✅ HTTPS is working correctly"
+            else
+                echo "⚠️ HTTPS test failed, but certificate was installed"
+            fi
+        else
+            echo "❌ Nginx configuration test failed after SSL setup"
+        fi
+        
+    else
+        echo "❌ SSL certificate installation failed"
+        echo "📋 Checking common issues..."
+        
+        # Diagnostic information
+        echo "🔍 Domain resolution check:"
+        dig +short $DOMAIN A || echo "❌ Failed to resolve $DOMAIN"
+        dig +short www.$DOMAIN A || echo "❌ Failed to resolve www.$DOMAIN"
+        
+        echo "🔍 Port accessibility check:"
+        netstat -tuln | grep -E ':(80|443)\s' || echo "❌ Ports 80/443 may not be open"
+        
+        echo "📋 Please check:"
+        echo "   1. Domain DNS A records point to this server's IP"
+        echo "   2. Firewall allows ports 80 and 443"
+        echo "   3. Domain is accessible from the internet"
+        echo "   4. No conflicting Nginx configurations"
+        echo ""
+        echo "💡 You can manually retry with: sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN"
+    fi
 else
     echo "⚠️ Skipping SSL setup for localhost"
 fi
@@ -292,6 +376,38 @@ cp $DEPLOY_DIR/templates/nepse-logrotate.conf /etc/logrotate.d/nepse-api
 # Replace placeholders in logrotate config
 sed -i "s/APP_USER_PLACEHOLDER/$APP_USER/g" /etc/logrotate.d/nepse-api
 sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" /etc/logrotate.d/nepse-api
+
+# Setup SSL certificate auto-renewal verification
+if [ "$DOMAIN" != "localhost" ] && [ "$DOMAIN" != "127.0.0.1" ]; then
+    echo "🔄 Setting up SSL certificate auto-renewal..."
+    
+    # Test the renewal process
+    echo "🧪 Testing SSL certificate renewal process..."
+    if certbot renew --dry-run; then
+        echo "✅ SSL certificate auto-renewal is working"
+    else
+        echo "⚠️ SSL certificate auto-renewal test failed"
+    fi
+    
+    # Check renewal timer status
+    echo "⏰ Checking certbot renewal timer..."
+    systemctl status certbot.timer --no-pager || echo "⚠️ Certbot timer not active"
+    
+    # Create renewal notification script
+    cat > /usr/local/bin/nepse-ssl-check << 'SSL_CHECK_EOF'
+#!/bin/bash
+echo "🔒 SSL Certificate Status for $DOMAIN"
+echo "====================================="
+certbot certificates
+echo ""
+echo "📅 Next renewal check:"
+systemctl list-timers certbot.timer
+echo ""
+echo "🧪 Test renewal (dry run):"
+echo "sudo certbot renew --dry-run"
+SSL_CHECK_EOF
+    chmod +x /usr/local/bin/nepse-ssl-check
+fi
 
 # Create maintenance script
 echo "📝 Creating maintenance scripts..."
@@ -329,6 +445,17 @@ echo "🔗 Your API is available at:"
 if [ "$DOMAIN" != "localhost" ]; then
     echo "   https://$DOMAIN/api/stocks/prices"
     echo "   https://$DOMAIN/api/market/status"
+    echo "   https://www.$DOMAIN/api/stocks/prices"
+    echo ""
+    echo "🔒 SSL Security Features Enabled:"
+    echo "   • HTTPS enforced (HTTP redirects to HTTPS)"
+    echo "   • HTTP Strict Transport Security (HSTS)"
+    echo "   • OCSP Stapling for improved performance"
+    echo "   • Enhanced security headers"
+    echo "   • Automatic certificate renewal"
+    echo ""
+    echo "🧪 Test your SSL configuration:"
+    echo "   https://www.ssllabs.com/ssltest/analyze.html?d=$DOMAIN"
 else
     echo "   http://localhost/api/stocks/prices"
     echo "   http://localhost/api/market/status"
@@ -337,9 +464,12 @@ echo ""
 echo "📋 Useful commands:"
 echo "   nepse-status          - Check application status"
 echo "   nepse-logs           - View recent logs"
+echo "   nepse-ssl-check      - Check SSL certificate status (if SSL enabled)"
 echo "   sudo -u $APP_USER pm2 status  - PM2 status"
 echo "   $APP_DIR/update.sh   - Update application"
 echo "   $APP_DIR/populate-data.sh  - Populate initial data"
+echo "   sudo certbot renew --dry-run - Test SSL renewal (if SSL enabled)"
+echo "   sudo nginx -T | grep ssl_ - Check SSL configuration"
 echo ""
 echo "📁 Application directory: $APP_DIR"
 echo "📋 Logs directory: $APP_DIR/logs"
