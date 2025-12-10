@@ -1,0 +1,39 @@
+FROM node:18-alpine
+
+# Install PM2 and curl for health checks
+RUN npm install -g pm2 && apk add --no-cache curl
+
+# Create app user
+RUN addgroup -g 1001 -S nepse && \
+    adduser -S nepse -u 1001 -G nepse
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY ecosystem.config.js ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy source code
+COPY src/ src/
+COPY public/ public/
+COPY .env.production .env
+
+# Create necessary directories
+RUN mkdir -p logs public/images && \
+    chown -R nepse:nepse /app
+
+# Switch to non-root user
+USER nepse
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+
+# Expose port
+EXPOSE 3000
+
+# Start with PM2
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]

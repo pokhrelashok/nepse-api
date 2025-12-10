@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  nepse-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./nepse.db:/app/nepse.db
+      - ./public/images:/app/public/images
+      - ./logs:/app/logs
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/sites:/etc/nginx/conf.d
+      - ./public/images:/var/www/images
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - nepse-api
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"

@@ -1,0 +1,316 @@
+# NEPSE Portfolio API - Ubuntu Server Deployment Guide
+
+Complete guide for deploying the NEPSE Portfolio API on Ubuntu server with Nginx, PM2, SSL, and monitoring.
+
+## 🚀 Quick Deployment
+
+### Prerequisites
+
+- Ubuntu 18.04+ server
+- Root access or sudo privileges
+- Domain name pointed to your server (optional, for SSL)
+
+### One-Command Deployment
+
+```bash
+# For domain deployment with SSL
+sudo ./deploy-ubuntu.sh yourdomain.com
+
+# For localhost deployment
+sudo ./deploy-ubuntu.sh localhost
+```
+
+This script will automatically:
+
+- ✅ Install Node.js, Nginx, PM2, and dependencies
+- ✅ Create application user and directories
+- ✅ Configure Nginx with security headers
+- ✅ Setup SSL with Let's Encrypt (if domain provided)
+- ✅ Configure firewall (UFW)
+- ✅ Setup PM2 with systemd service
+- ✅ Create monitoring and maintenance scripts
+
+## 📋 What Gets Installed
+
+### System Components
+
+- **Node.js 18.x** - JavaScript runtime
+- **PM2** - Process manager for Node.js apps
+- **Nginx** - Web server and reverse proxy
+- **SQLite3** - Database engine
+- **UFW** - Firewall
+- **Certbot** - SSL certificate management
+
+### Application Structure
+
+```
+/var/www/nepse-api/          # Main application directory
+├── src/                     # Source code
+├── public/images/           # Company logos
+├── logs/                    # Application logs
+├── nepse.db                 # SQLite database
+├── ecosystem.config.js      # PM2 configuration
+├── update.sh               # Update script
+└── populate-data.sh        # Data population script
+```
+
+### Services Created
+
+- **nepse-pm2** - Systemd service for PM2
+- **nginx** - Web server
+- **PM2 processes:**
+  - `nepse-api` - Main API server (port 3000)
+  - `nepse-scheduler` - Background data updates
+
+## 🔧 Post-Deployment Setup
+
+### 1. Populate Initial Data
+
+```bash
+# Run as the nepse user
+sudo -u nepse /var/www/nepse-api/populate-data.sh
+```
+
+### 2. Verify Installation
+
+```bash
+# Check system status
+nepse-status
+
+# View logs
+nepse-logs
+
+# Test API
+curl http://localhost/api/market/status
+```
+
+### 3. Monitor the Application
+
+```bash
+# Real-time monitoring
+./monitor.sh --watch
+
+# One-time status check
+./monitor.sh
+```
+
+## 🌐 API Endpoints
+
+After deployment, these endpoints will be available:
+
+### Market Data
+
+- `GET /api/market/status` - Market open/closed status
+- `GET /api/market/stats` - Market statistics
+- `GET /api/market/gainers` - Top gainers
+- `GET /api/market/losers` - Top losers
+
+### Stock Data
+
+- `GET /api/stocks/search?q={query}` - Search stocks
+- `GET /api/stocks/prices` - Latest stock prices
+- `GET /api/stocks/{symbol}` - Specific stock details
+
+### Company Data
+
+- `GET /api/companies` - All companies
+- `GET /api/companies/top` - Top companies by market cap
+- `GET /api/companies/sector/{sector}` - Companies by sector
+
+### Static Assets
+
+- `GET /images/{symbol}.png` - Company logos
+
+## 🔄 Maintenance Commands
+
+### Application Management
+
+```bash
+# Check status
+nepse-status
+
+# View logs
+nepse-logs
+sudo -u nepse pm2 logs
+
+# Restart application
+sudo -u nepse pm2 restart ecosystem.config.js
+
+# Update application
+sudo -u nepse /var/www/nepse-api/update.sh
+```
+
+### Data Updates
+
+```bash
+# Update stock prices
+sudo -u nepse node /var/www/nepse-api/src/index.js prices --save
+
+# Update company details for new companies
+sudo -u nepse node /var/www/nepse-api/src/index.js companies --missing --save
+
+# Full data refresh
+sudo -u nepse /var/www/nepse-api/populate-data.sh
+```
+
+### Database Management
+
+```bash
+# Create backup
+sudo -u nepse cp /var/www/nepse-api/nepse.db /var/www/nepse-api/nepse.db.backup.$(date +%Y%m%d_%H%M%S)
+
+# Check database size
+sudo -u nepse sqlite3 /var/www/nepse-api/nepse.db "SELECT COUNT(*) FROM stock_prices;"
+
+# Database shell access
+sudo -u nepse sqlite3 /var/www/nepse-api/nepse.db
+```
+
+### System Management
+
+```bash
+# Restart services
+sudo systemctl restart nepse-pm2
+sudo systemctl restart nginx
+
+# Check service status
+sudo systemctl status nepse-pm2
+sudo systemctl status nginx
+
+# Renew SSL certificate
+sudo certbot renew
+```
+
+## 📊 Monitoring & Alerts
+
+### Built-in Monitoring
+
+The deployment includes a comprehensive monitoring script:
+
+```bash
+# Run monitoring dashboard
+./monitor.sh --watch
+```
+
+Monitors:
+
+- ✅ System services status
+- ✅ API health checks
+- ✅ Disk space usage
+- ✅ Memory consumption
+- ✅ PM2 process status
+- ✅ Database statistics
+- ✅ Recent error logs
+
+### Log Files
+
+- API logs: `/var/www/nepse-api/logs/api-*.log`
+- Scheduler logs: `/var/www/nepse-api/logs/scheduler-*.log`
+- Nginx logs: `/var/log/nginx/access.log`, `/var/log/nginx/error.log`
+- System logs: `journalctl -u nepse-pm2`
+
+## 🔒 Security Features
+
+### Firewall Configuration
+
+- SSH (port 22) - allowed
+- HTTP (port 80) - allowed
+- HTTPS (port 443) - allowed
+- All other ports - blocked
+
+### Nginx Security
+
+- Security headers enabled
+- Rate limiting (10 requests/second per IP)
+- GZIP compression
+- Static file caching
+- Access to sensitive files blocked
+
+### SSL/TLS
+
+- Automatic SSL certificate from Let's Encrypt
+- Auto-renewal configured
+- HTTPS redirect enabled
+
+### Application Security
+
+- Non-root user execution
+- File permission restrictions
+- Environment variable protection
+
+## 🐳 Docker Alternative
+
+If you prefer Docker deployment:
+
+```bash
+# Build and run with Docker Compose
+docker-compose -f docker-compose.production.yml up -d
+
+# Check status
+docker-compose -f docker-compose.production.yml ps
+
+# View logs
+docker-compose -f docker-compose.production.yml logs -f
+```
+
+## 🔧 Troubleshooting
+
+### Common Issues
+
+1. **API not responding**
+
+   ```bash
+   sudo -u nepse pm2 restart ecosystem.config.js
+   sudo systemctl restart nginx
+   ```
+
+2. **Database errors**
+
+   ```bash
+   # Check database file permissions
+   ls -la /var/www/nepse-api/nepse.db
+   
+   # Reinitialize if corrupted
+   sudo -u nepse node /var/www/nepse-api/src/database/database.js
+   ```
+
+3. **SSL certificate issues**
+
+   ```bash
+   sudo certbot certificates
+   sudo certbot renew --dry-run
+   ```
+
+4. **High memory usage**
+
+   ```bash
+   sudo -u nepse pm2 restart ecosystem.config.js
+   # Check for memory leaks in logs
+   ```
+
+### Getting Help
+
+- Check logs: `nepse-logs`
+- System status: `nepse-status`
+- PM2 status: `sudo -u nepse pm2 status`
+- Nginx status: `sudo systemctl status nginx`
+
+## 📈 Performance Tuning
+
+### For High Traffic
+
+1. Increase PM2 instances in `ecosystem.config.js`
+2. Adjust Nginx worker processes
+3. Enable database connection pooling
+4. Configure Redis for caching
+
+### For Low Resources
+
+1. Reduce PM2 memory limits
+2. Adjust scraping frequency
+3. Implement data archiving
+4. Optimize database queries
+
+---
+
+**Your NEPSE Portfolio API is now ready for production! 🚀**
