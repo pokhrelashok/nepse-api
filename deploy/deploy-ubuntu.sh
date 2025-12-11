@@ -25,6 +25,11 @@ if [ "$EUID" -ne 0 ]; then
     exit 1
 fi
 
+echo "🕐 Setting timezone to Nepal (Asia/Kathmandu)..."
+timedatectl set-timezone Asia/Kathmandu
+echo "✅ Timezone set to: $(timedatectl show --property=Timezone --value)"
+echo "🕐 Current server time: $(date)"
+
 echo "📦 Updating system packages..."
 apt update && apt upgrade -y
 

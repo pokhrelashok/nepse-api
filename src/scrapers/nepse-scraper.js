@@ -651,8 +651,89 @@ class NepseScraper {
     return details;
   }
 
+  async fetchMarketIndexFromAPI() {
+    console.log('🔌 Attempting to fetch market index from NEPSE API...');
+
+    const API_URL = 'https://nepalstock.com.np/api/nots/nepse-index';
+
+    try {
+      const response = await fetch(API_URL, {
+        method: 'GET',
+        headers: {
+          'User-Agent': this.userAgent,
+          'Accept': 'application/json',
+          'Referer': 'https://nepalstock.com.np/',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('📦 API Response received');
+
+      // Parse the API response - structure may vary
+      // Common structure: { currentValue, change, percentageChange, ... }
+      const result = {
+        nepseIndex: 0,
+        indexChange: 0,
+        indexPercentageChange: 0,
+        totalTurnover: 0,
+        totalTradedShares: 0,
+        advanced: 0,
+        declined: 0,
+        unchanged: 0,
+        marketStatusDate: null,
+        marketStatusTime: null
+      };
+
+      // Handle array response (common NEPSE API format)
+      const indexData = Array.isArray(data) ? data[0] : data;
+
+      if (indexData) {
+        result.nepseIndex = parseFloat(indexData.currentValue || indexData.index || indexData.nepseIndex || 0);
+        result.indexChange = parseFloat(indexData.change || indexData.indexChange || 0);
+        result.indexPercentageChange = parseFloat(indexData.percentageChange || indexData.perChange || indexData.indexPercentageChange || 0);
+        result.totalTurnover = parseFloat(indexData.turnover || indexData.totalTurnover || 0);
+        result.totalTradedShares = parseFloat(indexData.tradedShares || indexData.totalTradedShares || 0);
+        result.advanced = parseInt(indexData.advanced || indexData.positive || 0, 10);
+        result.declined = parseInt(indexData.declined || indexData.negative || 0, 10);
+        result.unchanged = parseInt(indexData.unchanged || indexData.neutral || 0, 10);
+
+        // Extract date/time if available
+        if (indexData.asOf || indexData.date) {
+          const dateStr = indexData.asOf || indexData.date;
+          result.marketStatusDate = dateStr;
+        }
+      }
+
+      console.log(`📊 API Index: ${result.nepseIndex}, Change: ${result.indexChange} (${result.indexPercentageChange}%)`);
+
+      return result;
+    } catch (error) {
+      console.error('❌ API fetch failed:', error.message);
+      throw error;
+    }
+  }
+
   async scrapeMarketIndex() {
     console.log('📈 Scraping market index data...');
+
+    // Try API first (more reliable and faster)
+    try {
+      const apiData = await this.fetchMarketIndexFromAPI();
+      if (apiData && apiData.nepseIndex > 0) {
+        console.log('✅ Market index fetched from API successfully');
+        return apiData;
+      }
+    } catch (apiError) {
+      console.log('⚠️ API fetch failed, falling back to scraping:', apiError.message);
+    }
+
+    // Fallback to scraping
     console.log('⚡ Initializing browser for market index scrape...');
     await this.init();
 
@@ -660,8 +741,15 @@ class NepseScraper {
       const page = await this.browser.newPage();
       await page.setUserAgent(this.userAgent);
 
-      console.log('🌐 Navigating to NEPSE homepage...');
-      await page.goto(NEPSE_URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+      // Disable cache to ensure fresh data
+      await page.setCacheEnabled(false);
+
+      // Add cache-busting query parameter
+      const cacheBuster = `?_=${Date.now()}`;
+      const url = `${NEPSE_URL}${cacheBuster}`;
+
+      console.log('🌐 Navigating to NEPSE homepage (cache disabled)...');
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
       console.log('✅ Page loaded successfully');
 
       // Wait for market index section to be visible
@@ -669,7 +757,8 @@ class NepseScraper {
         console.log('⚠️ Could not find market index selector, continuing with page evaluation');
       });
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait longer for dynamic content to load
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
       const indexData = await page.evaluate(() => {
         const result = {
@@ -699,30 +788,54 @@ class NepseScraper {
           result.marketStatusTime = dateTimeMatch[2].trim();
         }
 
-        // Try multiple selectors to find the index value
-        const indexSelectors = [
-          'span[class*="index-value"]',
-          'span[class*="nepse-index"]',
-          'h1[class*="index"]',
-          '[class*="index-section"] h1',
-          '[class*="market-index"] h1',
-          'div[class*="index-main"]',
-          '[data-index-value]'
-        ];
+        // Primary selectors based on actual NEPSE website structure
+        // <span class="index__points--point">2,604.05</span>
+        // <span class="index__points--change">-4.98</span>
+        // <span class="index__points--changepercent">-0.19%</span>
 
-        let indexElement = null;
-        for (const selector of indexSelectors) {
-          indexElement = document.querySelector(selector);
-          if (indexElement) {
-            const text = indexElement.textContent || indexElement.innerText;
-            if (text && /\d{2,5}\.?\d*/.test(text)) {
-              result.nepseIndex = parseNumber(text);
-              break;
+        // Get NEPSE Index value
+        const indexPointElement = document.querySelector('.index__points--point, span.index__points--point');
+        if (indexPointElement) {
+          result.nepseIndex = parseNumber(indexPointElement.textContent || indexPointElement.innerText);
+        }
+
+        // Get index change value
+        const indexChangeElement = document.querySelector('.index__points--change, span.index__points--change');
+        if (indexChangeElement) {
+          result.indexChange = parseNumber(indexChangeElement.textContent || indexChangeElement.innerText);
+        }
+
+        // Get percentage change
+        const indexPercentElement = document.querySelector('.index__points--changepercent, span.index__points--changepercent');
+        if (indexPercentElement) {
+          result.indexPercentageChange = parseNumber(indexPercentElement.textContent || indexPercentElement.innerText);
+        }
+
+        // Fallback: Try alternative selectors if primary ones didn't work
+        if (result.nepseIndex === 0) {
+          const indexSelectors = [
+            'span[class*="index-value"]',
+            'span[class*="nepse-index"]',
+            'h1[class*="index"]',
+            '[class*="index-section"] h1',
+            '[class*="market-index"] h1',
+            'div[class*="index-main"]',
+            '[data-index-value]'
+          ];
+
+          for (const selector of indexSelectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+              const text = element.textContent || element.innerText;
+              if (text && /\d{2,5}\.?\d*/.test(text)) {
+                result.nepseIndex = parseNumber(text);
+                break;
+              }
             }
           }
         }
 
-        // If not found, search through all text content
+        // Fallback: If still not found, search through all text content
         if (result.nepseIndex === 0) {
           const pageText = document.body.innerText;
           const indexMatch = pageText.match(/NEPSE.*?Index[:\s]+([0-9,]+\.?[0-9]*)/i);
@@ -737,52 +850,73 @@ class NepseScraper {
           }
         }
 
-        // Find index change (e.g., -5.03)
-        const changeSelectors = [
-          'span[class*="change"]',
-          'span[class*="index-change"]',
-          '[class*="index-section"] span:nth-child(2)',
-          '[data-index-change]'
-        ];
+        // Fallback for index change if not found via primary selector
+        if (result.indexChange === 0) {
+          const changeSelectors = [
+            'span[class*="change"]:not([class*="changepercent"])',
+            'span[class*="index-change"]',
+            '[class*="index-section"] span:nth-child(2)',
+            '[data-index-change]'
+          ];
 
-        for (const selector of changeSelectors) {
-          const element = document.querySelector(selector);
-          if (element) {
-            const text = element.textContent || element.innerText;
-            const changeMatch = text.match(/[-+]?\s*[0-9,]+\.?[0-9]*/);
-            if (changeMatch) {
-              result.indexChange = parseNumber(changeMatch[0]);
-              break;
+          for (const selector of changeSelectors) {
+            const element = document.querySelector(selector);
+            if (element) {
+              const text = element.textContent || element.innerText;
+              const changeMatch = text.match(/^[-+]?\s*[0-9,]+\.?[0-9]*$/);
+              if (changeMatch) {
+                result.indexChange = parseNumber(changeMatch[0]);
+                break;
+              }
             }
           }
         }
 
-        // If not found via selector, search page text
-        if (result.indexChange === 0) {
-          const pageText = document.body.innerText;
-          // Look for pattern like "-5.03" near "NEPSE Index"
-          const changeMatch = pageText.match(/NEPSE.*?Index.*?([-+]?\s*[0-9,]+\.?[0-9]*)\s*[-+]/i);
-          if (changeMatch) {
-            result.indexChange = parseNumber(changeMatch[1]);
+        // Fallback for percentage change if not found via primary selector
+        if (result.indexPercentageChange === 0) {
+          const percentMatch = document.body.innerText.match(/([-+]?\s*[0-9,]+\.?[0-9]*)%/);
+          if (percentMatch) {
+            result.indexPercentageChange = parseNumber(percentMatch[1]);
           }
         }
 
-        // Find percentage change (e.g., -0.19%)
-        const percentMatch = document.body.innerText.match(/([-+]?\s*[0-9,]+\.?[0-9]*)%/);
-        if (percentMatch) {
-          result.indexPercentageChange = parseNumber(percentMatch[1]);
+        // Find Total Turnover and Total Traded Shares from index__points--summary
+        const summaryElement = document.querySelector('.index__points--summary');
+        if (summaryElement) {
+          const summarySpans = summaryElement.querySelectorAll('span');
+          summarySpans.forEach(span => {
+            const text = span.textContent || span.innerText;
+            // Match "Total Turnover Rs: | 212,871,839.6"
+            if (text.includes('Total Turnover')) {
+              const turnoverMatch = text.match(/Total Turnover\s*Rs[:\s]*\|?\s*([0-9,]+\.?[0-9]*)/i);
+              if (turnoverMatch) {
+                result.totalTurnover = parseNumber(turnoverMatch[1]);
+              }
+            }
+            // Match "Total Traded Shares | 407,771"
+            if (text.includes('Total Traded Shares')) {
+              const sharesMatch = text.match(/Total Traded Shares\s*\|?\s*([0-9,]+)/i);
+              if (sharesMatch) {
+                result.totalTradedShares = parseNumber(sharesMatch[1]);
+              }
+            }
+          });
         }
 
-        // Find Total Turnover
-        const turnoverMatch = document.body.innerText.match(/Total Turnover\s*Rs[:\s]*\|?\s*([0-9,]+\.?[0-9]*)/i);
-        if (turnoverMatch) {
-          result.totalTurnover = parseNumber(turnoverMatch[1]);
+        // Fallback: Find Total Turnover from page text if not found
+        if (result.totalTurnover === 0) {
+          const turnoverMatch = document.body.innerText.match(/Total Turnover\s*Rs[:\s]*\|?\s*([0-9,]+\.?[0-9]*)/i);
+          if (turnoverMatch) {
+            result.totalTurnover = parseNumber(turnoverMatch[1]);
+          }
         }
 
-        // Find Total Traded Shares
-        const sharesMatch = document.body.innerText.match(/Total Traded Shares\s*\|?\s*([0-9,]+)/i);
-        if (sharesMatch) {
-          result.totalTradedShares = parseNumber(sharesMatch[1]);
+        // Fallback: Find Total Traded Shares from page text if not found
+        if (result.totalTradedShares === 0) {
+          const sharesMatch = document.body.innerText.match(/Total Traded Shares\s*\|?\s*([0-9,]+)/i);
+          if (sharesMatch) {
+            result.totalTradedShares = parseNumber(sharesMatch[1]);
+          }
         }
 
         // Find Advanced, Declined, Unchanged counts

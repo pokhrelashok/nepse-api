@@ -8,8 +8,10 @@ class Scheduler {
     this.jobs = new Map();
     this.scraper = new NepseScraper();
     this.isRunning = false;
+    this.isMarketOpen = false; // Track market status for index updates
     this.isJobRunning = new Map(); // Track if a specific job is currently executing
     this.stats = {
+      indexUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 },
       priceUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 },
       closeUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 },
       companyDetailsUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 }
@@ -34,8 +36,16 @@ class Scheduler {
 
     console.log('🚀 Starting price update scheduler...');
 
+    // Market index updates every 20 seconds during market hours (10 AM - 3 PM)
+    const indexJob = cron.schedule('*/20 * * * * *', async () => {
+      await this.updateMarketIndex();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+
     // Price updates every 2 minutes during market hours (10 AM - 3 PM)
-    const priceJob = cron.schedule('*/2 10-15 * * 1-5', async () => {
+    const priceJob = cron.schedule('*/2 10-15 * * 0-4', async () => {
       await this.updatePricesAndStatus('DURING_HOURS');
     }, {
       scheduled: false,
@@ -43,7 +53,7 @@ class Scheduler {
     });
 
     // Market close status update (2 minutes after 3 PM)
-    const closeJob = cron.schedule('2 15 * * 1-5', async () => {
+    const closeJob = cron.schedule('2 15 * * 0-4', async () => {
       await this.updatePricesAndStatus('AFTER_CLOSE');
     }, {
       scheduled: false,
@@ -58,16 +68,68 @@ class Scheduler {
       timezone: 'Asia/Kathmandu'
     });
 
+    this.jobs.set('indexUpdate', indexJob);
     this.jobs.set('priceUpdate', priceJob);
     this.jobs.set('closeUpdate', closeJob);
     this.jobs.set('companyDetailsUpdate', companyDetailsJob);
 
+    indexJob.start();
     priceJob.start();
     closeJob.start();
     companyDetailsJob.start();
 
     this.isRunning = true;
-    console.log('📅 Price update schedule started (every 2 min during hours + close update + company details at 11:03)');
+    console.log('📅 Scheduler started (index every 20s during hours, prices every 2 min, company details at 11:03)');
+  }
+
+  async updateMarketIndex() {
+    const jobKey = 'indexUpdate';
+
+    // Only update when market is open (check time in Nepal timezone)
+    const now = new Date();
+    const nepalTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
+    const hour = nepalTime.getHours();
+    const day = nepalTime.getDay(); // 0 = Sunday, 4 = Thursday
+
+    // Market hours: 10 AM - 3 PM on Sun-Thu (days 0-4)
+    const isMarketHours = hour >= 10 && hour < 15 && day >= 0 && day <= 4;
+
+    if (!isMarketHours && !this.isMarketOpen) {
+      // Skip silently outside market hours
+      return;
+    }
+
+    // Prevent overlapping runs
+    if (this.isJobRunning.get(jobKey)) {
+      return;
+    }
+
+    this.isJobRunning.set(jobKey, true);
+    this.stats[jobKey].lastRun = new Date().toISOString();
+
+    try {
+      // Check market status
+      const isOpen = await this.scraper.scrapeMarketStatus();
+      this.isMarketOpen = isOpen;
+
+      // Update market status in database
+      await updateMarketStatus(isOpen);
+
+      if (isOpen) {
+        // Scrape and save market index data
+        const indexData = await this.scraper.scrapeMarketIndex();
+        await saveMarketIndex(indexData);
+        console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange})`);
+
+        this.stats[jobKey].lastSuccess = new Date().toISOString();
+        this.stats[jobKey].successCount++;
+      }
+    } catch (error) {
+      console.error('❌ Index update failed:', error.message);
+      this.stats[jobKey].failCount++;
+    } finally {
+      this.isJobRunning.set(jobKey, false);
+    }
   }
 
   async updatePricesAndStatus(phase) {
