@@ -274,7 +274,12 @@ sudo -u $APP_USER bash << PM2_START_EOF
 set -e
 cd "$APP_DIR"
 export PM2_HOME="/home/$APP_USER/.pm2"
-pm2 start ecosystem.config.js || pm2 restart ecosystem.config.js
+
+# Stop and delete any existing processes first to avoid conflicts
+pm2 delete all 2>/dev/null || true
+
+# Start fresh from ecosystem config
+pm2 start ecosystem.config.js
 pm2 save
 PM2_START_EOF
 
