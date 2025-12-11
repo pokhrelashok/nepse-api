@@ -154,7 +154,7 @@ else
         npm install --omit=dev
     fi
 fi
-mkdir -p logs public/images
+mkdir -p logs public/storage/images/logos
 DEPS_EOF
 
 # Initialize database
@@ -222,8 +222,12 @@ cd "$APP_DIR"
 export PM2_HOME="/home/$APP_USER/.pm2"
 pm2 start ecosystem.config.js || pm2 restart ecosystem.config.js
 pm2 save
-pm2 startup systemd -u $APP_USER --hp /home/$APP_USER
 PM2_START_EOF
+
+# Configure PM2 to auto-start on boot (must run as root)
+echo "🔄 Configuring PM2 auto-start on boot..."
+env PATH=$PATH:/usr/bin pm2 startup systemd -u $APP_USER --hp /home/$APP_USER
+systemctl enable pm2-$APP_USER
 
 # Enable and start the systemd service
 systemctl daemon-reload

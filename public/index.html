@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nepse Portfolio Tracker - Simple Stock Portfolio Tracking</title>
+
+  <!-- Favicons -->
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/icon-512.png">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar">
+    <div class="nav-container">
+      <div class="logo">
+        <img src="/icon.png" alt="Nepse Tracker" class="logo-icon">
+        <span class="logo-text">Nepse Tracker</span>
+      </div>
+      <ul class="nav-menu">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#market-widget">Widgets</a></li>
+        <li><a href="#app-showcase">App</a></li>
+        <li><a href="#cta" class="cta-button">Get Started</a></li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="hero-content">
+      <h1 class="hero-title">
+        Your Portfolio at a Glance
+      </h1>
+      <p class="hero-subtitle">
+        Simple, beautiful portfolio tracking for Nepali stock investors. Focus on what matters—your holdings, your gains, and your growth.
+      </p>
+      <div class="app-store-links">
+        <a href="https://play.google.com/store/apps/details?id=com.nepsetracker" target="_blank" class="store-link playstore">
+          <span class="store-icon">🎮</span>
+          <div class="store-text">
+            <div class="store-label">Get it on</div>
+            <div class="store-name">Google Play</div>
+          </div>
+        </a>
+        <a href="https://apps.apple.com/app/nepse-tracker/id000000000" target="_blank" class="store-link appstore">
+          <span class="store-icon">🍎</span>
+          <div class="store-text">
+            <div class="store-label">Download on</div>
+            <div class="store-name">App Store</div>
+          </div>
+        </a>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="floating-card card-1">
+        <div class="card-header">Your Portfolio</div>
+        <div class="card-value">Rs. 2.5M</div>
+        <div class="card-change positive">↑ 15.8%</div>
+      </div>
+      <div class="floating-card card-2">
+        <div class="card-header">Holdings</div>
+        <div class="card-value">12</div>
+        <div class="card-change">Stocks</div>
+      </div>
+      <div class="floating-card card-3">
+        <div class="card-header">Today's Gain</div>
+        <div class="card-value">Rs. 8.5K</div>
+        <div class="card-change positive">↑ 0.34%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Portfolio Widget Section -->
+  <section id="market-widget" class="market-widget-section">
+    <div class="section-header">
+      <h2>Beautiful Widgets for Every Need</h2>
+      <p>Embed live portfolio data anywhere with our minimal, elegant widgets</p>
+    </div>
+
+    <div class="widget-container">
+      <div class="market-widget">
+        <div class="widget-header">
+          <h3>💼 Portfolio Summary</h3>
+          <span class="timestamp">Live</span>
+        </div>
+        <div class="widget-content">
+          <div class="index-display">
+            <div class="index-value">Rs. 2.5M</div>
+            <div class="index-stats">
+              <div class="stat">
+                <span class="label">Total Gain</span>
+                <span class="value positive">+Rs. 380K (+15.8%)</span>
+              </div>
+              <div class="stat">
+                <span class="label">Holdings</span>
+                <span class="value">12 Stocks</span>
+              </div>
+              <div class="stat">
+                <span class="label">Today</span>
+                <span class="value positive">+Rs. 8.5K</span>
+              </div>
+              <div class="stat">
+                <span class="label">Invested</span>
+                <span class="value">Rs. 2.12M</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="widget-footer">
+          <small>Updated live • Track your progress</small>
+        </div>
+      </div>
+
+      <div class="top-stocks-widget">
+        <div class="widget-header">
+          <h3>📊 Your Holdings</h3>
+        </div>
+        <div class="stocks-list">
+          <div class="stock-item">
+            <div class="stock-info">
+              <div class="stock-name">NABIL</div>
+              <div class="stock-price">Rs. 1,250</div>
+            </div>
+            <div class="stock-change positive">+5.2%</div>
+          </div>
+          <div class="stock-item">
+            <div class="stock-info">
+              <div class="stock-name">EIC</div>
+              <div class="stock-price">Rs. 850</div>
+            </div>
+            <div class="stock-change positive">+4.1%</div>
+          </div>
+          <div class="stock-item">
+            <div class="stock-info">
+              <div class="stock-name">HBL</div>
+              <div class="stock-price">Rs. 580</div>
+            </div>
+            <div class="stock-change positive">+3.8%</div>
+          </div>
+          <div class="stock-item">
+            <div class="stock-info">
+              <div class="stock-name">SCB</div>
+              <div class="stock-price">Rs. 420</div>
+            </div>
+            <div class="stock-change negative">-2.1%</div>
+          </div>
+          <div class="stock-item">
+            <div class="stock-info">
+              <div class="stock-name">NBL</div>
+              <div class="stock-price">Rs. 780</div>
+            </div>
+            <div class="stock-change negative">-1.9%</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section id="features" class="features">
+    <div class="section-header">
+      <h2>Simplicity That Matters</h2>
+      <p>Everything you need, nothing you don't</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Quick Glance</h3>
+        <p>See your portfolio value, gains, and holdings at a quick glance. No clutter, just clarity.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">💼</div>
+        <h3>Multiple Portfolios</h3>
+        <p>Organize your investments across different portfolios and track them all in one place.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">✨</div>
+        <h3>Beautiful Widgets</h3>
+        <p>Embed live portfolio widgets on your website or blog with just a simple embed code.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h3>Mobile & Web</h3>
+        <p>Access your portfolios seamlessly on mobile and web. Synchronized in real-time.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <h3>Stay Informed</h3>
+        <p>Get notifications on your portfolio performance without the noise of market data.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <h3>Lightning Fast</h3>
+        <p>Minimal design means lightning-fast load times. Your data, instantly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- App Showcase Section -->
+  <section id="app-showcase" class="app-showcase">
+    <div class="section-header">
+      <h2>Experience the App</h2>
+      <p>Clean, intuitive interface designed for simplicity</p>
+    </div>
+
+    <div class="showcase-container">
+      <div class="showcase-image">
+        <div class="phone-frame">
+          <div class="phone-screen">
+            <img src="/app-screenshot-1.png" alt="Mobile App Screenshot">
+          </div>
+        </div>
+      </div>
+
+      <div class="showcase-content">
+        <h3>Your Portfolios, Anywhere</h3>
+        <p>Track all your portfolios from your mobile device. Check your holdings, see today's gains, and stay connected to your investments whenever you want.</p>
+        <ul class="feature-list">
+          <li>✓ Quick portfolio overview</li>
+          <li>✓ View individual holdings</li>
+          <li>✓ Real-time updates</li>
+          <li>✓ Clean, minimal design</li>
+          <li>✓ Offline access</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Widgets Section
+  <section id="widgets" class="widgets-section">
+    <div class="section-header">
+      <h2>Widget Gallery</h2>
+      <p>Beautiful widgets for every use case</p>
+    </div>
+
+    <div class="screenshots-grid">
+      <div class="screenshot-card">
+        <div class="screenshot-placeholder">
+          <img src="/app-widget-1.png" alt="Widget Screenshot 1">
+        </div>
+        <p>Portfolio Widget</p>
+      </div>
+
+      <div class="screenshot-card">
+        <div class="screenshot-placeholder">
+          <img src="/app-widget-2.png" alt="Widget Screenshot 2">
+        </div>
+        <p>Holdings Widget</p>
+      </div>
+
+      <div class="screenshot-card">
+        <div class="screenshot-placeholder">
+          <img src="/app-widget-3.png" alt="Widget Screenshot 3">
+        </div>
+        <p>Summary Widget</p>
+      </div>
+    </div>
+  </section>
+  -->
+
+  <!-- Statistics Section
+  <section class="stats-section">
+    <div class="stats-container">
+      <div class="stat">
+        <div class="stat-value">10K+</div>
+        <div class="stat-label">Users</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">500K+</div>
+        <div class="stat-label">Holdings Tracked</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">99.9%</div>
+        <div class="stat-label">Uptime</div>
+      </div>
+      <div class="stat">
+        <div class="stat-value">0ms</div>
+        <div class="stat-label">Load Time</div>
+      </div>
+    </div>
+  </section>
+  -->
+
+  <!-- Call to Action Section -->
+  <section id="cta" class="cta-section">
+    <div class="cta-content">
+      <h2>Start Tracking Your Portfolio Today</h2>
+      <p>Simple, beautiful, and completely focused on what matters.</p>
+      <div class="cta-buttons">
+        <a href="https://play.google.com/store/apps/details?id=com.nepsetracker" target="_blank" class="btn btn-primary btn-large">Google Play</a>
+        <a href="https://apps.apple.com/app/nepse-tracker/id000000000" target="_blank" class="btn btn-secondary btn-large">App Store</a>
+      </div>
+      <p class="cta-note">Free to use • No credit card required</p>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-section">
+        <h4>Nepse Tracker</h4>
+        <p>Simple portfolio tracking for Nepali stock investors.</p>
+      </div>
+      <!-- Footer links - to be added later
+      <div class="footer-section">
+        <h4>Quick Links</h4>
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#widgets">Widgets</a></li>
+          <li><a href="#app-showcase">App</a></li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h4>Resources</h4>
+        <ul>
+          <li><a href="#">Documentation</a></li>
+          <li><a href="#">API Reference</a></li>
+          <li><a href="#">Blog</a></li>
+        </ul>
+      </div>
+      <div class="footer-section">
+        <h4>Connect</h4>
+        <ul>
+          <li><a href="#">Twitter</a></li>
+          <li><a href="#">GitHub</a></li>
+          <li><a href="#">Discord</a></li>
+        </ul>
+      </div>
+      -->
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2025 Nepse Tracker. All rights reserved.</p>
+      <!-- <a href="#">Privacy Policy</a> | <a href="#">Terms of Service</a> -->
+    </div>
+  </footer>
+</body>
+
+</html>

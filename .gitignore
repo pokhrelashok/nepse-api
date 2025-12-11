@@ -45,4 +45,9 @@ coverage/
 downloads/
 *.db
 temp/
-public
+
+# Storage folder for scraped images (not version controlled)
+public/storage/*
+!public/storage/images/
+!public/storage/images/logos/
+!public/storage/images/logos/.gitkeep

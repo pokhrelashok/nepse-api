@@ -55,8 +55,8 @@ async function saveBase64Image(base64Data, symbol) {
   // Create filename using just the symbol (will overwrite existing files)
   const filename = `${symbol}.png`; // Force PNG for consistency and optimization
 
-  // Ensure public/images directory exists
-  const imagesDir = path.join(process.cwd(), 'public', 'images');
+  // Ensure public/storage/images/logos directory exists
+  const imagesDir = path.join(process.cwd(), 'public', 'storage', 'images', 'logos');
   if (!fs.existsSync(imagesDir)) {
     fs.mkdirSync(imagesDir, { recursive: true });
   }
@@ -66,7 +66,7 @@ async function saveBase64Image(base64Data, symbol) {
   // Check if file already exists - skip saving if it does
   if (fs.existsSync(filePath)) {
     console.log(`⏭️ ${symbol}: Image already exists, skipping save`);
-    return `/images/${filename}`;
+    return `/storage/images/logos/${filename}`;
   }
 
   // Extract the actual base64 data (remove data:image/...;base64, part)
@@ -93,7 +93,7 @@ async function saveBase64Image(base64Data, symbol) {
     console.log(`💾 ${symbol}: Image saved without optimization (${Math.round(buffer.length / 1024)}KB)`);
   }
 
-  return `/images/${filename}`;
+  return `/storage/images/logos/${filename}`;
 }/**
  * Processes an image URL - saves base64 images to disk, leaves URLs as-is
  * @param {string} imageData - The image data (URL or base64)
