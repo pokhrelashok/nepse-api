@@ -193,12 +193,13 @@ systemctl start mysql
 systemctl enable mysql
 
 # Create database and user (handles both new and existing users)
+# Use mysql_native_password for better compatibility with Node.js mysql2 driver
 echo "📦 Configuring MySQL database and user..."
 mysql -u root << MYSQL_SETUP
 CREATE DATABASE IF NOT EXISTS nepse_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
--- Create user if not exists, then always update password to ensure sync
-CREATE USER IF NOT EXISTS 'nepse'@'localhost' IDENTIFIED BY '${MYSQL_NEPSE_PASSWORD}';
-ALTER USER 'nepse'@'localhost' IDENTIFIED BY '${MYSQL_NEPSE_PASSWORD}';
+-- Create user if not exists with mysql_native_password for Node.js compatibility
+CREATE USER IF NOT EXISTS 'nepse'@'localhost' IDENTIFIED WITH mysql_native_password BY '${MYSQL_NEPSE_PASSWORD}';
+ALTER USER 'nepse'@'localhost' IDENTIFIED WITH mysql_native_password BY '${MYSQL_NEPSE_PASSWORD}';
 GRANT ALL PRIVILEGES ON nepse_db.* TO 'nepse'@'localhost';
 FLUSH PRIVILEGES;
 MYSQL_SETUP
@@ -209,10 +210,10 @@ if mysql -u nepse -p"${MYSQL_NEPSE_PASSWORD}" -e "SELECT 1;" nepse_db >/dev/null
     echo "✅ MySQL connection verified successfully"
 else
     echo "❌ MySQL connection failed, attempting to fix..."
-    # Force reset the user password
+    # Force reset the user password with mysql_native_password
     mysql -u root << MYSQL_FIX
 DROP USER IF EXISTS 'nepse'@'localhost';
-CREATE USER 'nepse'@'localhost' IDENTIFIED BY '${MYSQL_NEPSE_PASSWORD}';
+CREATE USER 'nepse'@'localhost' IDENTIFIED WITH mysql_native_password BY '${MYSQL_NEPSE_PASSWORD}';
 GRANT ALL PRIVILEGES ON nepse_db.* TO 'nepse'@'localhost';
 FLUSH PRIVILEGES;
 MYSQL_FIX
@@ -299,15 +300,6 @@ ufw delete allow 'Nginx HTTP' 2>/dev/null || true
 ufw --force enable
 echo "✅ Firewall configured (HTTPS enforced)"
 
-# Create systemd service for PM2
-echo "⚙️ Setting up PM2 systemd service..."
-
-# Create systemd service from template
-cp $DEPLOY_DIR/templates/nepse-pm2.service /etc/systemd/system/nepse-pm2.service
-# Replace placeholders in the service file
-sed -i "s/APP_USER_PLACEHOLDER/$APP_USER/g" /etc/systemd/system/nepse-pm2.service
-sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" /etc/systemd/system/nepse-pm2.service
-
 # Initialize PM2 for the app user and start services
 echo "🚀 Starting PM2 services..."
 sudo -u $APP_USER bash << PM2_START_EOF
@@ -324,14 +316,25 @@ pm2 save
 PM2_START_EOF
 
 # Configure PM2 to auto-start on boot (must run as root)
+# This creates a systemd service called pm2-$APP_USER
 echo "🔄 Configuring PM2 auto-start on boot..."
 env PATH=$PATH:/usr/bin pm2 startup systemd -u $APP_USER --hp /home/$APP_USER
+
+# Enable the PM2 systemd service
+systemctl daemon-reload
 systemctl enable pm2-$APP_USER
 
-# Enable and start the systemd service
+# Clean up any old custom nepse-pm2 service to avoid duplicate processes
+if systemctl is-active --quiet nepse-pm2 2>/dev/null; then
+    echo "🧹 Stopping old nepse-pm2 service..."
+    systemctl stop nepse-pm2
+fi
+if systemctl is-enabled --quiet nepse-pm2 2>/dev/null; then
+    echo "🧹 Disabling old nepse-pm2 service..."
+    systemctl disable nepse-pm2
+fi
+rm -f /etc/systemd/system/nepse-pm2.service
 systemctl daemon-reload
-systemctl enable nepse-pm2
-systemctl start nepse-pm2
 
 # Create update script
 echo "📝 Creating update script..."
