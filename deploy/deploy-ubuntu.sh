@@ -167,25 +167,66 @@ DEPS_EOF
 # Setup MySQL Database
 echo "🗃️ Setting up MySQL database..."
 
-# Generate secure MySQL password if not provided
+# MySQL credentials file location
+MYSQL_CRED_FILE="/root/nepse_mysql_credentials.txt"
+
+# Determine MySQL password: env var > existing credentials file > generate new
+if [ -n "$MYSQL_NEPSE_PASSWORD" ]; then
+    echo "🔑 Using MySQL password from environment variable"
+elif [ -f "$MYSQL_CRED_FILE" ]; then
+    # Read existing password from credentials file
+    EXISTING_PASSWORD=$(grep "^Password:" "$MYSQL_CRED_FILE" 2>/dev/null | cut -d' ' -f2-)
+    if [ -n "$EXISTING_PASSWORD" ]; then
+        MYSQL_NEPSE_PASSWORD="$EXISTING_PASSWORD"
+        echo "🔑 Using existing MySQL password from $MYSQL_CRED_FILE"
+    fi
+fi
+
+# Generate new password if still not set
 if [ -z "$MYSQL_NEPSE_PASSWORD" ]; then
     MYSQL_NEPSE_PASSWORD=$(openssl rand -base64 18 | tr -dc 'a-zA-Z0-9' | head -c 24)
-    echo "🔑 Generated MySQL password for nepse user"
+    echo "🔑 Generated new MySQL password for nepse user"
 fi
 
 # Start MySQL service
 systemctl start mysql
 systemctl enable mysql
 
-# Create database and user
+# Create database and user (handles both new and existing users)
+echo "📦 Configuring MySQL database and user..."
 mysql -u root << MYSQL_SETUP
 CREATE DATABASE IF NOT EXISTS nepse_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- Create user if not exists, then always update password to ensure sync
 CREATE USER IF NOT EXISTS 'nepse'@'localhost' IDENTIFIED BY '${MYSQL_NEPSE_PASSWORD}';
+ALTER USER 'nepse'@'localhost' IDENTIFIED BY '${MYSQL_NEPSE_PASSWORD}';
 GRANT ALL PRIVILEGES ON nepse_db.* TO 'nepse'@'localhost';
 FLUSH PRIVILEGES;
 MYSQL_SETUP
 
-echo "✅ MySQL database 'nepse_db' created"
+# Verify database connection
+echo "🧪 Verifying MySQL connection..."
+if mysql -u nepse -p"${MYSQL_NEPSE_PASSWORD}" -e "SELECT 1;" nepse_db >/dev/null 2>&1; then
+    echo "✅ MySQL connection verified successfully"
+else
+    echo "❌ MySQL connection failed, attempting to fix..."
+    # Force reset the user password
+    mysql -u root << MYSQL_FIX
+DROP USER IF EXISTS 'nepse'@'localhost';
+CREATE USER 'nepse'@'localhost' IDENTIFIED BY '${MYSQL_NEPSE_PASSWORD}';
+GRANT ALL PRIVILEGES ON nepse_db.* TO 'nepse'@'localhost';
+FLUSH PRIVILEGES;
+MYSQL_FIX
+    
+    # Verify again
+    if mysql -u nepse -p"${MYSQL_NEPSE_PASSWORD}" -e "SELECT 1;" nepse_db >/dev/null 2>&1; then
+        echo "✅ MySQL connection fixed and verified"
+    else
+        echo "❌ MySQL connection still failing. Please check MySQL installation."
+        exit 1
+    fi
+fi
+
+echo "✅ MySQL database 'nepse_db' configured"
 
 # Create .env file with database credentials
 cat > $APP_DIR/.env << ENV_EOF
@@ -202,7 +243,6 @@ chown $APP_USER:$APP_USER $APP_DIR/.env
 chmod 600 $APP_DIR/.env
 
 # Save MySQL credentials securely
-MYSQL_CRED_FILE="/root/nepse_mysql_credentials.txt"
 echo "MySQL Database Credentials" > "$MYSQL_CRED_FILE"
 echo "=========================" >> "$MYSQL_CRED_FILE"
 echo "Database: nepse_db" >> "$MYSQL_CRED_FILE"
