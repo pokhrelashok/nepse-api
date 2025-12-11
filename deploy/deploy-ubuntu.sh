@@ -148,7 +148,14 @@ if [ -d node_modules ]; then
     echo "Dependencies already installed, skipping"
 else
     if [ -f package-lock.json ]; then
-        npm ci --omit=dev
+        echo "ℹ️ Attempting npm ci..."
+        if npm ci --omit=dev; then
+            echo "✅ Dependencies installed with npm ci"
+        else
+            echo "⚠️ npm ci failed (lockfile may be out of sync), falling back to npm install"
+            rm -rf node_modules package-lock.json
+            npm install --omit=dev
+        fi
     else
         echo "ℹ️ package-lock.json not found, using npm install --omit=dev"
         npm install --omit=dev
