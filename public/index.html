@@ -4,6 +4,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Nepse Tracker is a fast, minimal, bloat-free Nepali stock portfolio tracker with near real-time pricing and privacy-first local storage with optional Google Drive backup.">
+  <meta name="keywords" content="Nepse tracker, Nepal stock portfolio, NEPSE portfolio tracking, stock widgets Nepal, Nepali stock app, portfolio management Nepal">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="/">
+  <meta property="og:title" content="Nepse Portfolio Tracker - Simple Stock Portfolio Tracking">
+  <meta property="og:description" content="Fast, minimal, bloatware-free portfolio tracking for Nepali investors with near real-time updates and privacy-first design.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="/">
+  <meta property="og:image" content="/icon-512.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Nepse Portfolio Tracker">
+  <meta name="twitter:description" content="Track your Nepse holdings fast with near real-time data and privacy-first storage.">
+  <meta name="twitter:image" content="/icon-512.png">
+  <meta name="theme-color" content="#1a472a">
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Nepse Tracker",
+    "applicationCategory": "FinanceApplication",
+    "operatingSystem": "Android, iOS, Web",
+    "description": "Fast, minimal Nepali stock portfolio tracker with near real-time pricing and privacy-first storage.",
+    "url": "/",
+    "offers": {
+      "@type": "Offer",
+      "price": "0",
+      "priceCurrency": "USD"
+    }
+  }
+  </script>
   <title>Nepse Portfolio Tracker - Simple Stock Portfolio Tracking</title>
 
   <!-- Favicons -->
@@ -16,6 +46,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="/styles.css">
 </head>
 
@@ -24,14 +55,13 @@
   <nav class="navbar">
     <div class="nav-container">
       <div class="logo">
-        <img src="/icon.png" alt="Nepse Tracker" class="logo-icon">
+        <span class="logo-mark" aria-hidden="true"></span>
         <span class="logo-text">Nepse Tracker</span>
       </div>
       <ul class="nav-menu">
         <li><a href="#features">Features</a></li>
         <li><a href="#market-widget">Widgets</a></li>
         <li><a href="#app-showcase">App</a></li>
-        <li><a href="#cta" class="cta-button">Get Started</a></li>
       </ul>
     </div>
   </nav>
@@ -45,24 +75,15 @@
       <p class="hero-subtitle">
         Fast, minimal, bloatware-free portfolio tracking built only for Nepali stock investors. Focus on what matters—your holdings, your gains, and your growth.
       </p>
-      <!--
       <div class="app-store-links">
-        <a href="https://play.google.com/store/apps/details?id=com.nepsetracker" target="_blank" class="store-link playstore">
-          <span class="store-icon">🎮</span>
+        <a class="store-link playstore disabled-link" aria-disabled="true">
+          <span class="store-icon"><i class="fa-brands fa-google-play"></i></span>
           <div class="store-text">
-            <div class="store-label">Get it on</div>
+            <div class="store-label">Coming soon</div>
             <div class="store-name">Google Play</div>
           </div>
         </a>
-        <a href="https://apps.apple.com/app/nepse-tracker/id000000000" target="_blank" class="store-link appstore">
-          <span class="store-icon">🍎</span>
-          <div class="store-text">
-            <div class="store-label">Download on</div>
-            <div class="store-name">App Store</div>
-          </div>
-        </a>
       </div>
-      -->
     </div>
     <div class="hero-visual">
       <div class="floating-card card-1">
@@ -92,17 +113,17 @@
 
     <div class="value-grid">
       <div class="value-card">
-        <div class="value-icon">⚡</div>
+        <div class="value-icon"><i class="fa-solid fa-bolt"></i></div>
         <h3>Fast & Minimal</h3>
         <p>Lightweight experience that loads instantly and keeps your day-to-day tracking snappy.</p>
       </div>
       <div class="value-card">
-        <div class="value-icon">🧭</div>
+        <div class="value-icon"><i class="fa-solid fa-compass"></i></div>
         <h3>Portfolio-First</h3>
         <p>Every screen is focused on portfolio management and tracking—nothing extra, nothing bloated.</p>
       </div>
       <div class="value-card">
-        <div class="value-icon">🛡️</div>
+        <div class="value-icon"><i class="fa-solid fa-shield-halved"></i></div>
         <h3>Privacy-Forward</h3>
         <p>No unnecessary sign-ins. Keep data locally with optional Google Drive backup—your data never sits on our servers.</p>
       </div>
@@ -113,14 +134,14 @@
   <section id="market-widget" class="market-widget-section">
     <div class="section-header">
       <h2>Beautiful Widgets for Every Need</h2>
-      <p>Embed live portfolio data anywhere with our minimal, elegant widgets</p>
+      <p>See your portfolio at a glance with minimal, elegant widgets</p>
     </div>
 
     <div class="widget-container">
       <div class="market-widget">
         <div class="widget-header">
-          <h3>💼 Portfolio Summary</h3>
-          <span class="timestamp">Live</span>
+          <h3>Portfolio Summary</h3>
+          <span class="timestamp-dot" aria-label="Live status"></span>
         </div>
         <div class="widget-content">
           <div class="index-display">
@@ -142,17 +163,30 @@
                 <span class="label">Invested</span>
                 <span class="value">Rs. 2.12M</span>
               </div>
+              <div class="stat">
+                <span class="label">Unrealized P/L</span>
+                <span class="value positive">+Rs. 340K</span>
+              </div>
+              <div class="stat">
+                <span class="label">Dividends (YTD)</span>
+                <span class="value">Rs. 18.4K</span>
+              </div>
+              <div class="stat">
+                <span class="label">Cash Balance</span>
+                <span class="value">Rs. 120K</span>
+              </div>
+              <div class="stat">
+                <span class="label">Yield</span>
+                <span class="value">4.3%</span>
+              </div>
             </div>
           </div>
-        </div>
-        <div class="widget-footer">
-          <small>Updated live • Track your progress</small>
         </div>
       </div>
 
       <div class="top-stocks-widget">
         <div class="widget-header">
-          <h3>📊 Your Holdings</h3>
+          <h3>Your Holdings</h3>
         </div>
         <div class="stocks-list">
           <div class="stock-item">
@@ -205,37 +239,37 @@
 
     <div class="features-grid">
       <div class="feature-card">
-        <div class="feature-icon">📊</div>
+        <div class="feature-icon"><i class="fa-solid fa-chart-column"></i></div>
         <h3>Quick Glance</h3>
         <p>See your portfolio value, gains, and holdings at a quick glance. No clutter, just clarity.</p>
       </div>
 
       <div class="feature-card">
-        <div class="feature-icon">💼</div>
+        <div class="feature-icon"><i class="fa-solid fa-briefcase"></i></div>
         <h3>Multiple Portfolios</h3>
         <p>Organize your investments across different portfolios and track them all in one place.</p>
       </div>
 
       <div class="feature-card">
-        <div class="feature-icon">✨</div>
+        <div class="feature-icon"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
         <h3>Beautiful Widgets</h3>
-        <p>Embed live portfolio widgets on your website or blog with just a simple embed code.</p>
+        <p>Use beautiful in-app widgets to monitor your portfolio at a glance.</p>
       </div>
 
       <div class="feature-card">
-        <div class="feature-icon">📱</div>
+        <div class="feature-icon"><i class="fa-solid fa-mobile-screen-button"></i></div>
         <h3>Mobile & Web</h3>
         <p>Access your portfolios seamlessly on mobile and web. Synchronized in real-time.</p>
       </div>
 
       <div class="feature-card">
-        <div class="feature-icon">🔔</div>
+        <div class="feature-icon"><i class="fa-solid fa-bell"></i></div>
         <h3>Stay Informed</h3>
         <p>Get notifications on your portfolio performance without the noise of market data.</p>
       </div>
 
       <div class="feature-card">
-        <div class="feature-icon">⚡</div>
+        <div class="feature-icon"><i class="fa-solid fa-bolt"></i></div>
         <h3>Lightning Fast</h3>
         <p>Minimal design means lightning-fast load times. Your data, instantly.</p>
       </div>
@@ -256,29 +290,29 @@
         <div class="advantage-badge badge-muted">Other Apps</div>
       </div>
       <div class="advantage-row">
-        <div class="advantage-feature">Real-time portfolio widgets</div>
-        <div class="advantage-status positive">✓ Live widgets you can embed</div>
-        <div class="advantage-status negative">✕ Static or delayed</div>
+        <div class="advantage-feature">Fast portfolio overview</div>
+        <div class="advantage-status positive"><i class="fa-solid fa-check"></i> Clear cards with near real-time refresh</div>
+        <div class="advantage-status negative"><i class="fa-solid fa-xmark"></i> Cluttered dashboards</div>
       </div>
       <div class="advantage-row">
         <div class="advantage-feature">Near real-time stock tracking</div>
-        <div class="advantage-status positive">✓ Portfolio synced in moments</div>
-        <div class="advantage-status negative">✕ Slower refresh cycles</div>
+        <div class="advantage-status positive"><i class="fa-solid fa-check"></i> Portfolio synced in moments</div>
+        <div class="advantage-status negative"><i class="fa-solid fa-xmark"></i> Slower refresh cycles</div>
       </div>
       <div class="advantage-row">
         <div class="advantage-feature">Modern, customizable UI</div>
-        <div class="advantage-status positive">✓ Clean themes with widgets</div>
-        <div class="advantage-status negative">✕ Outdated, rigid screens</div>
+        <div class="advantage-status positive"><i class="fa-solid fa-check"></i> Clean themes with widgets</div>
+        <div class="advantage-status negative"><i class="fa-solid fa-xmark"></i> Outdated, rigid screens</div>
       </div>
       <div class="advantage-row">
         <div class="advantage-feature">No sign-in required</div>
-        <div class="advantage-status positive">✓ Use instantly, optional Google Drive backup</div>
-        <div class="advantage-status negative">✕ Forced accounts for basics</div>
+        <div class="advantage-status positive"><i class="fa-solid fa-check"></i> Use instantly, optional Google Drive backup</div>
+        <div class="advantage-status negative"><i class="fa-solid fa-xmark"></i> Forced accounts for basics</div>
       </div>
       <div class="advantage-row">
         <div class="advantage-feature">Security & privacy</div>
-        <div class="advantage-status positive">✓ Your data never stored on our servers</div>
-        <div class="advantage-status negative">✕ Server-side storage by default</div>
+        <div class="advantage-status positive"><i class="fa-solid fa-check"></i> Your data never stored on our servers</div>
+        <div class="advantage-status negative"><i class="fa-solid fa-xmark"></i> Server-side storage by default</div>
       </div>
     </div>
     <p class="privacy-note">We stay bloatware-free so you can stay focused on your portfolio.</p>
@@ -304,12 +338,17 @@
         <h3>Your Portfolios, Anywhere</h3>
         <p>Track all your portfolios from your mobile device. Check your holdings, see today's gains, and stay connected to your investments whenever you want.</p>
         <ul class="feature-list">
-          <li>✓ Quick portfolio overview</li>
-          <li>✓ View individual holdings</li>
-          <li>✓ Real-time updates</li>
-          <li>✓ Clean, minimal design</li>
-          <li>✓ Offline access</li>
+          <li><i class="fa-solid fa-check"></i> Quick portfolio overview</li>
+          <li><i class="fa-solid fa-check"></i> View individual holdings</li>
+          <li><i class="fa-solid fa-check"></i> Real-time updates</li>
+          <li><i class="fa-solid fa-check"></i> Clean, minimal design</li>
+          <li><i class="fa-solid fa-check"></i> Offline access</li>
         </ul>
+        <div class="store-coming-soon">
+          <a class="btn btn-primary btn-large btn-disabled" aria-disabled="true">
+            <i class="fa-brands fa-google-play"></i> Google Play (coming soon)
+          </a>
+        </div>
       </div>
     </div>
   </section>
