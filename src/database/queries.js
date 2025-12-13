@@ -126,8 +126,15 @@ async function getLatestPrices(symbols, options = {}) {
 
 async function getAllCompanies(limit = 100, offset = 0) {
   const sql = `
-    SELECT * FROM company_details 
-    ORDER BY company_name 
+    SELECT 
+      cd.symbol,
+      cd.company_name AS name,
+      cd.logo_url AS logo,
+      sp.percentage_change AS todaysChange,
+      sp.\`change\` AS priceChange
+    FROM company_details cd
+    LEFT JOIN stock_prices sp ON cd.symbol = sp.symbol
+    ORDER BY cd.company_name 
     LIMIT ? OFFSET ?
   `;
 

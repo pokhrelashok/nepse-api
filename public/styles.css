@@ -1430,26 +1430,34 @@ body {
   }
 
   .hero-visual {
-    height: 300px;
+    height: auto;
     margin-top: 2rem;
+    display: flex;
+    flex-direction: row;
+    gap: 1rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    box-shadow: none;
   }
 
   .floating-card {
-    width: 200px !important;
+    position: static;
+    width: 180px !important;
+    min-width: 180px;
     padding: 1rem;
+    animation: none;
+    scroll-snap-align: start;
+    flex-shrink: 0;
   }
 
-  .floating-card.card-1 {
-    right: 10%;
-  }
-
-  .floating-card.card-2 {
-    right: 5%;
-    top: 150px;
-  }
-
+  .floating-card.card-1,
+  .floating-card.card-2,
   .floating-card.card-3 {
-    display: none;
+    display: block;
+    top: auto;
+    right: auto;
   }
 
   .nav-menu {
@@ -1461,9 +1469,17 @@ body {
     font-size: 2rem;
   }
 
+  .section-header {
+    margin-bottom: 2.5rem;
+  }
+
   .features-grid {
     grid-template-columns: 1fr;
     gap: 1.5rem;
+  }
+
+  .feature-card {
+    padding: 1.75rem;
   }
 
   .showcase-container {
@@ -1477,11 +1493,21 @@ body {
   }
 
   .index-stats {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+
+  .index-value {
+    font-size: 2.25rem;
   }
 
   .widget-container {
     grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+
+  .widget-content {
+    padding: 1.25rem;
   }
 
   .hero-cta {
@@ -1524,23 +1550,74 @@ body {
     gap: 1.5rem;
   }
 
+  .value-section,
+  .market-widget-section,
+  .features,
+  .advantage-section,
+  .app-showcase,
+  .roadmap-section,
+  .cta-section {
+    padding: 3rem 1rem;
+  }
+
   .value-grid,
   .roadmap-grid {
     grid-template-columns: 1fr;
+    margin-top: 2rem;
+  }
+
+  .value-card,
+  .roadmap-card {
+    padding: 1.5rem;
+  }
+
+  /* Advantage Table - Mobile Friendly */
+  .advantage-table {
+    border-radius: 12px;
   }
 
   .advantage-row {
     grid-template-columns: 1fr;
-    gap: 0.5rem;
-    padding: 1rem 1.1rem;
+    gap: 0.75rem;
+    padding: 1.25rem 1rem;
   }
 
   .advantage-row.advantage-head {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    display: none;
   }
 
-  .advantage-table {
-    border-radius: 12px;
+  .advantage-feature {
+    font-size: 1rem;
+    color: var(--primary-color);
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .advantage-status {
+    font-size: 0.9rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    line-height: 1.5;
+  }
+
+  .advantage-status i {
+    margin-top: 0.15rem;
+    flex-shrink: 0;
+  }
+
+  .advantage-status.positive i {
+    color: var(--success-color);
+  }
+
+  .advantage-status.negative i {
+    color: var(--danger-color);
+  }
+
+  .privacy-note {
+    font-size: 0.9rem;
+    padding: 0.875rem 1rem;
   }
 }
 
@@ -1551,120 +1628,410 @@ body {
 
   .nav-container {
     padding: 0 1rem;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .logo {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
+  }
+
+  .logo-mark {
+    width: 28px;
+    height: 28px;
   }
 
   .nav-menu {
-    gap: 0.5rem;
-    font-size: 0.8rem;
+    gap: 0.75rem;
+    font-size: 0.75rem;
+  }
+
+  .nav-menu li {
+    margin: 0;
   }
 
   .nav-menu a {
-    display: none;
+    padding: 0.4rem 0.6rem;
+    white-space: nowrap;
   }
 
   .nav-menu .cta-button {
-    display: block;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
   }
 
   .hero {
-    padding: 2rem 1rem;
-    margin-top: 70px;
+    padding: 1.5rem 1rem 2rem;
+    margin-top: 60px;
+    gap: 2rem;
+  }
+
+  .hero-content {
+    gap: 1.25rem;
   }
 
   .hero-title {
     font-size: 1.75rem;
+    line-height: 1.3;
   }
 
   .hero-subtitle {
-    font-size: 1rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
   }
 
   .hero-visual {
-    height: 250px;
-    margin-top: 1.5rem;
+    gap: 0.75rem;
+    margin-top: 1rem;
   }
 
   .floating-card {
-    width: 150px !important;
-    padding: 0.75rem;
-    font-size: 0.85rem;
+    width: 130px !important;
+    min-width: 130px;
+    padding: 0.6rem;
+    font-size: 0.75rem;
+    border-radius: 10px;
+    border-left-width: 3px;
   }
 
-  .floating-card.card-1 {
-    right: 0;
-    top: 10px;
+  .floating-card.card-1,
+  .floating-card.card-2,
+  .floating-card.card-3 {
+    display: block;
   }
 
-  .floating-card.card-2 {
-    right: 10px;
-    top: 130px;
-    display: none;
+  .card-header {
+    font-size: 0.6rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .card-value {
+    font-size: 1.1rem;
+    margin-bottom: 0.2rem;
+  }
+
+  .card-change {
+    font-size: 0.75rem;
+  }
+
+  /* Section spacing */
+  .value-section,
+  .market-widget-section,
+  .features,
+  .advantage-section,
+  .app-showcase,
+  .roadmap-section,
+  .cta-section {
+    padding: 2.5rem 1rem;
+  }
+
+  .section-header {
+    margin-bottom: 1.75rem;
   }
 
   .section-header h2 {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
+    line-height: 1.3;
   }
 
   .section-header p {
-    font-size: 1rem;
+    font-size: 0.9rem;
   }
 
-  .feature-icon {
-    font-size: 2.5rem;
+  /* Value cards */
+  .value-grid {
+    gap: 1rem;
+    margin-top: 1.5rem;
   }
 
-  .feature-card h3 {
-    font-size: 1.25rem;
+  .value-card {
+    padding: 1.25rem;
+    gap: 0.5rem;
   }
 
-  .showcase-content h3 {
-    font-size: 1.5rem;
-  }
-
-  .showcase-content p {
-    font-size: 1rem;
-  }
-
-  .cta-content h2 {
+  .value-icon {
     font-size: 1.75rem;
   }
 
-  .cta-content p {
+  .value-card h3 {
     font-size: 1.1rem;
   }
 
-  .phone-frame {
-    width: 200px;
-    height: 400px;
+  .value-card p {
+    font-size: 0.9rem;
+    line-height: 1.5;
   }
 
-  .desktop-frame {
-    max-width: 90%;
+  /* Widget section */
+  .widget-container {
+    gap: 1.25rem;
+    margin-top: 1.5rem;
   }
 
-  .widget-preview {
-    padding: 1.5rem;
-    min-height: 120px;
+  .widget-header {
+    padding: 1rem 1.25rem;
   }
 
-  .stat-value {
-    font-size: 2rem;
+  .widget-header h3 {
+    font-size: 1.1rem;
   }
 
-  .stat-label {
+  .widget-content {
+    padding: 1rem;
+  }
+
+  .index-value {
+    font-size: 1.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .index-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .stat .label {
+    font-size: 0.7rem;
+  }
+
+  .stat .value {
+    font-size: 0.9rem;
+  }
+
+  .stock-item {
+    padding: 0.9rem 1rem;
+  }
+
+  .stock-name {
     font-size: 0.95rem;
+  }
+
+  .stock-price {
+    font-size: 0.8rem;
+  }
+
+  .stock-change {
+    font-size: 0.85rem;
+  }
+
+  /* Features section */
+  .features-grid {
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .feature-card {
+    padding: 1.5rem;
+  }
+
+  .feature-icon {
+    font-size: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  .feature-card h3 {
+    font-size: 1.15rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .feature-card p {
+    font-size: 0.9rem;
+    line-height: 1.6;
+  }
+
+  /* Advantage section */
+  .advantage-row {
+    padding: 1rem 0.875rem;
+  }
+
+  .advantage-feature {
+    font-size: 0.95rem;
+  }
+
+  .advantage-status {
+    font-size: 0.8rem;
+  }
+
+  .privacy-note {
+    font-size: 0.85rem;
+    margin-top: 1rem;
+    padding: 0.75rem;
+  }
+
+  /* App showcase */
+  .showcase-container {
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    margin-top: 1.5rem;
+  }
+
+  .showcase-image {
+    order: -1;
+  }
+
+  .phone-frame {
+    width: 180px;
+    height: 360px;
+    border-radius: 30px;
+  }
+
+  .phone-frame::before {
+    width: 100px;
+    height: 18px;
+    border-radius: 0 0 12px 12px;
+  }
+
+  .phone-screen {
+    border-radius: 24px;
+  }
+
+  .showcase-content h3 {
+    font-size: 1.35rem;
+    margin-bottom: 1rem;
+  }
+
+  .showcase-content p {
+    font-size: 0.9rem;
+    margin-bottom: 1.25rem;
+    line-height: 1.6;
+  }
+
+  .feature-list {
+    gap: 0.75rem;
+  }
+
+  .feature-list li {
+    font-size: 0.95rem;
+  }
+
+  .feature-list i {
+    font-size: 0.85rem;
+  }
+
+  .store-coming-soon {
+    margin-top: 1.5rem;
+  }
+
+  .store-coming-soon .btn {
+    padding: 0.75rem 1.25rem;
+    font-size: 0.85rem;
+  }
+
+  /* Roadmap section */
+  .roadmap-grid {
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .roadmap-card {
+    padding: 1.25rem;
+    gap: 0.5rem;
+  }
+
+  .roadmap-tag {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.75rem;
+  }
+
+  .roadmap-card h3 {
+    font-size: 1.1rem;
+  }
+
+  .roadmap-card p {
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  /* CTA section */
+  .cta-content h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+    line-height: 1.3;
+  }
+
+  .cta-content p {
+    font-size: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .cta-note {
+    font-size: 0.85rem;
+  }
+
+  /* Footer */
+  .footer {
+    padding: 2.5rem 1rem 1.5rem;
   }
 
   .footer-content {
     grid-template-columns: 1fr;
-    gap: 2rem;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .footer-section h4 {
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+  }
+
+  .footer-section p {
+    font-size: 0.9rem;
+  }
+
+  .footer-bottom {
+    padding-top: 1.25rem;
+    font-size: 0.8rem;
+  }
+
+  /* Store link adjustments */
+  .store-link {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .store-link .store-icon {
+    font-size: 1.5rem;
+  }
+
+  .store-link .store-label {
+    font-size: 0.65rem;
+  }
+
+  .store-link .store-name {
+    font-size: 0.9rem;
+  }
+
+  /* Button adjustments */
+  .btn {
+    padding: 0.75rem 1.5rem;
+    font-size: 0.85rem;
+  }
+
+  .btn-large {
+    padding: 0.875rem 1.75rem;
+    font-size: 0.9rem;
+  }
+
+  /* Desktop/tablet widget adjustments */
+  .desktop-frame {
+    max-width: 95%;
+  }
+
+  .widget-preview {
+    padding: 1.25rem;
+    min-height: 100px;
+  }
+
+  .stat-value {
+    font-size: 1.75rem;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
   }
 
   .advantage-table {
     box-shadow: var(--shadow-md);
   }
 }
+
