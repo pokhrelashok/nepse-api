@@ -285,7 +285,44 @@ app.get('/api/companies/top/:limit', async (req, res) => {
 app.get('/api/market/stats', async (req, res) => {
   try {
     const stats = await getCompanyStats();
-    res.json(formatResponse(stats));
+
+    // Fetch top 10 gainers
+    const gainers = await getLatestPrices(null, {
+      limit: 10,
+      sortBy: 'percentage_change',
+      order: 'DESC',
+      filter: 'gainers'
+    });
+
+    // Fetch top 10 losers
+    const losers = await getLatestPrices(null, {
+      limit: 10,
+      sortBy: 'percentage_change',
+      order: 'ASC',
+      filter: 'losers'
+    });
+
+    // Fetch top 10 turnover (most active by value)
+    const topTurnover = await getLatestPrices(null, {
+      limit: 10,
+      sortBy: 'turnover',
+      order: 'DESC'
+    });
+
+    // Fetch top 10 volume (most active by shares traded)
+    const topVolume = await getLatestPrices(null, {
+      limit: 10,
+      sortBy: 'volume',
+      order: 'DESC'
+    });
+
+    res.json(formatResponse({
+      stats,
+      gainers,
+      losers,
+      topTurnover,
+      topVolume
+    }));
   } catch (e) {
     console.error('API Stats Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
@@ -462,7 +499,7 @@ app.get('/api', (req, res) => {
     { method: 'GET', path: '/api/companies?limit=100&offset=0', description: 'Get paginated list of all companies' },
     { method: 'GET', path: '/api/companies/sector/SECTOR_NAME?limit=50', description: 'Get companies by sector' },
     { method: 'GET', path: '/api/companies/top/20', description: 'Get top companies by market capitalization' },
-    { method: 'GET', path: '/api/market/stats', description: 'Get market statistics and summary' },
+    { method: 'GET', path: '/api/market/stats', description: 'Get market statistics, top gainers/losers (10), and top turnover/volume' },
     { method: 'GET', path: '/api/today-prices?limit=100&sortBy=symbol&order=asc', description: 'Get today\'s prices with pagination and sorting' },
     { method: 'GET', path: '/api/market/gainers?limit=20', description: 'Get top gainers of the day' },
     { method: 'GET', path: '/api/market/losers?limit=20', description: 'Get top losers of the day' },
