@@ -111,12 +111,36 @@ async function getLatestPrices(symbols, options = {}) {
 
   // Add sorting
   const allowedSortColumns = ['symbol', 'close_price', 'change', 'percentage_change', 'volume', 'turnover', 'market_capitalization'];
-  const sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'symbol';
+  let sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'symbol';
   const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
 
-  // Handle reserved word 'change' in ORDER BY
-  const orderColumn = sortColumn === 'change' ? '`change`' : `sp.${sortColumn}`;
-  sql += ` ORDER BY ${orderColumn} ${sortOrder}`;
+  // Map friendly names to DB columns
+  const columnMapping = {
+    'volume': 'total_traded_quantity',
+    'turnover': 'total_traded_value',
+    'change': '`change`' // Reserved word
+  };
+
+  // Get the actual column name (default to sp.columnName if not mapped)
+  const dbColumn = columnMapping[sortColumn] || sortColumn;
+
+  // Construct the order clause
+  // Note: sp. prefix is needed for unmapped columns that belong to stock_prices, 
+  // but mapped columns like `change` might not need it if they are already quoted or specific.
+  // Ideally, total_traded_quantity is in sp.
+
+  let orderClause;
+  if (sortColumn === 'market_capitalization') {
+    orderClause = 'cd.market_capitalization';
+  } else if (columnMapping[sortColumn]) {
+    // mapped columns
+    orderClause = sortColumn === 'change' ? 'sp.`change`' : `sp.${columnMapping[sortColumn]}`;
+  } else {
+    // direct columns
+    orderClause = `sp.${sortColumn}`;
+  }
+
+  sql += ` ORDER BY ${orderClause} ${sortOrder}`;
 
   // Add pagination
   sql += ` LIMIT ? OFFSET ?`;
