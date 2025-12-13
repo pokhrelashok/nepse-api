@@ -1410,6 +1410,18 @@ body {
   color: var(--accent-color);
 }
 
+.footer-legal {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.footer-legal .divider {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 /* ============================================
    Responsive Design
    ============================================ */
