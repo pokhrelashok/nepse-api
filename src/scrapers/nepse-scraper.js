@@ -535,21 +535,41 @@ class NepseScraper {
       const security = securityData.security || {};
       const dailyTrade = securityData.securityDailyTradeDto || {};
 
-      info.sectorName = clean(security.sectorName || security.sector || '');
-      info.status = clean(security.status || security.listingStatus || '');
-      info.instrumentType = clean(security.instrumentType || '');
-      info.permittedToTrade = clean(security.permittedToTrade || 'No');
+      // Instrument type is an object, extract the description
+      if (security.instrumentType && typeof security.instrumentType === 'object') {
+        info.instrumentType = clean(security.instrumentType.description || security.instrumentType.code || '');
+      } else {
+        info.instrumentType = clean(security.instrumentType || '');
+      }
 
-      // Trading data from dailyTrade object
-      info.lastTradedPrice = parseNumber(dailyTrade.lastTradedPrice || dailyTrade.ltp);
-      info.totalTradedQuantity = parseNumber(dailyTrade.totalTradedQuantity);
+      info.status = clean(security.activeStatus || security.status || '');
+      info.permittedToTrade = clean(security.permittedToTrade || 'No');
+      info.listingDate = clean(security.listingDate || '');
+
+      // Sector name might need to be looked up from shareGroupId
+      // For now, we'll leave it empty as it's not directly in the API response
+      info.sectorName = '';
+
+      // Trading data from dailyTrade object - note the correct field name
+      info.lastTradedPrice = parseNumber(dailyTrade.lastTradedPrice);
+      info.totalTradedQuantity = parseNumber(dailyTrade.totalTradeQuantity); // Correct field name!
       info.totalTrades = parseInt(parseNumber(dailyTrade.totalTrades), 10);
-      info.previousClose = parseNumber(dailyTrade.previousDayClosePrice || dailyTrade.previousClose);
+      info.previousClose = parseNumber(dailyTrade.previousClose);
       info.highPrice = parseNumber(dailyTrade.highPrice);
       info.lowPrice = parseNumber(dailyTrade.lowPrice);
       info.openPrice = parseNumber(dailyTrade.openPrice);
       info.closePrice = parseNumber(dailyTrade.closePrice);
-      info.averageTradedPrice = parseNumber(dailyTrade.averageTradedPrice);
+
+      // Average traded price calculation if not provided
+      if (dailyTrade.averageTradedPrice) {
+        info.averageTradedPrice = parseNumber(dailyTrade.averageTradedPrice);
+      } else if (dailyTrade.totalTradeQuantity && dailyTrade.totalTradeQuantity > 0) {
+        // Calculate from total value / total quantity if available
+        const totalValue = parseNumber(dailyTrade.totalTradeValue || 0);
+        if (totalValue > 0) {
+          info.averageTradedPrice = totalValue / dailyTrade.totalTradeQuantity;
+        }
+      }
 
       // Financial data from root level
       info.totalListedShares = parseNumber(securityData.stockListedShares);
@@ -560,8 +580,8 @@ class NepseScraper {
       info.publicShares = parseNumber(securityData.publicShares);
 
       // 52-week high/low
-      info.fiftyTwoWeekHigh = parseNumber(dailyTrade.fiftyTwoWeekHigh || dailyTrade['52WeekHigh']);
-      info.fiftyTwoWeekLow = parseNumber(dailyTrade.fiftyTwoWeekLow || dailyTrade['52WeekLow']);
+      info.fiftyTwoWeekHigh = parseNumber(dailyTrade.fiftyTwoWeekHigh);
+      info.fiftyTwoWeekLow = parseNumber(dailyTrade.fiftyTwoWeekLow);
     }
 
     return info;
@@ -609,7 +629,6 @@ class NepseScraper {
           if (responseUrl.includes('/api/nots/security/') && responseUrl.includes(`/${security_id}`)) {
             try {
               const status = response.status();
-              console.log(`   📡 Intercepted API: ${status} ${responseUrl}`);
 
               // Try to get JSON data even if status is not 200
               if (status === 200 || status === 401) {
@@ -618,20 +637,13 @@ class NepseScraper {
                   // Determine which endpoint this is from
                   if (responseUrl.includes('/profile/')) {
                     apiProfileData = data;
-                    console.log(`   ✅ Captured profile data for ${symbol}`);
                   } else {
                     apiSecurityData = data;
-                    console.log(`   ✅ Captured security data for ${symbol}`);
-                  }
-
-                  // Debug: Log API structure (first company only)
-                  if (count === 1) {
-                    console.log(`   🔍 API Response Keys:`, Object.keys(data));
                   }
                 }
               }
             } catch (e) {
-              console.log(`   ⚠️ Failed to parse API response: ${e.message}`);
+              // Silently handle API parsing errors
             }
           }
         };
@@ -685,17 +697,14 @@ class NepseScraper {
         try {
           // Prefer API data if available
           if (apiProfileData || apiSecurityData) {
-            console.log(`   📊 Using API data for ${symbol}`);
             data = this.parseApiProfileData(apiProfileData, apiSecurityData, symbol);
           } else {
-            console.log(`   🌐 Falling back to DOM scraping for ${symbol}`);
 
             // Check if content is in an iframe
             const iframeHandle = await page.$('#company_detail_iframe');
             let targetFrame = page;
 
             if (iframeHandle) {
-              console.log(`   🔍 Detected iframe for ${symbol}, switching context...`);
               const frame = await iframeHandle.contentFrame();
               if (frame) {
                 targetFrame = frame;
