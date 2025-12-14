@@ -37,6 +37,22 @@ async function getSecurityIdsWithoutDetails() {
   return rows;
 }
 
+async function getSecurityIdsBySymbols(symbols) {
+  if (!symbols || symbols.length === 0) {
+    return [];
+  }
+
+  const placeholders = symbols.map(() => '?').join(',');
+  const sql = `
+    SELECT DISTINCT security_id, symbol 
+    FROM stock_prices 
+    WHERE security_id > 0 AND symbol IN (${placeholders})
+    ORDER BY symbol
+  `;
+  const [rows] = await pool.execute(sql, symbols);
+  return rows;
+}
+
 async function searchStocks(query) {
   const pattern = `%${query}%`;
   const [rows] = await pool.execute(
@@ -420,6 +436,7 @@ module.exports = {
   getCompanyStats,
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
+  getSecurityIdsBySymbols,
   insertTodayPrices,
   insertCompanyDetails,
   insertDividends,

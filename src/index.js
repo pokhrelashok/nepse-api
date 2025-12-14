@@ -3,7 +3,7 @@
 const { program } = require('commander');
 const Scheduler = require('./scheduler');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
-const { getAllSecurityIds, getSecurityIdsWithoutDetails, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
+const { getAllSecurityIds, getSecurityIdsWithoutDetails, getSecurityIdsBySymbols, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
 const { formatPricesForDatabase, formatCompanyDetailsForDatabase } = require('./utils/formatter');
 const { db } = require('./database/database');
 const fs = require('fs');
@@ -116,12 +116,27 @@ program
   .option('-f, --file <filename>', 'Save to JSON file')
   .option('-l, --limit <number>', 'Limit number of companies to scrape', parseInt)
   .option('-m, --missing', 'Only scrape companies that don\'t have details in the database yet')
+  .option('-s, --symbols <symbols>', 'Scrape specific companies by symbol (comma-separated, e.g., HDL,NABIL)')
   .action(async (options) => {
     try {
       console.log('📋 Getting security IDs...');
 
       let securityIds;
-      if (options.missing) {
+
+      if (options.symbols) {
+        // Parse comma-separated symbols and trim whitespace
+        const symbols = options.symbols.split(',').map(s => s.trim().toUpperCase());
+        console.log(`🎯 Filtering for symbols: ${symbols.join(', ')}`);
+        securityIds = await getSecurityIdsBySymbols(symbols);
+
+        if (securityIds.length === 0) {
+          console.log(`⚠️ No companies found for symbols: ${symbols.join(', ')}`);
+          console.log('💡 Make sure these symbols exist in the database. Run "npm run scraper" first.');
+          return;
+        }
+
+        console.log(`✅ Found ${securityIds.length} matching companies`);
+      } else if (options.missing) {
         securityIds = await getSecurityIdsWithoutDetails();
         console.log(`🔍 Found ${securityIds.length} companies without details in database`);
       } else {
