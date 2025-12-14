@@ -513,17 +513,31 @@ class NepseScraper {
       website: '',
       promoterShares: 0,
       publicShares: 0,
-      averageTradedPrice: 0
+      averageTradedPrice: 0,
+
+      // Additional fields detected
+      isin: '',
+      faceValue: 0,
+      regulatoryBody: '',
+      shareGroup: '',
+      issuedCapital: 0,
+      promoterPercentage: 0,
+      publicPercentage: 0,
+      updatedDate: '',
+      businessDate: '',
+      lastUpdatedDateTime: ''
     };
 
-    // Extract from profile data
+    // Extract fromprofile data - merge if already exists or override if better source
     if (profileData) {
-      info.companyName = clean(profileData.companyName || '');
-      info.email = clean(profileData.companyEmail || '');
-      info.rawLogoData = profileData.logoFilePath || '';
-      info.isLogoPlaceholder = !profileData.logoFilePath;
+      if (!info.companyName) info.companyName = clean(profileData.companyName || '');
+      if (!info.email) info.email = clean(profileData.companyEmail || '');
 
-      // Handle logo URL
+      // Profile API sometimes has logo
+      if (!info.rawLogoData && profileData.logoFilePath) {
+        info.rawLogoData = profileData.logoFilePath;
+        info.isLogoPlaceholder = false;
+      }
       if (info.rawLogoData && info.rawLogoData.startsWith('assets/')) {
         info.rawLogoData = `https://www.nepalstock.com/${info.rawLogoData}`;
       }
@@ -589,6 +603,18 @@ class NepseScraper {
       // 52-week high/low
       info.fiftyTwoWeekHigh = parseNumber(dailyTrade.fiftyTwoWeekHigh);
       info.fiftyTwoWeekLow = parseNumber(dailyTrade.fiftyTwoWeekLow);
+
+      // New fields
+      info.isin = clean(security.isin || '');
+      info.faceValue = parseNumber(security.faceValue);
+      info.regulatoryBody = clean(sectorMaster.regulatoryBody || '');
+      info.shareGroup = clean(security.shareGroupId?.name || '');
+      info.issuedCapital = parseNumber(securityData.issuedCapital);
+      info.promoterPercentage = parseNumber(securityData.promoterPercentage);
+      info.publicPercentage = parseNumber(securityData.publicPercentage);
+      info.updatedDate = clean(securityData.updatedDate || '');
+      info.businessDate = clean(dailyTrade.businessDate || '');
+      info.lastUpdatedDateTime = clean(dailyTrade.lastUpdatedDateTime || '');
     }
 
     return info;
