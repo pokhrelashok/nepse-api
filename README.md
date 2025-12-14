@@ -71,8 +71,8 @@ npm run dev              # Start server with nodemon
 npm run scheduler        # Start automated scraper
 
 # Data Collection  
-npm run scraper          # Force run price scraper
-npm run scraper:details  # Scrape company details
+npm run scraper          # Scrape today's prices (saves to DB)
+npm run scraper:details  # Scrape ALL company details (saves to DB)
 
 # Testing
 npm run test:scraper     # Test scraper functionality
@@ -111,6 +111,41 @@ README.md
 - Node.js >= 16.0.0
 - MySQL 8.0+
 - Chrome/Chromium (for Puppeteer)
+
+## Docker Development
+
+The project is configured to run easily with Docker, especially for Apple Silicon (M1/M2/M3) users.
+
+### Prerequisites
+- Docker Desktop installed
+
+### Running with Docker
+
+1. **Start the application and database:**
+   ```bash
+   docker compose up -d
+   ```
+   This will start:
+   - MySQL 8.0 container on port `3306`
+   - Application container on port `3000`
+
+2. **Run tests inside Docker:**
+   ```bash
+   docker compose run --rm app npm test
+   ```
+
+3. **Database Connection (DBeaver/DataGrip):**
+   You can connect to the Docker database from your host machine using:
+   - **Host**: `localhost` (or `127.0.0.1`)
+   - **Port**: `3306`
+   - **Database**: `nepse_db`
+   - **Username**: `nepse` (or `root`)
+   - **Password**: `nepse_password` (or `nepse_root_password`)
+
+4. **Stop everything:**
+   ```bash
+   docker compose down
+   ```
 
 ## Environment Variables
 

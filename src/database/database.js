@@ -168,7 +168,7 @@ async function initSchema() {
         net_profit DECIMAL(25, 2),
         earnings_per_share DECIMAL(10, 2),
         net_worth_per_share DECIMAL(10, 2),
-        price_earnings_ratio DECIMAL(10, 2),
+        price_earnings_ratio DECIMAL(20, 2),
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY unique_financial (security_id, fiscal_year, quarter),
         INDEX idx_financials_security (security_id)

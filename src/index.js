@@ -3,7 +3,7 @@
 const { program } = require('commander');
 const Scheduler = require('./scheduler');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
-const { getAllSecurityIds, getSecurityIdsWithoutDetails, insertTodayPrices, insertCompanyDetails } = require('./database/queries');
+const { getAllSecurityIds, getSecurityIdsWithoutDetails, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
 const { formatPricesForDatabase, formatCompanyDetailsForDatabase } = require('./utils/formatter');
 const { db } = require('./database/database');
 const fs = require('fs');
@@ -69,7 +69,7 @@ program
 program
   .command('prices')
   .description('Scrape today\'s stock prices')
-  .option('-s, --save', 'Save to database')
+  .option('--no-save', 'Skip saving to database')
   .option('-f, --file <filename>', 'Save to JSON file')
   .action(async (options) => {
     try {
@@ -79,7 +79,8 @@ program
 
       console.log(`✅ Scraped ${prices.length} stock prices`);
 
-      if (options.save) {
+      // Default to true unless --no-save is passed
+      if (options.save !== false) {
         const formattedPrices = formatPricesForDatabase(prices);
         await insertTodayPrices(formattedPrices);
         console.log('💾 Prices saved to database');
@@ -93,7 +94,7 @@ program
         console.log(`📄 Prices saved to ${filepath}`);
       }
 
-      if (!options.save && !options.file) {
+      if (options.save === false && !options.file) {
         console.log('📋 Sample data:');
         console.log(JSON.stringify(prices.slice(0, 3), null, 2));
       }
@@ -111,7 +112,7 @@ program
 program
   .command('companies')
   .description('Scrape all company details')
-  .option('-s, --save', 'Save to database')
+  .option('--no-save', 'Skip saving to database')
   .option('-f, --file <filename>', 'Save to JSON file')
   .option('-l, --limit <number>', 'Limit number of companies to scrape', parseInt)
   .option('-m, --missing', 'Only scrape companies that don\'t have details in the database yet')
@@ -142,12 +143,22 @@ program
 
       scraper = new NepseScraper();
 
-      const saveCallback = options.save ? async (batch) => {
+      const shouldSave = options.save !== false;
+
+      const saveCallback = shouldSave ? async (batch) => {
         const formattedDetails = formatCompanyDetailsForDatabase(batch);
         await insertCompanyDetails(formattedDetails);
       } : null;
 
-      const details = await scraper.scrapeAllCompanyDetails(targetIds, saveCallback);
+      const dividendCallback = shouldSave ? insertDividends : null;
+      const financialCallback = shouldSave ? insertFinancials : null;
+
+      const details = await scraper.scrapeAllCompanyDetails(
+        targetIds,
+        saveCallback,
+        dividendCallback,
+        financialCallback
+      );
 
       console.log(`✅ Scraped details for ${details.length} companies`);
 
@@ -158,7 +169,7 @@ program
         console.log(`📄 Company details saved to ${filepath}`);
       }
 
-      if (!options.save && !options.file) {
+      if (options.save === false && !options.file) {
         console.log('📋 Sample data:');
         console.log(JSON.stringify(details.slice(0, 2), null, 2));
       }

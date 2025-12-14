@@ -39,7 +39,8 @@ class NepseScraper {
           '--disable-translate',
           '--disable-background-networking',
           '--disable-background-mode',
-          '--remote-debugging-port=0'
+          '--remote-debugging-port=0',
+          '--disable-http2'
         ]
       };
 
@@ -512,11 +513,12 @@ class NepseScraper {
             // Quick check for page load
             await page.waitForSelector('.company__title--details', { timeout: 3000 }).catch(() => { });
 
-            // Click profile tab if exists
+            // Click profile tab if exists - use evaluate for robust clicking
             const profileTab = await page.$('#profileTab');
             if (profileTab) {
-              await profileTab.click();
-              await page.waitForSelector('#profile_section', { timeout: 2000 }).catch(() => { });
+              await page.evaluate(el => el.click(), profileTab); // Robust click
+              // Wait for profile content
+              await page.waitForSelector('#profile_section', { timeout: 3000 }).catch(() => { });
             }
 
             success = true;
@@ -671,31 +673,64 @@ class NepseScraper {
             try {
               const dividendTab = await page.$('#dividendTab');
               if (dividendTab) {
-                await dividendTab.click();
+                await page.evaluate(el => el.click(), dividendTab); // Robust click
                 await new Promise(r => setTimeout(r, 1000)); // Wait for tab switch
-                await page.waitForSelector('#dividend table', { timeout: 5000 }).catch(() => { });
+
+                // Wait specifically for table rows or empty message
+                try {
+                  await page.waitForFunction(
+                    () => document.querySelector('#dividend table tbody tr') !== null,
+                    { timeout: 3000 }
+                  );
+                } catch (e) { /* ignore timeout, maybe empty */ }
+
+                await page.waitForSelector('#dividend table', { timeout: 2000 }).catch(() => { });
 
                 const dividends = await page.evaluate((secId) => {
                   const table = document.querySelector('#dividend table');
                   if (!table) return [];
 
                   const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+                  // Dynamic Header Mapping
+                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.toLowerCase().replace(/\s+/g, ' ').trim());
+
+                  const getIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+
+                  const idxFY = getIdx(['fiscal', 'year']);
+                  const idxBonus = getIdx(['bonus']);
+                  const idxCash = getIdx(['cash']);
+                  // Some tables might have Total, most don't
+                  const idxTotal = getIdx(['total']);
+                  const idxBookClose = getIdx(['book', 'closure', 'date']);
+
                   return rows.map(row => {
                     const cells = row.querySelectorAll('td');
-                    if (cells.length < 5) return null;
+                    // Need at least FY and some data
+                    if (cells.length < 3) return null;
+
+                    const cleanVal = (idx) => idx !== -1 && cells[idx] ? cells[idx].innerText.trim() : null;
 
                     const parseNum = (txt) => {
                       if (!txt) return 0;
                       return parseFloat(txt.replace(/%|Rs\.?|,/g, '').trim()) || 0;
                     };
 
+                    // Fallback to index 1 for FY if SN is at 0 and mapping failed, but mapping should work
+                    const fy = cleanVal(idxFY) || (cells[1] ? cells[1].innerText.trim() : null);
+                    if (!fy) return null;
+
+                    const bonus = parseNum(cleanVal(idxBonus));
+                    const cash = parseNum(cleanVal(idxCash));
+                    const total = idxTotal !== -1 ? parseNum(cleanVal(idxTotal)) : (bonus + cash);
+
                     return {
                       securityId: secId,
-                      fiscalYear: cells[0]?.innerText?.trim(),
-                      bonusShare: parseNum(cells[1]?.innerText),
-                      cashDividend: parseNum(cells[2]?.innerText),
-                      totalDividend: parseNum(cells[3]?.innerText),
-                      bookCloseDate: cells[4]?.innerText?.trim()
+                      fiscalYear: fy,
+                      bonusShare: bonus,
+                      cashDividend: cash,
+                      totalDividend: total,
+                      bookCloseDate: cleanVal(idxBookClose) || ''
                     };
                   }).filter(d => d && d.fiscalYear);
                 }, security_id);
@@ -727,8 +762,16 @@ class NepseScraper {
               }
 
               if (financialTab) {
-                await financialTab.click();
+                await page.evaluate(el => el.click(), financialTab); // Robust click
                 await new Promise(r => setTimeout(r, 1000));
+
+                try {
+                  // Wait for financial table rows
+                  await page.waitForFunction(
+                    () => document.querySelector('div[id*="financial"] table tbody tr') !== null,
+                    { timeout: 3000 }
+                  );
+                } catch (e) { /* ignore */ }
                 // Target pane often matches ID in href (e.g., #financial)
                 await page.waitForSelector('div[id*="financial"] table', { timeout: 5000 }).catch(() => { });
 
