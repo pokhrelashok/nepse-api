@@ -107,8 +107,8 @@ class NepseScraper {
         console.log('📖 Reading page content...');
         const bodyText = await page.evaluate(() => document.body.innerText);
 
-        const isOpen = bodyText.includes('Market Open') || bodyText.match(/Market Status[:\s]*OPEN/i);
-        const isClosed = bodyText.includes('Market Closed') || bodyText.match(/Market Status[:\s]*CLOSED/i);
+        const isOpen = bodyText.includes('Market Open') || /Market Status[:\s]*OPEN/i.test(bodyText) || /Status[:\s]*OPEN/i.test(bodyText);
+        const isClosed = bodyText.includes('Market Closed') || /Market Status[:\s]*CLOSED/i.test(bodyText) || /Status[:\s]*CLOSED/i.test(bodyText);
 
         if (isOpen) return true;
         if (isClosed) return false;
@@ -117,12 +117,13 @@ class NepseScraper {
         console.log('⏰ Using time-based market status fallback...');
         const now = DateTime.now().setZone('Asia/Kathmandu');
         const currentTime = now.hour * 100 + now.minute;
-        return currentTime >= 1000 && currentTime <= 1500 && [0, 1, 2, 3, 4].includes(now.weekday);
+        // Luxon uses 1=Monday, 7=Sunday. Trading days are Sun-Thu (7, 1, 2, 3, 4)
+        return currentTime >= 1000 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
       } catch (timeoutErr) {
         console.warn('⚠️ Failed to detect market status from page, using time-based fallback');
         const now = DateTime.now().setZone('Asia/Kathmandu');
         const currentTime = now.hour * 100 + now.minute;
-        return currentTime >= 1000 && currentTime <= 1500 && [0, 1, 2, 3, 4].includes(now.weekday);
+        return currentTime >= 1000 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
       }
     } catch (error) {
       console.error('❌ Market status check failed:', error.message);
