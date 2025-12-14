@@ -18,6 +18,7 @@ class NepseScraper {
       const launchOptions = {
         headless: true,
         timeout: 60000,
+        ignoreHTTPSErrors: true, // Ignore SSL certificate errors from nepalstock.com
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
