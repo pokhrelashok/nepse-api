@@ -783,16 +783,17 @@ class NepseScraper {
                   const rows = Array.from(table.querySelectorAll('tbody tr'));
 
                   // Map headers
-                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.trim().toLowerCase());
+                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.toLowerCase().replace(/\s+/g, ' ').trim());
                   const getIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
                   const idxFY = getIdx(['fiscal', 'year']);
                   const idxQ = getIdx(['quart']);
                   const idxPaidUp = getIdx(['paid', 'capital']);
-                  const idxProfit = getIdx(['net profit', 'profit']);
+                  const idxProfit = getIdx(['net profit', 'profit', 'amount']);
                   const idxEPS = getIdx(['eps', 'earnings']);
                   const idxNetWorth = getIdx(['net worth', 'book value']);
-                  const idxPE = getIdx(['p/e', 'price earning']);
+                  // 'p.e' needs to match 'P.E' in header
+                  const idxPE = getIdx(['p/e', 'price earning', 'p.e', 'ratio']);
 
                   return rows.map(row => {
                     const cells = row.querySelectorAll('td');
@@ -806,18 +807,20 @@ class NepseScraper {
                     const getVal = (idx) => idx !== -1 && cells[idx] ? cells[idx].innerText.trim() : null;
                     const getNum = (idx) => idx !== -1 && cells[idx] ? parseNum(cells[idx].innerText) : 0;
 
-                    const fy = getVal(idxFY) || (cells[0] ? cells[0].innerText.trim() : null);
+                    const fy = getVal(idxFY) || (cells[1] ? cells[1].innerText.trim() : null);
                     if (!fy) return null;
 
+                    // Fallbacks based on observed structure: 
+                    // 0:SN, 1:FY, 2:Report, 3:Q, 4:NetWorth, 5:Profit, 6:PaidUp, 7:PE, 8:EPS
                     return {
                       securityId: secId,
                       fiscalYear: fy,
-                      quarter: getVal(idxQ) || (cells[1] ? cells[1].innerText.trim() : ''),
-                      paidUpCapital: getNum(idxPaidUp) || getNum(2),
-                      netProfit: getNum(idxProfit) || getNum(3),
-                      earningsPerShare: getNum(idxEPS) || getNum(4),
-                      netWorthPerShare: getNum(idxNetWorth) || getNum(5),
-                      priceEarningsRatio: getNum(idxPE) || getNum(6)
+                      quarter: getVal(idxQ) || (cells[3] ? cells[3].innerText.trim() : ''),
+                      paidUpCapital: getNum(idxPaidUp) || getNum(6),
+                      netProfit: getNum(idxProfit) || getNum(5),
+                      earningsPerShare: getNum(idxEPS) || getNum(8),
+                      netWorthPerShare: getNum(idxNetWorth) || getNum(4),
+                      priceEarningsRatio: getNum(idxPE) || getNum(7)
                     };
                   }).filter(f => f && f.fiscalYear);
                 }, security_id);
