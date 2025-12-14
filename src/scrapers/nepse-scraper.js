@@ -473,6 +473,100 @@ class NepseScraper {
     }).filter(stock => stock.symbol && stock.symbol.length > 0);
   }
 
+  parseApiProfileData(profileData, securityData, symbol) {
+    // Helper to safely parse numbers
+    const parseNumber = (val) => {
+      if (val === null || val === undefined || val === '') return 0;
+      if (typeof val === 'number') return val;
+      return parseFloat(String(val).replace(/,/g, '')) || 0;
+    };
+
+    const clean = (text) => text ? String(text).replace(/\s+/g, ' ').trim() : '';
+
+    // Extract data from both API responses
+    const info = {
+      rawLogoData: '',
+      isLogoPlaceholder: true,
+      companyName: '',
+      sectorName: '',
+      email: '',
+      permittedToTrade: 'No',
+      status: '',
+      instrumentType: '',
+      listingDate: '',
+      lastTradedPrice: 0,
+      totalTradedQuantity: 0,
+      totalTrades: 0,
+      previousClose: 0,
+      highPrice: 0,
+      lowPrice: 0,
+      fiftyTwoWeekHigh: 0,
+      fiftyTwoWeekLow: 0,
+      openPrice: 0,
+      closePrice: 0,
+      totalListedShares: 0,
+      totalPaidUpValue: 0,
+      marketCapitalization: 0,
+      paidUpCapital: 0,
+      issueManager: '',
+      shareRegistrar: '',
+      website: '',
+      promoterShares: 0,
+      publicShares: 0,
+      averageTradedPrice: 0
+    };
+
+    // Extract from profile data
+    if (profileData) {
+      info.companyName = clean(profileData.companyName || '');
+      info.email = clean(profileData.companyEmail || '');
+      info.rawLogoData = profileData.logoFilePath || '';
+      info.isLogoPlaceholder = !profileData.logoFilePath;
+
+      // Handle logo URL
+      if (info.rawLogoData && info.rawLogoData.startsWith('assets/')) {
+        info.rawLogoData = `https://www.nepalstock.com/${info.rawLogoData}`;
+      }
+    }
+
+    // Extract from security data
+    if (securityData) {
+      // Handle nested security object
+      const security = securityData.security || {};
+      const dailyTrade = securityData.securityDailyTradeDto || {};
+
+      info.sectorName = clean(security.sectorName || security.sector || '');
+      info.status = clean(security.status || security.listingStatus || '');
+      info.instrumentType = clean(security.instrumentType || '');
+      info.permittedToTrade = clean(security.permittedToTrade || 'No');
+
+      // Trading data from dailyTrade object
+      info.lastTradedPrice = parseNumber(dailyTrade.lastTradedPrice || dailyTrade.ltp);
+      info.totalTradedQuantity = parseNumber(dailyTrade.totalTradedQuantity);
+      info.totalTrades = parseInt(parseNumber(dailyTrade.totalTrades), 10);
+      info.previousClose = parseNumber(dailyTrade.previousDayClosePrice || dailyTrade.previousClose);
+      info.highPrice = parseNumber(dailyTrade.highPrice);
+      info.lowPrice = parseNumber(dailyTrade.lowPrice);
+      info.openPrice = parseNumber(dailyTrade.openPrice);
+      info.closePrice = parseNumber(dailyTrade.closePrice);
+      info.averageTradedPrice = parseNumber(dailyTrade.averageTradedPrice);
+
+      // Financial data from root level
+      info.totalListedShares = parseNumber(securityData.stockListedShares);
+      info.paidUpCapital = parseNumber(securityData.paidUpCapital);
+      info.totalPaidUpValue = parseNumber(securityData.paidUpCapital);
+      info.marketCapitalization = parseNumber(securityData.marketCapitalization);
+      info.promoterShares = parseNumber(securityData.promoterShares);
+      info.publicShares = parseNumber(securityData.publicShares);
+
+      // 52-week high/low
+      info.fiftyTwoWeekHigh = parseNumber(dailyTrade.fiftyTwoWeekHigh || dailyTrade['52WeekHigh']);
+      info.fiftyTwoWeekLow = parseNumber(dailyTrade.fiftyTwoWeekLow || dailyTrade['52WeekLow']);
+    }
+
+    return info;
+  }
+
   async scrapeAllCompanyDetails(securityIds, saveCallback = null, dividendCallback = null, financialCallback = null) {
     if (!securityIds || securityIds.length === 0) return [];
 
@@ -503,6 +597,48 @@ class NepseScraper {
         const { security_id, symbol } = sec;
         const url = `https://www.nepalstock.com/company/detail/${security_id}`;
 
+        // Variables to store intercepted API data
+        let apiSecurityData = null;
+        let apiProfileData = null;
+
+        // Set up response listener to intercept API calls
+        const responseHandler = async (response) => {
+          const responseUrl = response.url();
+
+          // Intercept the security API calls
+          if (responseUrl.includes('/api/nots/security/') && responseUrl.includes(`/${security_id}`)) {
+            try {
+              const status = response.status();
+              console.log(`   📡 Intercepted API: ${status} ${responseUrl}`);
+
+              // Try to get JSON data even if status is not 200
+              if (status === 200 || status === 401) {
+                const data = await response.json().catch(() => null);
+                if (data) {
+                  // Determine which endpoint this is from
+                  if (responseUrl.includes('/profile/')) {
+                    apiProfileData = data;
+                    console.log(`   ✅ Captured profile data for ${symbol}`);
+                  } else {
+                    apiSecurityData = data;
+                    console.log(`   ✅ Captured security data for ${symbol}`);
+                  }
+
+                  // Debug: Log API structure (first company only)
+                  if (count === 1) {
+                    console.log(`   🔍 API Response Keys:`, Object.keys(data));
+                  }
+                }
+              }
+            } catch (e) {
+              console.log(`   ⚠️ Failed to parse API response: ${e.message}`);
+            }
+          }
+        };
+
+        // Attach the response listener
+        page.on('response', responseHandler);
+
         // Retry logic - try up to 2 times
         let retries = 2;
         let success = false;
@@ -511,6 +647,9 @@ class NepseScraper {
           try {
             await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
+            // Wait a bit for API calls to complete
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
             // Quick check for page load
             await page.waitForSelector('.company__title--details', { timeout: 3000 }).catch(() => { });
 
@@ -518,7 +657,8 @@ class NepseScraper {
             const profileTab = await page.$('#profileTab');
             if (profileTab) {
               await page.evaluate(el => el.click(), profileTab); // Robust click
-              // Wait for profile content
+              // Wait for profile content or API call
+              await new Promise(resolve => setTimeout(resolve, 1500));
               await page.waitForSelector('#profile_section', { timeout: 3000 }).catch(() => { });
             }
 
@@ -532,6 +672,9 @@ class NepseScraper {
           }
         }
 
+        // Remove the response listener to avoid memory leaks
+        page.off('response', responseHandler);
+
         if (!success) {
           console.error(`❌ Failed to navigate to ${symbol} after multiple retries.`);
           // Continue to the next company if navigation consistently fails
@@ -540,109 +683,131 @@ class NepseScraper {
 
         let data;
         try {
-          data = await page.evaluate(() => {
-            const info = {};
+          // Prefer API data if available
+          if (apiProfileData || apiSecurityData) {
+            console.log(`   📊 Using API data for ${symbol}`);
+            data = this.parseApiProfileData(apiProfileData, apiSecurityData, symbol);
+          } else {
+            console.log(`   🌐 Falling back to DOM scraping for ${symbol}`);
 
-            const clean = (text) => text ? text.replace(/\s+/g, ' ').trim() : '';
-            const parseNumber = (text) => {
-              if (!text) return 0;
-              return parseFloat(text.replace(/,/g, '').replace(/[^0-9.-]/g, '')) || 0;
-            };
+            // Check if content is in an iframe
+            const iframeHandle = await page.$('#company_detail_iframe');
+            let targetFrame = page;
 
-            let logoImg = document.querySelector('#profile_section .team-member img');
-            if (!logoImg || logoImg.getAttribute('src').includes('placeholder')) {
-              logoImg = document.querySelector('.company__title--logo img');
-            }
-            info.rawLogoData = logoImg ? logoImg.getAttribute('src') : '';
-            if (info.rawLogoData && info.rawLogoData.startsWith('assets/')) {
-              info.rawLogoData = `https://www.nepalstock.com/${info.rawLogoData}`;
-            }
-            info.isLogoPlaceholder = info.rawLogoData.includes('placeholder');
-
-            const companyNameEl = document.querySelector('.company__title--details h1');
-            let companyName = companyNameEl ? clean(companyNameEl.innerText) : '';
-            // Remove symbol in parentheses from company name (e.g., "Company Name (SYMBOL)" -> "Company Name")
-            info.companyName = companyName.replace(/\s*\([A-Z]+\)\s*$/, '').trim();
-
-            const metaItems = document.querySelectorAll('.company__title--metas li');
-            metaItems.forEach(li => {
-              const text = li.innerText;
-              if (text.includes('Sector:')) {
-                info.sectorName = clean(text.split('Sector:')[1]);
-              } else if (text.includes('Email Address:')) {
-                info.email = clean(text.split('Email Address:')[1]);
-              } else if (text.includes('Status:')) {
-                info.status = clean(text.split('Status:')[1]);
-              } else if (text.includes('Permitted to Trade:')) {
-                info.permittedToTrade = clean(text.split('Permitted to Trade:')[1]);
+            if (iframeHandle) {
+              console.log(`   🔍 Detected iframe for ${symbol}, switching context...`);
+              const frame = await iframeHandle.contentFrame();
+              if (frame) {
+                targetFrame = frame;
+                // Wait for content to load in iframe
+                await frame.waitForSelector('table, .company__title--details', { timeout: 5000 }).catch(() => { });
               }
-            });
+            }
 
-            const getTableValue = (label) => {
-              const rows = Array.from(document.querySelectorAll('table tr'));
-              for (const row of rows) {
-                const th = row.querySelector('th');
-                const td = row.querySelector('td');
-                if (th && td && th.innerText.trim().includes(label)) {
-                  return clean(td.innerText);
+            data = await targetFrame.evaluate(() => {
+              const info = {};
+
+              const clean = (text) => text ? text.replace(/\s+/g, ' ').trim() : '';
+              const parseNumber = (text) => {
+                if (!text) return 0;
+                return parseFloat(text.replace(/,/g, '').replace(/[^0-9.-]/g, '')) || 0;
+              };
+
+              let logoImg = document.querySelector('#profile_section .team-member img');
+              if (!logoImg || logoImg.getAttribute('src').includes('placeholder')) {
+                logoImg = document.querySelector('.company__title--logo img');
+              }
+              info.rawLogoData = logoImg ? logoImg.getAttribute('src') : '';
+              if (info.rawLogoData && info.rawLogoData.startsWith('assets/')) {
+                info.rawLogoData = `https://www.nepalstock.com/${info.rawLogoData}`;
+              }
+              info.isLogoPlaceholder = info.rawLogoData.includes('placeholder');
+
+              const companyNameEl = document.querySelector('.company__title--details h1');
+              let companyName = companyNameEl ? clean(companyNameEl.innerText) : '';
+              // Remove symbol in parentheses from company name (e.g., "Company Name (SYMBOL)" -> "Company Name")
+              info.companyName = companyName.replace(/\s*\([A-Z]+\)\s*$/, '').trim();
+
+              const metaItems = document.querySelectorAll('.company__title--metas li');
+              metaItems.forEach(li => {
+                const text = li.innerText;
+                if (text.includes('Sector:')) {
+                  info.sectorName = clean(text.split('Sector:')[1]);
+                } else if (text.includes('Email Address:')) {
+                  info.email = clean(text.split('Email Address:')[1]);
+                } else if (text.includes('Status:')) {
+                  info.status = clean(text.split('Status:')[1]);
+                } else if (text.includes('Permitted to Trade:')) {
+                  info.permittedToTrade = clean(text.split('Permitted to Trade:')[1]);
                 }
+              });
+
+              const getTableValue = (label) => {
+                const rows = Array.from(document.querySelectorAll('table tr'));
+                for (const row of rows) {
+                  const th = row.querySelector('th');
+                  const td = row.querySelector('td');
+                  if (th && td && th.innerText.trim().includes(label)) {
+                    return clean(td.innerText);
+                  }
+                }
+                return null;
+              };
+
+              info.instrumentType = getTableValue('Instrument Type') || '';
+              info.listingDate = getTableValue('Listing Date') || '';
+
+              const lastTradedPriceCell = getTableValue('Last Traded Price');
+              if (lastTradedPriceCell) {
+                const priceMatch = lastTradedPriceCell.match(/([0-9,]+\.?[0-9]*)/);
+                info.lastTradedPrice = priceMatch ? parseNumber(priceMatch[1]) : 0;
+              } else {
+                info.lastTradedPrice = 0;
               }
-              return null;
-            };
 
-            info.instrumentType = getTableValue('Instrument Type') || '';
-            info.listingDate = getTableValue('Listing Date') || '';
+              info.totalTradedQuantity = parseNumber(getTableValue('Total Traded Quantity'));
+              info.totalTrades = parseInt(parseNumber(getTableValue('Total Trades')), 10);
+              info.previousClose = parseNumber(getTableValue('Previous Day Close Price'));
 
-            const lastTradedPriceCell = getTableValue('Last Traded Price');
-            if (lastTradedPriceCell) {
-              const priceMatch = lastTradedPriceCell.match(/([0-9,]+\.?[0-9]*)/);
-              info.lastTradedPrice = priceMatch ? parseNumber(priceMatch[1]) : 0;
-            } else {
-              info.lastTradedPrice = 0;
-            }
+              const highLowText = getTableValue('High Price / Low Price');
+              if (highLowText) {
+                const parts = highLowText.split('/');
+                info.highPrice = parts[0] ? parseNumber(parts[0]) : 0;
+                info.lowPrice = parts[1] ? parseNumber(parts[1]) : 0;
+              } else {
+                info.highPrice = 0;
+                info.lowPrice = 0;
+              }
 
-            info.totalTradedQuantity = parseNumber(getTableValue('Total Traded Quantity'));
-            info.totalTrades = parseInt(parseNumber(getTableValue('Total Trades')), 10);
-            info.previousClose = parseNumber(getTableValue('Previous Day Close Price'));
+              const fiftyTwoWeekText = getTableValue('52 Week High / 52 Week Low');
+              if (fiftyTwoWeekText) {
+                const parts = fiftyTwoWeekText.split('/');
+                info.fiftyTwoWeekHigh = parts[0] ? parseNumber(parts[0]) : 0;
+                info.fiftyTwoWeekLow = parts[1] ? parseNumber(parts[1]) : 0;
+              } else {
+                info.fiftyTwoWeekHigh = 0;
+                info.fiftyTwoWeekLow = 0;
+              }
 
-            const highLowText = getTableValue('High Price / Low Price');
-            if (highLowText) {
-              const parts = highLowText.split('/');
-              info.highPrice = parts[0] ? parseNumber(parts[0]) : 0;
-              info.lowPrice = parts[1] ? parseNumber(parts[1]) : 0;
-            } else {
-              info.highPrice = 0;
-              info.lowPrice = 0;
-            }
+              info.openPrice = parseNumber(getTableValue('Open Price'));
 
-            const fiftyTwoWeekText = getTableValue('52 Week High / 52 Week Low');
-            if (fiftyTwoWeekText) {
-              const parts = fiftyTwoWeekText.split('/');
-              info.fiftyTwoWeekHigh = parts[0] ? parseNumber(parts[0]) : 0;
-              info.fiftyTwoWeekLow = parts[1] ? parseNumber(parts[1]) : 0;
-            } else {
-              info.fiftyTwoWeekHigh = 0;
-              info.fiftyTwoWeekLow = 0;
-            }
+              const closePriceText = getTableValue('Close Price');
+              info.closePrice = parseNumber(closePriceText ? closePriceText.replace('*', '') : '0');
 
-            info.openPrice = parseNumber(getTableValue('Open Price'));
+              info.totalListedShares = parseNumber(getTableValue('Total Listed Shares'));
+              info.totalPaidUpValue = parseNumber(getTableValue('Total Paid up Value'));
+              info.marketCapitalization = parseNumber(getTableValue('Market Capitalization'));
+              info.paidUpCapital = info.totalPaidUpValue || parseNumber(getTableValue('Paid Up Capital'));
+              info.issueManager = getTableValue('Issue Manager') || '';
+              info.shareRegistrar = getTableValue('Share Registrar') || '';
+              info.website = getTableValue('Website') || '';
+              info.promoterShares = parseNumber(getTableValue('Promoter Shares'));
+              info.publicShares = parseNumber(getTableValue('Public Shares'));
+              info.averageTradedPrice = parseNumber(getTableValue('Average Traded Price'));
 
-            const closePriceText = getTableValue('Close Price');
-            info.closePrice = parseNumber(closePriceText ? closePriceText.replace('*', '') : '0');
-
-            info.totalListedShares = parseNumber(getTableValue('Total Listed Shares'));
-            info.totalPaidUpValue = parseNumber(getTableValue('Total Paid up Value'));
-            info.marketCapitalization = parseNumber(getTableValue('Market Capitalization'));
-            info.paidUpCapital = info.totalPaidUpValue || parseNumber(getTableValue('Paid Up Capital'));
-            info.issueManager = getTableValue('Issue Manager') || '';
-            info.shareRegistrar = getTableValue('Share Registrar') || '';
-            info.website = getTableValue('Website') || '';
-            info.promoterShares = parseNumber(getTableValue('Promoter Shares'));
-            info.publicShares = parseNumber(getTableValue('Public Shares'));
-            info.averageTradedPrice = parseNumber(getTableValue('Average Traded Price'));
-
-            return info;
-          });
+              return info;
+            });
+          }
 
           // Process the logo image - save base64 images, ignore URLs
           const processedLogoUrl = await processImageData(data.rawLogoData, symbol);
