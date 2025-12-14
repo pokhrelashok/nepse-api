@@ -26,6 +26,9 @@
     "pm2:status": "pm2 status",
     "pm2:logs": "pm2 logs",
     "pm2:monit": "pm2 monit",
+    "migrate": "node src/database/migrate.js",
+    "migrate:status": "node src/database/migrate.js status",
+    "migrate:dry-run": "node src/database/migrate.js dry-run",
     "populate:initial": "./populate-data.sh",
     "backup:db": "echo 'Use mysqldump -u nepse -p nepse_db > backup.sql'",
     "restore:db": "echo 'Use mysql -u nepse -p nepse_db < backup.sql'"
