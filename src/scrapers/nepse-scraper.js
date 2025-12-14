@@ -921,9 +921,29 @@ class NepseScraper {
           }
         }
 
-        // Find Total Turnover and Total Traded Shares from index__points--summary
+        // Check for new market summary structure (Primary)
+        const summaryItems = document.querySelectorAll('.nepsemarket__summary .nepsemarket__summary--item');
+        if (summaryItems && summaryItems.length > 0) {
+          summaryItems.forEach(item => {
+            const span = item.querySelector('span');
+            const p = item.querySelector('p');
+            if (span && p) {
+              const label = span.textContent || span.innerText;
+              const valueText = p.textContent || p.innerText;
+              const value = parseNumber(valueText);
+
+              if (label.includes('Total Turnover')) {
+                result.totalTurnover = value;
+              } else if (label.includes('Total Traded Shares')) {
+                result.totalTradedShares = value;
+              }
+            }
+          });
+        }
+
+        // Find Total Turnover and Total Traded Shares from index__points--summary (Legacy)
         const summaryElement = document.querySelector('.index__points--summary');
-        if (summaryElement) {
+        if (summaryElement && result.totalTurnover === 0) {
           const summarySpans = summaryElement.querySelectorAll('span');
           summarySpans.forEach(span => {
             const text = span.textContent || span.innerText;
