@@ -1,4 +1,4 @@
-const { pool, savePrices, saveCompanyDetails } = require('./database');
+const { pool, savePrices, saveCompanyDetails, saveDividends, saveFinancials } = require('./database');
 const logger = require('../utils/logger');
 
 // Wrapper functions for database operations
@@ -8,6 +8,14 @@ function insertTodayPrices(prices) {
 
 function insertCompanyDetails(details) {
   return saveCompanyDetails(details);
+}
+
+function insertDividends(dividends) {
+  return saveDividends(dividends);
+}
+
+function insertFinancials(financials) {
+  return saveFinancials(financials);
 }
 
 async function getAllSecurityIds() {
@@ -53,7 +61,24 @@ async function getScriptDetails(symbol) {
   const [rows] = await pool.execute(sql, [symbol]);
 
   if (rows.length > 0) {
-    return rows[0];
+    const details = rows[0];
+    const securityId = details.security_id;
+
+    // Fetch dividends
+    const [dividends] = await pool.execute(
+      "SELECT * FROM dividends WHERE security_id = ? ORDER BY fiscal_year DESC",
+      [securityId]
+    );
+    details.dividends = dividends;
+
+    // Fetch financials
+    const [financials] = await pool.execute(
+      "SELECT * FROM company_financials WHERE security_id = ? ORDER BY fiscal_year DESC, quarter DESC",
+      [securityId]
+    );
+    details.financials = financials;
+
+    return details;
   }
 
   // Fallback to stock_prices if no company details found
@@ -397,6 +422,8 @@ module.exports = {
   getSecurityIdsWithoutDetails,
   insertTodayPrices,
   insertCompanyDetails,
+  insertDividends,
+  insertFinancials,
   updateMarketStatus,
   getCurrentMarketStatus,
   saveMarketIndex,

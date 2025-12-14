@@ -141,6 +141,40 @@ async function initSchema() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
+    // Create dividends table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS dividends (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        security_id INT NOT NULL,
+        fiscal_year VARCHAR(20),
+        bonus_share DECIMAL(10, 2),
+        cash_dividend DECIMAL(10, 2),
+        total_dividend DECIMAL(10, 2),
+        book_close_date VARCHAR(20),
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_dividend (security_id, fiscal_year),
+        INDEX idx_dividends_security (security_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // Create company_financials table
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS company_financials (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        security_id INT NOT NULL,
+        fiscal_year VARCHAR(20),
+        quarter VARCHAR(50),
+        paid_up_capital DECIMAL(25, 2),
+        net_profit DECIMAL(25, 2),
+        earnings_per_share DECIMAL(10, 2),
+        net_worth_per_share DECIMAL(10, 2),
+        price_earnings_ratio DECIMAL(10, 2),
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_financial (security_id, fiscal_year, quarter),
+        INDEX idx_financials_security (security_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
     logger.info('Schema initialized successfully.');
   } catch (err) {
     logger.error('Failed to create schema:', err);
@@ -280,9 +314,88 @@ async function saveCompanyDetails(detailsArray) {
   }
 }
 
+async function saveDividends(dividends) {
+  if (!dividends || dividends.length === 0) return Promise.resolve();
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const sql = `
+      INSERT INTO dividends (
+        security_id, fiscal_year, bonus_share, cash_dividend,
+        total_dividend, book_close_date
+      ) VALUES (?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        bonus_share = VALUES(bonus_share),
+        cash_dividend = VALUES(cash_dividend),
+        total_dividend = VALUES(total_dividend),
+        book_close_date = VALUES(book_close_date),
+        updated_at = NOW()
+    `;
+
+    for (const d of dividends) {
+      await connection.execute(sql, [
+        d.securityId, d.fiscalYear, d.bonusShare, d.cashDividend,
+        d.totalDividend, d.bookCloseDate
+      ]);
+    }
+
+    await connection.commit();
+    logger.info(`Saved ${dividends.length} dividend records.`);
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
+async function saveFinancials(financials) {
+  if (!financials || financials.length === 0) return Promise.resolve();
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const sql = `
+      INSERT INTO company_financials (
+        security_id, fiscal_year, quarter, paid_up_capital,
+        net_profit, earnings_per_share, net_worth_per_share,
+        price_earnings_ratio
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        paid_up_capital = VALUES(paid_up_capital),
+        net_profit = VALUES(net_profit),
+        earnings_per_share = VALUES(earnings_per_share),
+        net_worth_per_share = VALUES(net_worth_per_share),
+        price_earnings_ratio = VALUES(price_earnings_ratio),
+        updated_at = NOW()
+    `;
+
+    for (const f of financials) {
+      await connection.execute(sql, [
+        f.securityId, f.fiscalYear, f.quarter, f.paidUpCapital,
+        f.netProfit, f.earningsPerShare, f.netWorthPerShare,
+        f.priceEarningsRatio
+      ]);
+    }
+
+    await connection.commit();
+    logger.info(`Saved ${financials.length} financial records.`);
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
 // Export pool for queries
 module.exports = {
   pool,
   savePrices,
-  saveCompanyDetails
+  saveCompanyDetails,
+  saveDividends,
+  saveFinancials
 };

@@ -1,6 +1,6 @@
 const cron = require('node-cron');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
-const { insertTodayPrices, updateMarketStatus, saveMarketIndex, getSecurityIdsWithoutDetails, insertCompanyDetails } = require('./database/queries');
+const { insertTodayPrices, updateMarketStatus, saveMarketIndex, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
 const { formatPricesForDatabase } = require('./utils/formatter');
 const logger = require('./utils/logger');
 
@@ -61,9 +61,9 @@ class Scheduler {
       timezone: 'Asia/Kathmandu'
     });
 
-    // Company details update at 11:03 AM on market days (Sun-Thu = 0,1,2,3,4)
-    const companyDetailsJob = cron.schedule('3 11 * * 0-4', async () => {
-      await this.updateCompanyDetails();
+    // Company details update at midnight (00:00) every day to avoid collision
+    const companyDetailsJob = cron.schedule('0 0 * * *', async () => {
+      await this.updateCompanyDetails(true); // true = force update all
     }, {
       scheduled: false,
       timezone: 'Asia/Kathmandu'
@@ -189,7 +189,7 @@ class Scheduler {
     }
   }
 
-  async updateCompanyDetails() {
+  async updateCompanyDetails(fetchAll = false) {
     const jobKey = 'companyDetailsUpdate';
 
     // Prevent overlapping runs
@@ -201,23 +201,32 @@ class Scheduler {
     this.isJobRunning.set(jobKey, true);
     this.stats[jobKey].lastRun = new Date().toISOString();
 
-    console.log('🏢 Scheduled company details update started...');
+    console.log(`🏢 Scheduled company details update started (fetchAll: ${fetchAll})...`);
 
     try {
-      // Get security IDs that don't have company details yet
-      const missingCompanies = await getSecurityIdsWithoutDetails();
+      let companiesToScrape;
 
-      if (!missingCompanies || missingCompanies.length === 0) {
-        console.log('✅ All companies already have details');
+      if (fetchAll) {
+        // Get ALL companies for full update
+        companiesToScrape = await getAllSecurityIds();
+      } else {
+        // Only get missing companies
+        companiesToScrape = await getSecurityIdsWithoutDetails();
+      }
+
+      if (!companiesToScrape || companiesToScrape.length === 0) {
+        console.log('✅ No companies found to update');
         return;
       }
 
-      console.log(`📊 Found ${missingCompanies.length} companies missing details, scraping...`);
+      console.log(`📊 Found ${companiesToScrape.length} companies to update...`);
 
-      // Scrape details only for companies without them
+      // Scrape details
       const details = await this.scraper.scrapeAllCompanyDetails(
-        missingCompanies,
-        insertCompanyDetails
+        companiesToScrape,
+        insertCompanyDetails,
+        insertDividends,
+        insertFinancials
       );
 
       console.log(`✅ Scraped and saved details for ${details.length} companies`);

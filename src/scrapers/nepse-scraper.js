@@ -471,7 +471,7 @@ class NepseScraper {
     }).filter(stock => stock.symbol && stock.symbol.length > 0);
   }
 
-  async scrapeAllCompanyDetails(securityIds, saveCallback = null) {
+  async scrapeAllCompanyDetails(securityIds, saveCallback = null, dividendCallback = null, financialCallback = null) {
     if (!securityIds || securityIds.length === 0) return [];
 
     console.log(`🏢 Starting company details scrape for ${securityIds.length} companies...`);
@@ -663,6 +663,129 @@ class NepseScraper {
               console.log(`💾 Saved ${symbol} (${count}/${securityIds.length})`);
             } catch (saveErr) {
               console.error(`❌ Failed to save ${symbol}:`, saveErr.message);
+            }
+          }
+
+          // --- Scrape Dividends ---
+          if (dividendCallback) {
+            try {
+              const dividendTab = await page.$('#dividendTab');
+              if (dividendTab) {
+                await dividendTab.click();
+                await new Promise(r => setTimeout(r, 1000)); // Wait for tab switch
+                await page.waitForSelector('#dividend table', { timeout: 5000 }).catch(() => { });
+
+                const dividends = await page.evaluate((secId) => {
+                  const table = document.querySelector('#dividend table');
+                  if (!table) return [];
+
+                  const rows = Array.from(table.querySelectorAll('tbody tr'));
+                  return rows.map(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length < 5) return null;
+
+                    const parseNum = (txt) => {
+                      if (!txt) return 0;
+                      return parseFloat(txt.replace(/%|Rs\.?|,/g, '').trim()) || 0;
+                    };
+
+                    return {
+                      securityId: secId,
+                      fiscalYear: cells[0]?.innerText?.trim(),
+                      bonusShare: parseNum(cells[1]?.innerText),
+                      cashDividend: parseNum(cells[2]?.innerText),
+                      totalDividend: parseNum(cells[3]?.innerText),
+                      bookCloseDate: cells[4]?.innerText?.trim()
+                    };
+                  }).filter(d => d && d.fiscalYear);
+                }, security_id);
+
+                if (dividends.length > 0) {
+                  await dividendCallback(dividends);
+                  console.log(`   💰 Saved ${dividends.length} dividend records`);
+                }
+              }
+            } catch (divErr) {
+              console.warn(`   ⚠️ Dividend scrape failed for ${symbol}: ${divErr.message}`);
+            }
+          }
+
+          // --- Scrape Financials ---
+          if (financialCallback) {
+            try {
+              // Try to find financials tab by ID or text
+              let financialTab = await page.$('#financialTab, #financialsTab');
+              if (!financialTab) {
+                const tabs = await page.$$('.nav-link');
+                for (const tab of tabs) {
+                  const text = await page.evaluate(el => el.innerText, tab);
+                  if (text && text.trim().includes('Financial')) {
+                    financialTab = tab;
+                    break;
+                  }
+                }
+              }
+
+              if (financialTab) {
+                await financialTab.click();
+                await new Promise(r => setTimeout(r, 1000));
+                // Target pane often matches ID in href (e.g., #financial)
+                await page.waitForSelector('div[id*="financial"] table', { timeout: 5000 }).catch(() => { });
+
+                const financials = await page.evaluate((secId) => {
+                  // Find visible table in the active tab (or just the one in the financial section)
+                  const table = document.querySelector('div[id*="financial"] table');
+                  if (!table) return [];
+
+                  const rows = Array.from(table.querySelectorAll('tbody tr'));
+
+                  // Map headers
+                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.trim().toLowerCase());
+                  const getIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
+
+                  const idxFY = getIdx(['fiscal', 'year']);
+                  const idxQ = getIdx(['quart']);
+                  const idxPaidUp = getIdx(['paid', 'capital']);
+                  const idxProfit = getIdx(['net profit', 'profit']);
+                  const idxEPS = getIdx(['eps', 'earnings']);
+                  const idxNetWorth = getIdx(['net worth', 'book value']);
+                  const idxPE = getIdx(['p/e', 'price earning']);
+
+                  return rows.map(row => {
+                    const cells = row.querySelectorAll('td');
+                    if (cells.length < 3) return null;
+
+                    const parseNum = (txt) => {
+                      if (!txt) return 0;
+                      return parseFloat(txt.replace(/,/g, '').trim()) || 0;
+                    };
+
+                    const getVal = (idx) => idx !== -1 && cells[idx] ? cells[idx].innerText.trim() : null;
+                    const getNum = (idx) => idx !== -1 && cells[idx] ? parseNum(cells[idx].innerText) : 0;
+
+                    const fy = getVal(idxFY) || (cells[0] ? cells[0].innerText.trim() : null);
+                    if (!fy) return null;
+
+                    return {
+                      securityId: secId,
+                      fiscalYear: fy,
+                      quarter: getVal(idxQ) || (cells[1] ? cells[1].innerText.trim() : ''),
+                      paidUpCapital: getNum(idxPaidUp) || getNum(2),
+                      netProfit: getNum(idxProfit) || getNum(3),
+                      earningsPerShare: getNum(idxEPS) || getNum(4),
+                      netWorthPerShare: getNum(idxNetWorth) || getNum(5),
+                      priceEarningsRatio: getNum(idxPE) || getNum(6)
+                    };
+                  }).filter(f => f && f.fiscalYear);
+                }, security_id);
+
+                if (financials.length > 0) {
+                  await financialCallback(financials);
+                  console.log(`   📈 Saved ${financials.length} financial records`);
+                }
+              }
+            } catch (finErr) {
+              console.warn(`   ⚠️ Financials scrape failed for ${symbol}: ${finErr.message}`);
             }
           }
 

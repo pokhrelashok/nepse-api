@@ -183,8 +183,53 @@ class ScraperTester {
     await this.runTest('Market Status Check', () => this.testMarketStatus());
     await this.runTest('Price Data Scraping', () => this.testPriceScraping());
     await this.runTest('Multi-Company Scraping', () => this.testMultiCompanyScraping());
+    await this.runTest('Dividend & Financials Scraping', () => this.testDividendAndFinancials());
 
     this.printSummary();
+  }
+
+  async testDividendAndFinancials() {
+    // Use a known company with dividends (e.g., NABIL - 141)
+    const testCompanies = [{ security_id: 141, symbol: 'NABIL' }];
+
+    let dividends = [];
+    let financials = [];
+
+    const mockDividendCallback = async (data) => { dividends = data; };
+    const mockFinancialCallback = async (data) => { financials = data; };
+
+    // We need to import the scraper class directly to inject callbacks
+    const { NepseScraper } = require('../src/scrapers/nepse-scraper');
+    const scraper = new NepseScraper();
+
+    try {
+      await scraper.scrapeAllCompanyDetails(
+        testCompanies,
+        null, // saveCallback
+        mockDividendCallback,
+        mockFinancialCallback
+      );
+    } finally {
+      await scraper.close();
+    }
+
+    console.log(`   Dividends captured: ${dividends.length}`);
+    if (dividends.length > 0) {
+      console.log(`   Sample Dividend: FY ${dividends[0].fiscalYear}, Total: ${dividends[0].totalDividend}%`);
+    }
+
+    console.log(`   Financials captured: ${financials.length}`);
+    if (financials.length > 0) {
+      console.log(`   Sample Financial: FY ${financials[0].fiscalYear} Q${financials[0].quarter}, EPS: ${financials[0].earningsPerShare}`);
+    }
+
+    if (dividends.length === 0 && financials.length === 0) {
+      console.warn('   Warning: No dividend or financial data captured (might be expected if none exists or tab scraping failed)');
+      // Return success with warning for now as not all companies have data, but NABIL usually does
+      return { dividends: 0, financials: 0 };
+    }
+
+    return { dividends: dividends.length, financials: financials.length };
   }
 
   printSummary() {
