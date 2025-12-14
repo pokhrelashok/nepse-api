@@ -534,6 +534,8 @@ class NepseScraper {
       // Handle nested security object
       const security = securityData.security || {};
       const dailyTrade = securityData.securityDailyTradeDto || {};
+      const companyInfo = security.companyId || {};
+      const sectorMaster = companyInfo.sectorMaster || {};
 
       // Instrument type is an object, extract the description
       if (security.instrumentType && typeof security.instrumentType === 'object') {
@@ -546,9 +548,14 @@ class NepseScraper {
       info.permittedToTrade = clean(security.permittedToTrade || 'No');
       info.listingDate = clean(security.listingDate || '');
 
-      // Sector name might need to be looked up from shareGroupId
-      // For now, we'll leave it empty as it's not directly in the API response
-      info.sectorName = '';
+      // Extract sector name from nested sectorMaster
+      info.sectorName = clean(sectorMaster.sectorDescription || '');
+
+      // Extract website from companyId
+      info.website = clean(companyInfo.companyWebsite || '');
+
+      // Share registrar might be in companyContactPerson or we can use company short name
+      info.shareRegistrar = clean(companyInfo.companyContactPerson || '');
 
       // Trading data from dailyTrade object - note the correct field name
       info.lastTradedPrice = parseNumber(dailyTrade.lastTradedPrice);
