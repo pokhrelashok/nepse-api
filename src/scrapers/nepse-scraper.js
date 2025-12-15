@@ -120,12 +120,12 @@ class NepseScraper {
         const now = DateTime.now().setZone('Asia/Kathmandu');
         const currentTime = now.hour * 100 + now.minute;
         // Luxon uses 1=Monday, 7=Sunday. Trading days are Sun-Thu (7, 1, 2, 3, 4)
-        return currentTime >= 1000 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
+        return currentTime >= 1100 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
       } catch (timeoutErr) {
         console.warn('⚠️ Failed to detect market status from page, using time-based fallback');
         const now = DateTime.now().setZone('Asia/Kathmandu');
         const currentTime = now.hour * 100 + now.minute;
-        return currentTime >= 1000 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
+        return currentTime >= 1100 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
       }
     } catch (error) {
       console.error('❌ Market status check failed:', error.message);
