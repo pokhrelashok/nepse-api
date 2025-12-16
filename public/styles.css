@@ -825,46 +825,12 @@ body {
   align-items: center;
 }
 
-.phone-frame {
-  position: relative;
-  width: 280px;
-  height: 560px;
-  background: #000;
+.showcase-image img {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
   border-radius: 40px;
-  padding: 10px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-}
-
-.phone-frame::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 150px;
-  height: 25px;
-  background: #000;
-  border-radius: 0 0 20px 20px;
-  z-index: 10;
-}
-
-.phone-screen {
-  width: 100%;
-  height: 100%;
-  background: var(--light-bg);
-  border-radius: 30px;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.phone-screen img,
-.desktop-screen img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .desktop-frame {
@@ -902,12 +868,10 @@ body {
   position: relative;
 }
 
-.phone-screen img,
 .desktop-screen img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
 }
 
 .placeholder-text {
@@ -1158,54 +1122,143 @@ body {
 }
 
 /* ============================================
-   Widget Screenshots Section
+   App Screenshots Carousel
    ============================================ */
 
-.widget-screenshots {
-  padding: 5rem 2rem;
-  background: var(--white);
-  max-width: 1200px;
-  margin: 0 auto;
-}
+/* ============================================
+   App Screenshots Carousel
+   ============================================ */
 
-.screenshots-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 2rem;
-  margin-top: 3rem;
-}
-
-.screenshot-card {
-  text-align: center;
-  transition: var(--transition);
-}
-
-.screenshot-card:hover {
-  transform: translateY(-5px);
-}
-
-.screenshot-placeholder {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 1 / 1;
-  background: linear-gradient(135deg, var(--light-bg) 0%, #e8eef5 100%);
-  border-radius: 15px;
+.app-carousel-section {
+  padding: 4rem 0;
+  background: var(--light-bg);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
-  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.carousel-container {
+  width: 100%;
+  max-width: 100%;
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.screenshot-placeholder .placeholder-text {
-  border-radius: 15px;
+.carousel-container::before,
+.carousel-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 100px;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
 }
 
-.screenshot-card p {
-  font-weight: 600;
+.carousel-container::before {
+  left: 0;
+  background: linear-gradient(to right, var(--light-bg), transparent);
+}
+
+.carousel-container::after {
+  right: 0;
+  background: linear-gradient(to left, var(--light-bg), transparent);
+}
+
+.carousel-track {
+  display: flex;
+  gap: 2rem;
+  overflow-x: auto; /* Fallback */
+  overflow-x: scroll;
+  scroll-snap-type: x mandatory;
+  padding: 2rem 5rem; /* Padding for scroll space */
+  -ms-overflow-style: none; /* Hide scrollbar IE/Edge */
+  scrollbar-width: none; /* Hide scrollbar Firefox */
+  max-width: 1200px; /* Constrain width */
+}
+
+/* Hide scrollbar for Chrome/Safari/Opera */
+.carousel-track::-webkit-scrollbar {
+  display: none;
+}
+
+.carousel-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 250px;
+  flex-shrink: 0;
+  scroll-snap-align: center;
+  transition: var(--transition);
+}
+
+.carousel-item:hover {
+  transform: translateY(-5px);
+}
+
+.carousel-item img {
+  width: 100%;
+  height: auto;
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+  background: var(--white);
+  /* Phone frame removed as requested */
+}
+
+.carousel-item p {
+  font-weight: 700;
   color: var(--primary-color);
   font-size: 1.1rem;
+}
+
+.carousel-btn {
+  background: var(--white);
+  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  box-shadow: var(--shadow-md);
+  color: var(--primary-color);
+  font-size: 1.2rem;
+  cursor: pointer;
+  z-index: 10;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+}
+
+.carousel-btn:hover {
+  background: var(--primary-color);
+  color: var(--white);
+  transform: scale(1.1);
+}
+
+.prev-btn {
+  left: 20px;
+}
+
+.next-btn {
+  right: 20px;
+}
+
+@media (max-width: 768px) {
+  .carousel-track {
+    padding: 2rem 1rem;
+    gap: 1rem;
+  }
+  
+  .carousel-container::before,
+  .carousel-container::after {
+    width: 50px;
+  }
+
+  .carousel-btn {
+    display: none; /* Hide buttons on mobile, rely on touch scroll */
+  }
 }
 
 /* ============================================

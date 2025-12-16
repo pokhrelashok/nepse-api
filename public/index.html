@@ -83,6 +83,13 @@
             <div class="store-name">Google Play</div>
           </div>
         </a>
+        <a class="store-link appstore disabled-link" aria-disabled="true">
+          <span class="store-icon"><i class="fa-brands fa-apple"></i></span>
+          <div class="store-text">
+            <div class="store-label">Coming soon</div>
+            <div class="store-name">App Store</div>
+          </div>
+        </a>
       </div>
     </div>
     <div class="hero-visual">
@@ -101,6 +108,40 @@
         <div class="card-value">Rs. 8.5K</div>
         <div class="card-change positive">↑ 0.34%</div>
       </div>
+    </div>
+  </section>
+
+  <!-- App Screenshots Carousel Section -->
+  <section id="screenshots" class="app-carousel-section">
+    <div class="carousel-container">
+      <button class="carousel-btn prev-btn" aria-label="Previous slide"><i class="fa-solid fa-chevron-left"></i></button>
+      <div class="carousel-track" id="carouselTrack">
+        <div class="carousel-item">
+          <img src="/screens/Portfolio.png" alt="Portfolio Overview">
+          <p>Portfolio Overview</p>
+        </div>
+        <div class="carousel-item">
+          <img src="/screens/Analyze.png" alt="Portfolio Analysis">
+          <p>Portfolio Analysis</p>
+        </div>
+        <div class="carousel-item">
+          <img src="/screens/Profit.png" alt="Profit & Loss">
+          <p>Profit & Loss</p>
+        </div>
+        <div class="carousel-item">
+          <img src="/screens/Import.png" alt="Easy Import">
+          <p>Easy Import</p>
+        </div>
+        <div class="carousel-item">
+          <img src="/screens/Backup.png" alt="Data Backup">
+          <p>Data Backup</p>
+        </div>
+        <div class="carousel-item">
+          <img src="/screens/Widget%20Screen.png" alt="Home Screen Widgets">
+          <p>Home Screen Widgets</p>
+        </div>
+      </div>
+      <button class="carousel-btn next-btn" aria-label="Next slide"><i class="fa-solid fa-chevron-right"></i></button>
     </div>
   </section>
 
@@ -327,11 +368,7 @@
 
     <div class="showcase-container">
       <div class="showcase-image">
-        <div class="phone-frame">
-          <div class="phone-screen">
-            <img src="/app-screenshot-1.png" alt="Mobile App Screenshot">
-          </div>
-        </div>
+        <img src="/app-screenshot-1.png" alt="Mobile App Screenshot">
       </div>
 
       <div class="showcase-content">
@@ -353,37 +390,7 @@
     </div>
   </section>
 
-  <!-- Widgets Section
-  <section id="widgets" class="widgets-section">
-    <div class="section-header">
-      <h2>Widget Gallery</h2>
-      <p>Beautiful widgets for every use case</p>
-    </div>
 
-    <div class="screenshots-grid">
-      <div class="screenshot-card">
-        <div class="screenshot-placeholder">
-          <img src="/app-widget-1.png" alt="Widget Screenshot 1">
-        </div>
-        <p>Portfolio Widget</p>
-      </div>
-
-      <div class="screenshot-card">
-        <div class="screenshot-placeholder">
-          <img src="/app-widget-2.png" alt="Widget Screenshot 2">
-        </div>
-        <p>Holdings Widget</p>
-      </div>
-
-      <div class="screenshot-card">
-        <div class="screenshot-placeholder">
-          <img src="/app-widget-3.png" alt="Widget Screenshot 3">
-        </div>
-        <p>Summary Widget</p>
-      </div>
-    </div>
-  </section>
-  -->
 
   <!-- Statistics Section
   <section class="stats-section">
@@ -486,6 +493,91 @@
       </div>
     </div>
   </footer>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const track = document.getElementById('carouselTrack');
+      const prevBtn = document.querySelector('.prev-btn');
+      const nextBtn = document.querySelector('.next-btn');
+
+      if (!track || !prevBtn || !nextBtn) return;
+
+      const originalItems = Array.from(track.children);
+      if (originalItems.length === 0) return;
+
+      // Clone items to create start and end buffers
+      // We clone the whole set to ensure we have enough buffer for wide screens
+      const itemsToClone = originalItems; 
+      
+      // Prepend clones
+      itemsToClone.forEach(item => {
+        const clone = item.cloneNode(true);
+        clone.setAttribute('aria-hidden', 'true');
+        track.insertBefore(clone, track.firstChild);
+      });
+
+      // Append clones
+      itemsToClone.forEach(item => {
+        const clone = item.cloneNode(true);
+        clone.setAttribute('aria-hidden', 'true');
+        track.appendChild(clone);
+      });
+
+      // Wait for layout to settle/images (or just estimate, resizing handles robustly)
+      // We'll use a resize observer or just initial calculation
+      
+      const calculateMetrics = () => {
+        const itemWidth = originalItems[0].offsetWidth; // 250px
+        // Get gap from styles (computed)
+        const style = window.getComputedStyle(track);
+        const gap = parseFloat(style.columnGap) || 32; // 2rem = 32px
+        const singleItemSpace = itemWidth + gap;
+        const totalSetWidth = singleItemSpace * originalItems.length;
+        
+        return { singleItemSpace, totalSetWidth };
+      };
+
+      // Set initial position to the middle set
+      let { singleItemSpace, totalSetWidth } = calculateMetrics();
+      track.scrollLeft = totalSetWidth;
+
+      // Scroll Handler for Infinite Loop
+      track.addEventListener('scroll', () => {
+        const scrollLeft = track.scrollLeft;
+        
+        // If we scrolled past the end of the second set (into the third)
+        if (scrollLeft >= totalSetWidth * 2) {
+          track.scrollLeft = scrollLeft - totalSetWidth;
+        }
+        // If we scrolled past the start of the second set (into the first)
+        else if (scrollLeft <= 0) {
+          // This creates a jump, but bound to happen if we hit 0 exactly
+          track.scrollLeft = totalSetWidth + scrollLeft; 
+        }
+        // Ideally we check with a threshold
+        else if (scrollLeft < totalSetWidth * 0.5) { // If we are deep into the first set
+           track.scrollLeft = scrollLeft + totalSetWidth;
+        }
+      });
+
+      // Button Handlers
+      prevBtn.addEventListener('click', () => {
+        const { singleItemSpace } = calculateMetrics();
+        track.scrollBy({ left: -singleItemSpace, behavior: 'smooth' });
+      });
+
+      nextBtn.addEventListener('click', () => {
+        const { singleItemSpace } = calculateMetrics();
+        track.scrollBy({ left: singleItemSpace, behavior: 'smooth' });
+      });
+      
+      // Handle Window Resize to keep alignment roughly correct (optional)
+      window.addEventListener('resize', () => {
+         const metrics = calculateMetrics();
+         singleItemSpace = metrics.singleItemSpace;
+         totalSetWidth = metrics.totalSetWidth;
+      });
+    });
+  </script>
 </body>
 
 </html>
