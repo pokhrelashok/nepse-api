@@ -16,7 +16,6 @@ const {
   getMarketIndexData,
   saveMarketIndex,
   getIpos,
-  getIpos,
   insertIpo,
   getAnnouncedDividends
 } = require('./database/queries');
