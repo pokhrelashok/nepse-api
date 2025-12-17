@@ -15,7 +15,8 @@ const {
   updateMarketStatus,
   getMarketIndexData,
   saveMarketIndex,
-  getIpos
+  getIpos,
+  insertIpo
 } = require('./database/queries');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { formatResponse, formatError } = require('./utils/formatter');
@@ -277,6 +278,16 @@ app.get('/api/ipos', async (req, res) => {
   } catch (e) {
     console.error('API IPOs Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
+  }
+});
+
+app.post('/api/ipos', authMiddleware, async (req, res) => {
+  try {
+    const result = await insertIpo(req.body);
+    res.json(formatResponse({ message: 'IPO saved successfully', result }));
+  } catch (e) {
+    console.error('API Save IPO Error:', e);
+    res.status(500).json(formatError("Internal Server Error", 500, e.message));
   }
 });
 

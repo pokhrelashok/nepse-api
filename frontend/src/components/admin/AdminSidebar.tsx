@@ -4,7 +4,8 @@ import {
   LayoutDashboard,
   Building2,
   Banknote,
-  LogOut
+  LogOut,
+  Megaphone
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "@tanstack/react-router"
@@ -35,6 +36,11 @@ export function AdminSidebar({ className }: SidebarProps) {
       title: "Prices",
       icon: Banknote,
       href: "/admin/prices",
+    },
+    {
+      title: "IPOs",
+      icon: Megaphone,
+      href: "/admin/ipos",
     },
   ]
 

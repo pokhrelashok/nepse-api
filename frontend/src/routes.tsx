@@ -24,6 +24,7 @@ export const indexRoute = createRoute({
 import AdminLayout from './components/admin/AdminLayout'
 import CompaniesPage from './pages/admin/Companies'
 import PricesPage from './pages/admin/Prices'
+import IposPage from './pages/admin/Ipos'
 
 // ... existing imports
 
@@ -82,6 +83,12 @@ export const adminPricesRoute = createRoute({
   component: PricesPage,
 })
 
+export const adminIposRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'ipos',
+  component: IposPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   adminRoute.addChildren([
@@ -90,7 +97,8 @@ export const routeTree = rootRoute.addChildren([
     adminAuthenticatedRoute.addChildren([
       adminDashboardRoute,
       adminCompaniesRoute,
-      adminPricesRoute
+      adminPricesRoute,
+      adminIposRoute
     ])
   ]),
 ])
