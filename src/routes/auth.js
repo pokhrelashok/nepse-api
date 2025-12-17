@@ -4,6 +4,7 @@ const admin = require('../config/firebase');
 const logger = require('../utils/logger');
 const { verifyToken } = require('../middleware/auth');
 const { pool } = require('../database/database');
+const { generateUuid } = require('../utils/uuid');
 
 /**
  * @route POST /api/auth/google
@@ -37,19 +38,21 @@ router.post('/google', async (req, res) => {
       user = updated[0];
       logger.info(`User updated: ${email}`);
     } else {
-      // Create new user
-      const [result] = await pool.execute(
-        'INSERT INTO users (google_id, email, display_name, avatar_url) VALUES (?, ?, ?, ?)',
-        [uid, email, name, picture]
+      // Create new user with UUID
+      const userId = generateUuid();
+      await pool.execute(
+        'INSERT INTO users (id, google_id, email, display_name, avatar_url) VALUES (?, ?, ?, ?, ?)',
+        [userId, uid, email, name, picture]
       );
-      const [newUser] = await pool.execute('SELECT * FROM users WHERE id = ?', [result.insertId]);
+      const [newUser] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
       user = newUser[0];
       logger.info(`New user created: ${email}`);
 
-      // Create default "Mine" portfolio for new user
+      // Create default "Mine" portfolio for new user with UUID
+      const portfolioId = generateUuid();
       await pool.execute(
-        'INSERT INTO portfolios (user_id, name, color) VALUES (?, ?, ?)',
-        [user.id, 'Mine', '#4CAF50']
+        'INSERT INTO portfolios (id, user_id, name, color) VALUES (?, ?, ?, ?)',
+        [portfolioId, user.id, 'Mine', '#4CAF50']
       );
       logger.info(`Default portfolio created for user: ${email}`);
     }

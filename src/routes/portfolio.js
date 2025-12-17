@@ -3,6 +3,7 @@ const router = express.Router();
 const { pool } = require('../database/database');
 const logger = require('../utils/logger');
 const { verifyToken } = require('../middleware/auth');
+const { generateUuid } = require('../utils/uuid');
 
 // Apply auth middleware to all portfolio routes
 router.use(verifyToken);
@@ -76,7 +77,7 @@ router.get('/sync', async (req, res) => {
         if (!stocksMap.has(symbol)) {
           stocksMap.set(symbol, {
             symbol: symbol,
-            name: t.company_name || symbol, // Use company_name if available
+            // name: t.company_name || symbol, // company_name no longer in transactions
             transactions: []
           });
         }
@@ -95,14 +96,14 @@ router.get('/sync', async (req, res) => {
         : new Date(portfolio.updated_at || portfolio.created_at).getTime();
 
       return {
-        portfolioId: portfolio.id.toString(),
-        portfolioName: portfolio.name,
+        id: portfolio.id.toString(), // Client expects "id"
+        name: portfolio.name,
         stocks: Array.from(stocksMap.values()),
         lastUpdated: lastUpdated
       };
     });
 
-    // Build metadata
+    // Build metadata (Optional, depends on client needs, but keeping it for now)
     const metadata = portfolios.map(p => ({
       id: p.id.toString(),
       name: p.name,
@@ -127,10 +128,10 @@ router.get('/sync', async (req, res) => {
 
 /**
  * @route POST /api/portfolios
- * @desc Create a new portfolio
+ * @desc Create or Update (Sync) a new portfolio
  */
 router.post('/', async (req, res) => {
-  const { name, color } = req.body;
+  const { id, name, color } = req.body;
 
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
@@ -143,22 +144,39 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    const [result] = await pool.execute(
-      'INSERT INTO portfolios (user_id, name, color) VALUES (?, ?, ?)',
-      [req.currentUser.id, name.trim(), color || '#000000']
+    let portfolioId = id;
+    if (!portfolioId) {
+      portfolioId = generateUuid();
+    }
+
+    // Upsert (Insert or Update if exists)
+    // NOTE: If client sends an ID, we assume they want to create it with that ID or update it.
+
+    // Check ownership if it exists to avoid overwriting others' data (UUID collision unlikely but good practice)
+    if (id) {
+      const [existing] = await pool.execute('SELECT user_id FROM portfolios WHERE id = ?', [id]);
+      if (existing.length > 0 && existing[0].user_id !== req.currentUser.id) {
+        return res.status(403).json({ error: 'Portfolio ID conflict or forbidden' });
+      }
+    }
+
+    await pool.execute(
+      `INSERT INTO portfolios (id, user_id, name, color) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE name = VALUES(name), color = VALUES(color)`,
+      [portfolioId, req.currentUser.id, name.trim(), color || '#000000']
     );
 
-    const [newItem] = await pool.execute('SELECT * FROM portfolios WHERE id = ?', [result.insertId]);
+    const [newItem] = await pool.execute('SELECT * FROM portfolios WHERE id = ?', [portfolioId]);
     res.json(newItem[0]);
   } catch (error) {
-    logger.error('Create Portfolio Error:', error);
+    logger.error('Create/Sync Portfolio Error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
 
 /**
  * @route PUT /api/portfolios/:id
- * @desc Update a portfolio
+ * @desc Update a portfolio (Legacy - Sync uses POST with ID)
  */
 router.put('/:id', async (req, res) => {
   const { name, color } = req.body;
@@ -253,11 +271,11 @@ router.get('/:id/transactions', async (req, res) => {
 
 /**
  * @route POST /api/portfolios/:id/transactions
- * @desc Add a transaction
+ * @desc Add or Update (Sync) a transaction
  */
 router.post('/:id/transactions', async (req, res) => {
   const portfolioId = req.params.id;
-  const { company_id, stock_symbol, transaction_type, quantity, price, transaction_date } = req.body;
+  const { id, stock_symbol, transaction_type, quantity, price, transaction_date } = req.body;
 
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
@@ -277,27 +295,48 @@ router.post('/:id/transactions', async (req, res) => {
     return res.status(400).json({ error: 'Price must be a non-negative number' });
   }
 
-  // Ensure either company_id or stock_symbol is present (prefer symbol as it's more robust for text-based system)
-  if (!company_id && !stock_symbol) {
+  // Ensure stock_symbol is present
+  if (!stock_symbol) {
     return res.status(400).json({ error: 'Stock symbol is required' });
   }
 
   try {
-    // Verify ownership
+    // Verify ownership of portfolio
     const [check] = await pool.execute(
       'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
       [portfolioId, req.currentUser.id]
     );
     if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
 
+    let transactionId = id;
+    if (!transactionId) {
+      transactionId = generateUuid();
+    }
+
+    // If ID provided, check for conflicts if needed, but for simplicity we assume Upsert is safe for ownership if portfolio ownership is verified.
+    // However, if updating an existing transaction, we should ensure it belongs to the same portfolio.
+    if (id) {
+      const [tCheck] = await pool.execute('SELECT portfolio_id FROM transactions WHERE id = ?', [id]);
+      if (tCheck.length > 0 && tCheck[0].portfolio_id !== portfolioId) {
+        return res.status(403).json({ error: 'Transaction belongs to different portfolio' });
+      }
+    }
+
     const [result] = await pool.execute(
       `INSERT INTO transactions 
-            (portfolio_id, company_id, stock_symbol, transaction_type, quantity, price, transaction_date) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            (id, portfolio_id, stock_symbol, transaction_type, quantity, price, transaction_date) 
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE
+            stock_symbol = VALUES(stock_symbol),
+            transaction_type = VALUES(transaction_type),
+            quantity = VALUES(quantity),
+            price = VALUES(price),
+            transaction_date = VALUES(transaction_date)
+            `,
       [
+        transactionId,
         portfolioId,
-        company_id || null,
-        stock_symbol ? stock_symbol.toUpperCase() : null,
+        stock_symbol.toUpperCase(),
         transaction_type,
         quantity,
         price,
@@ -305,10 +344,10 @@ router.post('/:id/transactions', async (req, res) => {
       ]
     );
 
-    const [newItem] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [result.insertId]);
+    const [newItem] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [transactionId]);
     res.json(newItem[0]);
   } catch (error) {
-    logger.error('Add Transaction Error:', error);
+    logger.error('Add/Sync Transaction Error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
