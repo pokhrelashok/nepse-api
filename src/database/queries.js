@@ -514,20 +514,20 @@ async function insertIpo(ipoData) {
 async function getIpos(limit = 100, offset = 0) {
   const sql = `
     SELECT 
-      ipo_id as ipoId,
-      company_name as companyName,
-      symbol as stockSymbol,
-      share_registrar as shareRegistrar,
-      sector_name as sectorName,
-      share_type as shareType,
-      price_per_unit as pricePerUnit,
+      ipo_id,
+      company_name,
+      symbol,
+      share_registrar,
+      sector_name,
+      share_type,
+      price_per_unit,
       rating,
       units,
-      min_units as minUnits,
-      max_units as maxUnits,
-      total_amount as totalAmount,
-      opening_date as openingDateAD,
-      closing_date as closingDateAD,
+      min_units,
+      max_units,
+      total_amount,
+      opening_date,
+      closing_date,
       status
     FROM ipos
     ORDER BY opening_date DESC
