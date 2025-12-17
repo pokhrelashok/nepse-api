@@ -109,23 +109,54 @@ class NepseScraper {
         console.log('📖 Reading page content...');
         const bodyText = await page.evaluate(() => document.body.innerText);
 
+        // Check for specific status strings
+        const isPreOpen = bodyText.includes('Pre Open') || /Market Status[:\s]*PRE[- ]?OPEN/i.test(bodyText) || /Status[:\s]*PRE[- ]?OPEN/i.test(bodyText);
         const isOpen = bodyText.includes('Market Open') || /Market Status[:\s]*OPEN/i.test(bodyText) || /Status[:\s]*OPEN/i.test(bodyText);
         const isClosed = bodyText.includes('Market Closed') || /Market Status[:\s]*CLOSED/i.test(bodyText) || /Status[:\s]*CLOSED/i.test(bodyText);
 
-        if (isOpen) return true;
-        if (isClosed) return false;
+        if (isPreOpen) return 'PRE_OPEN';
+        if (isOpen) return 'OPEN';
+        if (isClosed) return 'CLOSED';
 
         // Fallback: time-based check
         console.log('⏰ Using time-based market status fallback...');
         const now = DateTime.now().setZone('Asia/Kathmandu');
         const currentTime = now.hour * 100 + now.minute;
+
         // Luxon uses 1=Monday, 7=Sunday. Trading days are Sun-Thu (7, 1, 2, 3, 4)
-        return currentTime >= 1100 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
+        const isTradingDay = [7, 1, 2, 3, 4].includes(now.weekday);
+
+        if (!isTradingDay) return 'CLOSED';
+
+        // Pre-open session: 10:30 AM - 10:45 AM
+        if (currentTime >= 1030 && currentTime < 1045) {
+          return 'PRE_OPEN';
+        }
+
+        // Regular trading session: 11:00 AM - 3:00 PM (15:00)
+        // Also handling the gap between 10:45 and 11:00 which is usually "Open" or "Special Pre Open"
+        if (currentTime >= 1100 && currentTime <= 1500) {
+          return 'OPEN';
+        }
+
+        // Special Pre Open / Opening session buffer
+        if (currentTime >= 1045 && currentTime < 1100) {
+          return 'OPEN'; // Treat as open or maybe another status if strict
+        }
+
+        return 'CLOSED';
       } catch (timeoutErr) {
         console.warn('⚠️ Failed to detect market status from page, using time-based fallback');
         const now = DateTime.now().setZone('Asia/Kathmandu');
         const currentTime = now.hour * 100 + now.minute;
-        return currentTime >= 1100 && currentTime <= 1500 && [7, 1, 2, 3, 4].includes(now.weekday);
+        const isTradingDay = [7, 1, 2, 3, 4].includes(now.weekday);
+
+        if (!isTradingDay) return 'CLOSED';
+
+        if (currentTime >= 1030 && currentTime < 1045) return 'PRE_OPEN';
+        if (currentTime >= 1045 && currentTime <= 1500) return 'OPEN';
+
+        return 'CLOSED';
       }
     } catch (error) {
       console.error('❌ Market status check failed:', error.message);

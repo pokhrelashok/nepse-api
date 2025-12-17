@@ -90,10 +90,13 @@ class Scheduler {
     const now = new Date();
     const nepalTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
     const hour = nepalTime.getHours();
+    const minutes = nepalTime.getMinutes();
+    const currentTime = hour * 100 + minutes;
     const day = nepalTime.getDay(); // 0 = Sunday, 4 = Thursday
 
-    // Market hours: 10 AM - 3 PM on Sun-Thu (days 0-4)
-    const isMarketHours = hour >= 10 && hour < 15 && day >= 0 && day <= 4;
+    // Market hours: 10:30 AM - 3 PM on Sun-Thu (days 0-4)
+    // Pre-open starts at 10:30
+    const isMarketHours = currentTime >= 1030 && currentTime < 1500 && day >= 0 && day <= 4;
 
     if (!isMarketHours && !this.isMarketOpen) {
       // Skip silently outside market hours
@@ -110,17 +113,18 @@ class Scheduler {
 
     try {
       // Check market status
-      const isOpen = await this.scraper.scrapeMarketStatus();
+      const status = await this.scraper.scrapeMarketStatus();
+      const isOpen = status === 'OPEN' || status === 'PRE_OPEN';
       this.isMarketOpen = isOpen;
 
       // Update market status in database
-      await updateMarketStatus(isOpen);
+      await updateMarketStatus(status);
 
       if (isOpen) {
         // Scrape and save market index data
         const indexData = await this.scraper.scrapeMarketIndex();
         await saveMarketIndex(indexData);
-        console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange})`);
+        console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
 
         this.stats[jobKey].lastSuccess = new Date().toISOString();
         this.stats[jobKey].successCount++;
@@ -148,11 +152,12 @@ class Scheduler {
     logger.info(`Scheduled ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update started...`);
 
     try {
-      const isOpen = await this.scraper.scrapeMarketStatus();
+      const status = await this.scraper.scrapeMarketStatus();
+      const isOpen = status === 'OPEN' || status === 'PRE_OPEN';
 
       // Always update market status
-      await updateMarketStatus(isOpen);
-      console.log(`📊 Market status updated: ${isOpen ? 'OPEN' : 'CLOSED'}`);
+      await updateMarketStatus(status);
+      console.log(`📊 Market status updated: ${status}`);
 
       // Scrape and save market index data
       try {
@@ -164,7 +169,7 @@ class Scheduler {
       }
 
       if (phase === 'DURING_HOURS' && isOpen) {
-        console.log('✅ Market is open, updating prices...');
+        console.log(`✅ Market is ${status}, updating prices...`);
         const prices = await this.scraper.scrapeTodayPrices();
         if (prices && prices.length > 0) {
           const formattedPrices = formatPricesForDatabase(prices);

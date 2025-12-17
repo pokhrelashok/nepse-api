@@ -271,7 +271,7 @@ async function insertMarketStatus(status, tradingDate, openTime = null, closeTim
 }
 
 async function getCurrentMarketStatus() {
-  const sql = `SELECT is_open, last_updated, trading_date FROM market_status WHERE id = 1`;
+  const sql = `SELECT is_open, status, last_updated, trading_date FROM market_status WHERE id = 1`;
 
   const [rows] = await pool.execute(sql);
 
@@ -279,6 +279,7 @@ async function getCurrentMarketStatus() {
     const row = rows[0];
     return {
       isOpen: Boolean(row.is_open),
+      status: row.status || (Boolean(row.is_open) ? 'OPEN' : 'CLOSED'),
       lastUpdated: row.last_updated,
       tradingDate: row.trading_date
     };
@@ -291,7 +292,8 @@ async function getMarketStatusHistory(days = 7) {
   const sql = `
     SELECT 
       trading_date,
-      is_open as status,
+      is_open as status_bool,
+      status,
       last_updated
     FROM market_status 
     WHERE trading_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
@@ -303,22 +305,38 @@ async function getMarketStatusHistory(days = 7) {
 }
 
 // Market status functions
-async function updateMarketStatus(isOpen) {
+async function updateMarketStatus(isOpenOrStatus) {
+  let isOpen = false;
+  let status = 'CLOSED';
+
+  // Handle both boolean (legacy) and string inputs
+  if (typeof isOpenOrStatus === 'boolean') {
+    isOpen = isOpenOrStatus;
+    status = isOpen ? 'OPEN' : 'CLOSED';
+  } else if (typeof isOpenOrStatus === 'string') {
+    status = isOpenOrStatus.toUpperCase();
+    // Consider PRE_OPEN as 'open' for scraping purposes, or strict 'OPEN'
+    // To match user request: "price scraping in the preopen session as well"
+    // So isOpen should probably be true for PRE_OPEN to trigger logic that depends on isOpen
+    isOpen = status === 'OPEN' || status === 'PRE_OPEN' || status === 'PRE-OPEN';
+  }
+
   // Get today's date in Nepal timezone
   const now = new Date();
   const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
   const tradingDate = nepaliDate.toISOString().split('T')[0];
 
   const sql = `
-    INSERT INTO market_status (id, is_open, trading_date, last_updated)
-    VALUES (1, ?, ?, CURRENT_TIMESTAMP)
+    INSERT INTO market_status (id, is_open, status, trading_date, last_updated)
+    VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
     ON DUPLICATE KEY UPDATE
       is_open = VALUES(is_open),
+      status = VALUES(status),
       trading_date = VALUES(trading_date),
       last_updated = CURRENT_TIMESTAMP
   `;
 
-  const [result] = await pool.execute(sql, [isOpen ? 1 : 0, tradingDate]);
+  const [result] = await pool.execute(sql, [isOpen ? 1 : 0, status, tradingDate]);
   return result.insertId;
 }
 

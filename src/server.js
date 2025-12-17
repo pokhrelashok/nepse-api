@@ -346,15 +346,16 @@ app.get('/api/market/status', async (req, res) => {
       // Get live status and index data from scraper
       const scraper = new NepseScraper();
       try {
-        const isOpen = await scraper.scrapeMarketStatus();
+        const status = await scraper.scrapeMarketStatus();
+        const isOpen = status === 'OPEN' || status === 'PRE_OPEN';
         const indexData = await scraper.scrapeMarketIndex();
 
-        await updateMarketStatus(isOpen);
+        await updateMarketStatus(status);
         await saveMarketIndex(indexData);
 
         res.json(formatResponse({
           isOpen,
-          status: isOpen ? 'OPEN' : 'CLOSED',
+          status,
           marketIndex: {
             nepseIndex: indexData.nepseIndex,
             change: indexData.indexChange,

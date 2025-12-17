@@ -117,10 +117,14 @@ class ScraperTester {
 
   async testMarketStatus() {
     const status = await scrapeMarketStatus();
-    console.log(`   Market Status: ${status ? 'OPEN' : 'CLOSED'}`);
+    console.log(`   Market Status: ${status}`);
 
-    if (typeof status !== 'boolean') {
-      throw new Error('Market status should return boolean');
+    if (typeof status !== 'string') {
+      throw new Error(`Market status should return string, got ${typeof status}`);
+    }
+
+    if (!['OPEN', 'CLOSED', 'PRE_OPEN'].includes(status)) {
+      throw new Error(`Invalid status: ${status}`);
     }
 
     return status;
