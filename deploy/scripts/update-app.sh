@@ -3,6 +3,8 @@ set -e
 
 cd APP_DIR_PLACEHOLDER
 echo "🔄 Updating NEPSE API..."
+echo "Node Version: $(node -v)"
+echo "NPM Version: $(npm -v)"
 
 echo "📥 Pulling latest code..."
 git pull origin main

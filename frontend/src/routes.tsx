@@ -33,6 +33,14 @@ export const adminRoute = createRoute({
   component: () => <Outlet />,
 })
 
+export const adminIndexRoute = createRoute({
+  getParentRoute: () => adminRoute,
+  path: '/',
+  beforeLoad: () => {
+    throw redirect({ to: '/admin/dashboard' })
+  }
+})
+
 export const adminAuthenticatedRoute = createRoute({
   getParentRoute: () => adminRoute,
   id: 'admin-layout',
@@ -77,6 +85,7 @@ export const adminPricesRoute = createRoute({
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   adminRoute.addChildren([
+    adminIndexRoute,
     adminLoginRoute,
     adminAuthenticatedRoute.addChildren([
       adminDashboardRoute,

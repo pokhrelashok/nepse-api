@@ -42,6 +42,12 @@ jobs:
               git checkout -f origin/main
             fi
 
+            # Refresh the update script from the repository
+            if [ -f deploy/scripts/update-app.sh ]; then
+              cp deploy/scripts/update-app.sh ./update.sh
+              chmod +x ./update.sh
+            fi
+
             if [ -x ./update.sh ]; then
               ./update.sh
             else
