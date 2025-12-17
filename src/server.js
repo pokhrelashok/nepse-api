@@ -273,8 +273,10 @@ app.get('/api/ipos', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
+    const fromDate = req.query.from;
+    const toDate = req.query.to;
 
-    const ipos = await getIpos(limit, offset);
+    const ipos = await getIpos(limit, offset, fromDate, toDate);
     res.json(formatResponse(ipos));
   } catch (e) {
     console.error('API IPOs Error:', e);
@@ -286,8 +288,10 @@ app.get('/api/announced-dividends', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 100;
     const offset = parseInt(req.query.offset) || 0;
+    const fromDate = req.query.from;
+    const toDate = req.query.to;
 
-    const dividends = await getAnnouncedDividends(limit, offset);
+    const dividends = await getAnnouncedDividends(limit, offset, fromDate, toDate);
     res.json(formatResponse(dividends));
   } catch (e) {
     console.error('API Announced Dividends Error:', e);

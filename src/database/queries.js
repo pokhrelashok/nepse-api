@@ -513,8 +513,8 @@ async function insertIpo(ipoData) {
   return result;
 }
 
-async function getIpos(limit = 100, offset = 0) {
-  const sql = `
+async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null) {
+  let sql = `
     SELECT 
       ipo_id,
       company_name,
@@ -532,10 +532,25 @@ async function getIpos(limit = 100, offset = 0) {
       closing_date,
       status
     FROM ipos
-    ORDER BY opening_date DESC
-    LIMIT ? OFFSET ?
+    WHERE 1=1
   `;
-  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+
+  const params = [];
+
+  if (startDate) {
+    sql += ` AND opening_date >= ?`;
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    sql += ` AND opening_date <= ?`;
+    params.push(endDate);
+  }
+
+  sql += ` ORDER BY opening_date DESC LIMIT ? OFFSET ?`;
+  params.push(String(limit), String(offset));
+
+  const [rows] = await pool.execute(sql, params);
   return rows;
 }
 // Announced Dividend functions
@@ -567,12 +582,23 @@ async function insertAnnouncedDividends(dividendData) {
   return result;
 }
 
-async function getAnnouncedDividends(limit = 100, offset = 0) {
-  const sql = `
-    SELECT * FROM announced_dividends
-    ORDER BY book_close_date DESC, fiscal_year DESC
-    LIMIT ? OFFSET ?
-  `;
-  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+async function getAnnouncedDividends(limit = 100, offset = 0, startDate = null, endDate = null) {
+  let sql = `SELECT * FROM announced_dividends WHERE 1=1`;
+  const params = [];
+
+  if (startDate) {
+    sql += ` AND book_close_date >= ?`;
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    sql += ` AND book_close_date <= ?`;
+    params.push(endDate);
+  }
+
+  sql += ` ORDER BY book_close_date DESC, fiscal_year DESC LIMIT ? OFFSET ?`;
+  params.push(String(limit), String(offset));
+
+  const [rows] = await pool.execute(sql, params);
   return rows;
 }
