@@ -43,6 +43,101 @@ router.get('/', async (req, res) => {
 });
 
 /**
+ * @route GET /api/portfolios/sync
+ * @desc Get all portfolios with stocks and transactions in nested format for app sync
+ */
+router.get('/sync', async (req, res) => {
+  if (!req.currentUser) {
+    return res.status(404).json({ error: 'User not found' });
+  }
+
+  let connection;
+  try {
+    connection = await mysql.createConnection(dbConfig);
+
+    // Get all portfolios for user
+    const [portfolios] = await connection.execute(
+      'SELECT * FROM portfolios WHERE user_id = ? ORDER BY created_at DESC',
+      [req.currentUser.id]
+    );
+
+    // Get all transactions for all user's portfolios
+    const portfolioIds = portfolios.map(p => p.id);
+
+    let allTransactions = [];
+    if (portfolioIds.length > 0) {
+      const placeholders = portfolioIds.map(() => '?').join(',');
+      const [transactions] = await connection.execute(
+        `SELECT * FROM transactions WHERE portfolio_id IN (${placeholders}) ORDER BY transaction_date DESC, created_at DESC`,
+        portfolioIds
+      );
+      allTransactions = transactions;
+    }
+
+    // Build the nested response structure
+    const portfoliosData = portfolios.map(portfolio => {
+      // Get transactions for this portfolio
+      const portfolioTransactions = allTransactions.filter(t => t.portfolio_id === portfolio.id);
+
+      // Group transactions by stock symbol
+      const stocksMap = new Map();
+      portfolioTransactions.forEach(t => {
+        const symbol = t.stock_symbol || 'UNKNOWN';
+        if (!stocksMap.has(symbol)) {
+          stocksMap.set(symbol, {
+            symbol: symbol,
+            name: t.company_name || symbol, // Use company_name if available
+            transactions: []
+          });
+        }
+        stocksMap.get(symbol).transactions.push({
+          id: t.id.toString(),
+          type: t.transaction_type,
+          quantity: t.quantity,
+          price: parseFloat(t.price) || 0,
+          date: new Date(t.transaction_date).getTime()
+        });
+      });
+
+      // Find the latest transaction date for lastUpdated
+      const lastUpdated = portfolioTransactions.length > 0
+        ? Math.max(...portfolioTransactions.map(t => new Date(t.updated_at || t.created_at).getTime()))
+        : new Date(portfolio.updated_at || portfolio.created_at).getTime();
+
+      return {
+        portfolioId: portfolio.id.toString(),
+        portfolioName: portfolio.name,
+        stocks: Array.from(stocksMap.values()),
+        lastUpdated: lastUpdated
+      };
+    });
+
+    // Build metadata
+    const metadata = portfolios.map(p => ({
+      id: p.id.toString(),
+      name: p.name,
+      createdAt: new Date(p.created_at).getTime(),
+      lastUpdated: new Date(p.updated_at || p.created_at).getTime()
+    }));
+
+    // Default selected portfolio is the first one
+    const selectedPortfolioId = portfolios.length > 0 ? portfolios[0].id.toString() : null;
+
+    res.json({
+      portfolios: portfoliosData,
+      metadata: metadata,
+      selectedPortfolioId: selectedPortfolioId
+    });
+
+  } catch (error) {
+    logger.error('Get Portfolios Sync Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  } finally {
+    if (connection) await connection.end();
+  }
+});
+
+/**
  * @route POST /api/portfolios
  * @desc Create a new portfolio
  */
