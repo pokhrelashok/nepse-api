@@ -25,6 +25,7 @@ import AdminLayout from './components/admin/AdminLayout'
 import CompaniesPage from './pages/admin/Companies'
 import PricesPage from './pages/admin/Prices'
 import IposPage from './pages/admin/Ipos'
+import DividendsPage from './pages/admin/Dividends'
 
 // ... existing imports
 
@@ -89,6 +90,12 @@ export const adminIposRoute = createRoute({
   component: IposPage,
 })
 
+export const adminDividendsRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'dividends',
+  component: DividendsPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   adminRoute.addChildren([
@@ -98,7 +105,10 @@ export const routeTree = rootRoute.addChildren([
       adminDashboardRoute,
       adminCompaniesRoute,
       adminPricesRoute,
-      adminIposRoute
+      adminCompaniesRoute,
+      adminPricesRoute,
+      adminIposRoute,
+      adminDividendsRoute
     ])
   ]),
 ])

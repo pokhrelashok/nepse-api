@@ -469,7 +469,9 @@ module.exports = {
   getMarketIndexData,
   getMarketIndexHistory,
   insertIpo,
-  getIpos
+  getIpos,
+  insertAnnouncedDividends,
+  getAnnouncedDividends
 };
 
 // IPO functions
@@ -531,6 +533,44 @@ async function getIpos(limit = 100, offset = 0) {
       status
     FROM ipos
     ORDER BY opening_date DESC
+    LIMIT ? OFFSET ?
+  `;
+  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+  return rows;
+}
+// Announced Dividend functions
+async function insertAnnouncedDividends(dividendData) {
+  const sql = `
+    INSERT INTO announced_dividends (
+      symbol, company_name, bonus_share, cash_dividend, total_dividend, 
+      book_close_date, fiscal_year, right_share, right_book_close_date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      company_name = VALUES(company_name),
+      bonus_share = VALUES(bonus_share),
+      cash_dividend = VALUES(cash_dividend),
+      total_dividend = VALUES(total_dividend),
+      right_share = VALUES(right_share),
+      right_book_close_date = VALUES(right_book_close_date),
+      updated_at = CURRENT_TIMESTAMP
+  `;
+
+  const {
+    symbol, company_name, bonus_share, cash_dividend, total_dividend,
+    book_close_date, fiscal_year, right_share, right_book_close_date
+  } = dividendData;
+
+  const [result] = await pool.execute(sql, [
+    symbol, company_name, bonus_share, cash_dividend, total_dividend,
+    book_close_date, fiscal_year, right_share, right_book_close_date
+  ]);
+  return result;
+}
+
+async function getAnnouncedDividends(limit = 100, offset = 0) {
+  const sql = `
+    SELECT * FROM announced_dividends
+    ORDER BY book_close_date DESC, fiscal_year DESC
     LIMIT ? OFFSET ?
   `;
   const [rows] = await pool.execute(sql, [String(limit), String(offset)]);

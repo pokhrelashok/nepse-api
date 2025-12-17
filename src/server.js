@@ -16,7 +16,9 @@ const {
   getMarketIndexData,
   saveMarketIndex,
   getIpos,
-  insertIpo
+  getIpos,
+  insertIpo,
+  getAnnouncedDividends
 } = require('./database/queries');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { formatResponse, formatError } = require('./utils/formatter');
@@ -277,6 +279,19 @@ app.get('/api/ipos', async (req, res) => {
     res.json(formatResponse(ipos));
   } catch (e) {
     console.error('API IPOs Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+});
+
+app.get('/api/announced-dividends', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+
+    const dividends = await getAnnouncedDividends(limit, offset);
+    res.json(formatResponse(dividends));
+  } catch (e) {
+    console.error('API Announced Dividends Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
   }
 });
@@ -545,7 +560,10 @@ app.get('/api', (req, res) => {
     title: 'NEPSE Portfolio API',
     version: '2.2.0',
     description: 'Enhanced API with comprehensive company data, real-time prices via API capture, market analytics, and financial metrics',
-    endpoints
+    endpoints: [
+      ...endpoints,
+      { method: 'GET', path: '/api/announced-dividends', description: 'Get announced dividends' }
+    ]
   }));
 });
 

@@ -42,6 +42,11 @@ export function AdminSidebar({ className }: SidebarProps) {
       icon: Megaphone,
       href: "/admin/ipos",
     },
+    {
+      title: "Dividends",
+      icon: Banknote,
+      href: "/admin/dividends",
+    },
   ]
 
   return (

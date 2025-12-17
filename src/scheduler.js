@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
+const { scrapeDividends } = require('./scrapers/dividend-scraper');
 const { insertTodayPrices, updateMarketStatus, saveMarketIndex, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
 const { formatPricesForDatabase } = require('./utils/formatter');
 const logger = require('./utils/logger');
@@ -83,6 +84,16 @@ class Scheduler {
     });
     this.jobs.set('ipoUpdate', ipoJob);
     ipoJob.start();
+
+    // Announced Dividends Scraper (Once a day at 2:30 AM)
+    const dividendJob = cron.schedule('30 2 * * *', async () => {
+      await this.runDividendScrape();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('dividendUpdate', dividendJob);
+    dividendJob.start();
 
     indexJob.start();
     priceJob.start();
@@ -283,6 +294,29 @@ class Scheduler {
       this.stats[jobKey].successCount++;
     } catch (error) {
       logger.error('Scheduled IPO scrape failed:', error);
+      this.stats[jobKey].failCount++;
+    } finally {
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async runDividendScrape() {
+    const jobKey = 'dividendUpdate';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.stats[jobKey] = this.stats[jobKey] || { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 };
+    this.stats[jobKey].lastRun = new Date().toISOString();
+
+    logger.info('Starting scheduled Announced Dividend scrape...');
+
+    try {
+      await scrapeDividends(false); // Default to incremental/page 1 if appropriate, maybe change to true if daily full check is needed
+
+      this.stats[jobKey].lastSuccess = new Date().toISOString();
+      this.stats[jobKey].successCount++;
+    } catch (error) {
+      logger.error('Scheduled Announced Dividend scrape failed:', error);
       this.stats[jobKey].failCount++;
     } finally {
       this.isJobRunning.set(jobKey, false);
