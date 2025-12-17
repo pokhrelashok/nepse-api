@@ -145,7 +145,7 @@ router.post('/fcm', verifyToken, async (req, res) => {
  * @desc Send a test notification to a specific user
  * @access Private (Admin or for testing)
  */
-router.post('/test-notification', verifyToken, async (req, res) => {
+router.post('/test-notification', async (req, res) => {
   const { userId, email, title, body } = req.body;
 
   if (!userId && !email) {
