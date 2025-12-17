@@ -56,9 +56,11 @@ async function getSecurityIdsBySymbols(symbols) {
 async function searchStocks(query) {
   const pattern = `%${query}%`;
   const [rows] = await pool.execute(
-    `SELECT DISTINCT symbol, security_name, security_id FROM stock_prices 
-     WHERE symbol LIKE ? OR security_name LIKE ? 
-     ORDER BY symbol LIMIT 20`,
+    `SELECT DISTINCT sp.symbol, sp.security_name, sp.security_id, cd.sector_name as sector, cd.status 
+     FROM stock_prices sp
+     LEFT JOIN company_details cd ON sp.symbol = cd.symbol
+     WHERE sp.symbol LIKE ? OR sp.security_name LIKE ? 
+     ORDER BY sp.symbol LIMIT 20`,
     [pattern, pattern]
   );
   return rows;
@@ -196,6 +198,8 @@ async function getAllCompanies() {
       cd.symbol,
       cd.company_name AS name,
       cd.logo_url AS logo,
+      cd.sector_name AS sector,
+      cd.status,
       sp.percentage_change AS todaysChange,
       sp.\`change\` AS priceChange
     FROM company_details cd

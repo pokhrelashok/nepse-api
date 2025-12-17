@@ -474,8 +474,8 @@ app.get('/api/market/summary', async (req, res) => {
     const recentPrices = await getLatestPrices(null, { limit: 10 });
 
     // Calculate market summary
-    const totalVolume = recentPrices.reduce((sum, stock) => sum + (stock.volume || 0), 0);
-    const totalTurnover = recentPrices.reduce((sum, stock) => sum + (stock.turnover || 0), 0);
+    const totalVolume = recentPrices.reduce((sum, stock) => sum + (stock.total_traded_quantity || 0), 0);
+    const totalTurnover = recentPrices.reduce((sum, stock) => sum + (stock.total_traded_value || 0), 0);
     const gainers = recentPrices.filter(s => (s.change || 0) > 0).length;
     const losers = recentPrices.filter(s => (s.change || 0) < 0).length;
     const unchanged = recentPrices.filter(s => (s.change || 0) === 0).length;

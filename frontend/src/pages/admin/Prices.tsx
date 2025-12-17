@@ -88,13 +88,13 @@ export default function PricesPage() {
               prices.map((stock: any) => (
                 <TableRow key={stock.symbol}>
                   <TableCell className="font-medium font-mono">{stock.symbol}</TableCell>
-                  <TableCell className="text-right">Rs. {stock.close}</TableCell>
+                  <TableCell className="text-right">Rs. {stock.close_price}</TableCell>
                   <TableCell className={`text-right ${stock.percentage_change > 0 ? 'text-green-600' : (stock.percentage_change < 0 ? 'text-red-600' : '')}`}>
                     {stock.percentage_change}%
                   </TableCell>
-                  <TableCell className="text-right">{stock.high}</TableCell>
-                  <TableCell className="text-right">{stock.low}</TableCell>
-                  <TableCell className="text-right font-mono">{stock.volume?.toLocaleString()}</TableCell>
+                  <TableCell className="text-right">{stock.high_price}</TableCell>
+                  <TableCell className="text-right">{stock.low_price}</TableCell>
+                  <TableCell className="text-right font-mono">{stock.total_traded_quantity?.toLocaleString()}</TableCell>
                 </TableRow>
               ))
             ) : (
