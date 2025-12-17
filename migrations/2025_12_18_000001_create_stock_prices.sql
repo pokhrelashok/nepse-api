@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS stock_prices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  business_date VARCHAR(20) NOT NULL,
+  security_id INT NOT NULL,
+  symbol VARCHAR(50) NOT NULL,
+  security_name VARCHAR(255),
+  open_price DECIMAL(15, 2),
+  high_price DECIMAL(15, 2),
+  low_price DECIMAL(15, 2),
+  close_price DECIMAL(15, 2),
+  total_traded_quantity BIGINT,
+  total_traded_value DECIMAL(20, 2),
+  previous_close DECIMAL(15, 2),
+  `change` DECIMAL(15, 2),
+  percentage_change DECIMAL(10, 4),
+  last_traded_price DECIMAL(15, 2),
+  fifty_two_week_high DECIMAL(15, 2),
+  fifty_two_week_low DECIMAL(15, 2),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_symbol (symbol),
+  INDEX idx_stock_prices_symbol (symbol)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

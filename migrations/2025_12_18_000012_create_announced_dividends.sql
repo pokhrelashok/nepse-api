@@ -11,4 +11,4 @@ CREATE TABLE IF NOT EXISTS announced_dividends (
     right_book_close_date DATE,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_dividend (symbol, fiscal_year, book_close_date)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

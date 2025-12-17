@@ -1,21 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const mysql = require('mysql2/promise');
+const { pool } = require('../database/database');
 const logger = require('../utils/logger');
 const { verifyToken } = require('../middleware/auth');
 
-// DB Config (should be shared)
-const dbConfig = {
-  host: (process.env.DB_HOST === 'localhost' || !process.env.DB_HOST) ? '127.0.0.1' : process.env.DB_HOST,
-  port: parseInt(process.env.DB_PORT || '3306', 10),
-  user: process.env.DB_USER || 'nepse',
-  password: process.env.DB_PASSWORD || 'nepse_password',
-  database: process.env.DB_NAME || 'nepse_db',
-  timezone: '+05:45'
-};
-
 // Apply auth middleware to all portfolio routes
 router.use(verifyToken);
+
+// Transaction Types Enum
+const TRANSACTION_TYPES = [
+  'IPO', 'FPO', 'AUCTION', 'RIGHTS',
+  'SECONDARY_BUY', 'SECONDARY_SELL',
+  'BONUS', 'DIVIDEND'
+];
 
 /**
  * @route GET /api/portfolios
@@ -26,10 +23,8 @@ router.get('/', async (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  let connection;
   try {
-    connection = await mysql.createConnection(dbConfig);
-    const [rows] = await connection.execute(
+    const [rows] = await pool.execute(
       'SELECT * FROM portfolios WHERE user_id = ? ORDER BY created_at DESC',
       [req.currentUser.id]
     );
@@ -37,8 +32,6 @@ router.get('/', async (req, res) => {
   } catch (error) {
     logger.error('Get Portfolios Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 
@@ -51,12 +44,9 @@ router.get('/sync', async (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  let connection;
   try {
-    connection = await mysql.createConnection(dbConfig);
-
     // Get all portfolios for user
-    const [portfolios] = await connection.execute(
+    const [portfolios] = await pool.execute(
       'SELECT * FROM portfolios WHERE user_id = ? ORDER BY created_at DESC',
       [req.currentUser.id]
     );
@@ -67,7 +57,7 @@ router.get('/sync', async (req, res) => {
     let allTransactions = [];
     if (portfolioIds.length > 0) {
       const placeholders = portfolioIds.map(() => '?').join(',');
-      const [transactions] = await connection.execute(
+      const [transactions] = await pool.execute(
         `SELECT * FROM transactions WHERE portfolio_id IN (${placeholders}) ORDER BY transaction_date DESC, created_at DESC`,
         portfolioIds
       );
@@ -132,8 +122,6 @@ router.get('/sync', async (req, res) => {
   } catch (error) {
     logger.error('Get Portfolios Sync Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 
@@ -143,24 +131,28 @@ router.get('/sync', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   const { name, color } = req.body;
-  if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
-  if (!name) return res.status(400).json({ error: 'Portfolio name required' });
 
-  let connection;
+  if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
+
+  // Validation
+  if (!name || typeof name !== 'string' || name.trim().length === 0) {
+    return res.status(400).json({ error: 'Portfolio name required' });
+  }
+  if (name.length > 50) {
+    return res.status(400).json({ error: 'Portfolio name too long (max 50 chars)' });
+  }
+
   try {
-    connection = await mysql.createConnection(dbConfig);
-    const [result] = await connection.execute(
+    const [result] = await pool.execute(
       'INSERT INTO portfolios (user_id, name, color) VALUES (?, ?, ?)',
-      [req.currentUser.id, name, color || '#000000']
+      [req.currentUser.id, name.trim(), color || '#000000']
     );
 
-    const [newItem] = await connection.execute('SELECT * FROM portfolios WHERE id = ?', [result.insertId]);
+    const [newItem] = await pool.execute('SELECT * FROM portfolios WHERE id = ?', [result.insertId]);
     res.json(newItem[0]);
   } catch (error) {
     logger.error('Create Portfolio Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 
@@ -171,32 +163,36 @@ router.post('/', async (req, res) => {
 router.put('/:id', async (req, res) => {
   const { name, color } = req.body;
   const portfolioId = req.params.id;
+
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
-  let connection;
-  try {
-    connection = await mysql.createConnection(dbConfig);
+  // Validation
+  if (name && (typeof name !== 'string' || name.trim().length === 0)) {
+    return res.status(400).json({ error: 'Invalid portfolio name' });
+  }
+  if (name && name.length > 50) {
+    return res.status(400).json({ error: 'Portfolio name too long (max 50 chars)' });
+  }
 
+  try {
     // Verify ownership
-    const [check] = await connection.execute(
+    const [check] = await pool.execute(
       'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
       [portfolioId, req.currentUser.id]
     );
 
     if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
 
-    await connection.execute(
+    await pool.execute(
       'UPDATE portfolios SET name = ?, color = ? WHERE id = ?',
       [name, color, portfolioId]
     );
 
-    const [updated] = await connection.execute('SELECT * FROM portfolios WHERE id = ?', [portfolioId]);
+    const [updated] = await pool.execute('SELECT * FROM portfolios WHERE id = ?', [portfolioId]);
     res.json(updated[0]);
   } catch (error) {
     logger.error('Update Portfolio Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 
@@ -208,25 +204,20 @@ router.delete('/:id', async (req, res) => {
   const portfolioId = req.params.id;
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
-  let connection;
   try {
-    connection = await mysql.createConnection(dbConfig);
-
     // Verify ownership
-    const [check] = await connection.execute(
+    const [check] = await pool.execute(
       'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
       [portfolioId, req.currentUser.id]
     );
 
     if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
 
-    await connection.execute('DELETE FROM portfolios WHERE id = ?', [portfolioId]);
+    await pool.execute('DELETE FROM portfolios WHERE id = ?', [portfolioId]);
     res.json({ success: true, message: 'Portfolio deleted' });
   } catch (error) {
     logger.error('Delete Portfolio Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 
@@ -240,19 +231,16 @@ router.get('/:id/transactions', async (req, res) => {
   const portfolioId = req.params.id;
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
-  let connection;
   try {
-    connection = await mysql.createConnection(dbConfig);
-
     // Verify ownership
-    const [check] = await connection.execute(
+    const [check] = await pool.execute(
       'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
       [portfolioId, req.currentUser.id]
     );
 
     if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
 
-    const [rows] = await connection.execute(
+    const [rows] = await pool.execute(
       'SELECT * FROM transactions WHERE portfolio_id = ? ORDER BY transaction_date DESC, created_at DESC',
       [portfolioId]
     );
@@ -260,8 +248,6 @@ router.get('/:id/transactions', async (req, res) => {
   } catch (error) {
     logger.error('Get Transactions Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 
@@ -271,39 +257,59 @@ router.get('/:id/transactions', async (req, res) => {
  */
 router.post('/:id/transactions', async (req, res) => {
   const portfolioId = req.params.id;
-  // transaction_type enum: IPO, FPO, AUCTION, RIGHTS, SECONDARY_BUY, SECONDARY_SELL, BONUS, DIVIDEND
   const { company_id, stock_symbol, transaction_type, quantity, price, transaction_date } = req.body;
 
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
-  if (!transaction_type || quantity === undefined || price === undefined) {
-    return res.status(400).json({ error: 'Missing required fields' });
+
+  // Validation
+  if (!transaction_type || !TRANSACTION_TYPES.includes(transaction_type)) {
+    return res.status(400).json({
+      error: 'Invalid transaction type',
+      validTypes: TRANSACTION_TYPES
+    });
   }
 
-  let connection;
-  try {
-    connection = await mysql.createConnection(dbConfig);
+  if (quantity === undefined || isNaN(quantity) || parseFloat(quantity) <= 0) {
+    return res.status(400).json({ error: 'Quantity must be a positive number' });
+  }
 
+  if (price === undefined || isNaN(price) || parseFloat(price) < 0) {
+    return res.status(400).json({ error: 'Price must be a non-negative number' });
+  }
+
+  // Ensure either company_id or stock_symbol is present (prefer symbol as it's more robust for text-based system)
+  if (!company_id && !stock_symbol) {
+    return res.status(400).json({ error: 'Stock symbol is required' });
+  }
+
+  try {
     // Verify ownership
-    const [check] = await connection.execute(
+    const [check] = await pool.execute(
       'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
       [portfolioId, req.currentUser.id]
     );
     if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
 
-    const [result] = await connection.execute(
+    const [result] = await pool.execute(
       `INSERT INTO transactions 
             (portfolio_id, company_id, stock_symbol, transaction_type, quantity, price, transaction_date) 
             VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [portfolioId, company_id || null, stock_symbol || null, transaction_type, quantity, price, transaction_date || new Date()]
+      [
+        portfolioId,
+        company_id || null,
+        stock_symbol ? stock_symbol.toUpperCase() : null,
+        transaction_type,
+        quantity,
+        price,
+        transaction_date || new Date()
+      ]
     );
 
-    const [newItem] = await connection.execute('SELECT * FROM transactions WHERE id = ?', [result.insertId]);
+    const [newItem] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [result.insertId]);
     res.json(newItem[0]);
   } catch (error) {
     logger.error('Add Transaction Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 
@@ -315,32 +321,26 @@ router.delete('/:id/transactions/:tid', async (req, res) => {
   const { id: portfolioId, tid: transactionId } = req.params;
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
-  let connection;
   try {
-    connection = await mysql.createConnection(dbConfig);
-
     // Verify ownership of portfolio
-    const [check] = await connection.execute(
+    const [check] = await pool.execute(
       'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
       [portfolioId, req.currentUser.id]
     );
     if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
 
     // Verify transaction belongs to portfolio
-    // (SQL enforces cascade delete, but for explicit delete we should check)
-    const [tCheck] = await connection.execute(
+    const [tCheck] = await pool.execute(
       'SELECT id FROM transactions WHERE id = ? AND portfolio_id = ?',
       [transactionId, portfolioId]
     );
     if (tCheck.length === 0) return res.status(404).json({ error: 'Transaction not found or mismatch' });
 
-    await connection.execute('DELETE FROM transactions WHERE id = ?', [transactionId]);
+    await pool.execute('DELETE FROM transactions WHERE id = ?', [transactionId]);
     res.json({ success: true, message: 'Transaction deleted' });
   } catch (error) {
     logger.error('Delete Transaction Error:', error);
     res.status(500).json({ error: 'Server error' });
-  } finally {
-    if (connection) await connection.end();
   }
 });
 

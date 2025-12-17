@@ -21,167 +21,19 @@ const dbConfig = {
 // Create connection pool
 const pool = mysql.createPool(dbConfig);
 
-// Initialize database connection and schema
-let isInitialized = false;
-
-async function initializeDatabase() {
-  if (isInitialized) return;
-
+// Initialize database connection
+async function testConnection() {
   try {
     const connection = await pool.getConnection();
     logger.info('Connected to MySQL database.');
     connection.release();
-    await initSchema();
-    isInitialized = true;
   } catch (err) {
     logger.error('Error connecting to MySQL database:', err);
   }
 }
 
-// Auto-initialize on module load
-initializeDatabase();
-
-async function initSchema() {
-  const connection = await pool.getConnection();
-  try {
-    // Create stock_prices table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS stock_prices (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        business_date VARCHAR(20) NOT NULL,
-        security_id INT NOT NULL,
-        symbol VARCHAR(50) NOT NULL,
-        security_name VARCHAR(255),
-        open_price DECIMAL(15, 2),
-        high_price DECIMAL(15, 2),
-        low_price DECIMAL(15, 2),
-        close_price DECIMAL(15, 2),
-        total_traded_quantity BIGINT,
-        total_traded_value DECIMAL(20, 2),
-        previous_close DECIMAL(15, 2),
-        \`change\` DECIMAL(15, 2),
-        percentage_change DECIMAL(10, 4),
-        last_traded_price DECIMAL(15, 2),
-        fifty_two_week_high DECIMAL(15, 2),
-        fifty_two_week_low DECIMAL(15, 2),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_symbol (symbol),
-        INDEX idx_stock_prices_symbol (symbol)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-
-    // Create company_details table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS company_details (
-        security_id INT PRIMARY KEY,
-        symbol VARCHAR(50) NOT NULL,
-        company_name VARCHAR(255),
-        sector_name VARCHAR(100),
-        instrument_type VARCHAR(50),
-        issue_manager VARCHAR(255),
-        share_registrar VARCHAR(255),
-        listing_date VARCHAR(20),
-        total_listed_shares DECIMAL(20, 2),
-        paid_up_capital DECIMAL(20, 2),
-        total_paid_up_value DECIMAL(20, 2),
-        email VARCHAR(255),
-        website VARCHAR(255),
-        status VARCHAR(50),
-        permitted_to_trade VARCHAR(50),
-        promoter_shares DECIMAL(20, 2),
-        public_shares DECIMAL(20, 2),
-        market_capitalization DECIMAL(25, 2),
-        logo_url VARCHAR(500),
-        is_logo_placeholder TINYINT(1) DEFAULT 1,
-        last_traded_price DECIMAL(15, 2),
-        open_price DECIMAL(15, 2),
-        close_price DECIMAL(15, 2),
-        high_price DECIMAL(15, 2),
-        low_price DECIMAL(15, 2),
-        previous_close DECIMAL(15, 2),
-        fifty_two_week_high DECIMAL(15, 2),
-        fifty_two_week_low DECIMAL(15, 2),
-        total_traded_quantity BIGINT,
-        total_trades INT,
-        average_traded_price DECIMAL(15, 2),
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_company_details_symbol (symbol)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-
-    // Create market_status table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS market_status (
-        id INT PRIMARY KEY DEFAULT 1,
-        is_open TINYINT(1) DEFAULT 0,
-        trading_date VARCHAR(20),
-        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_market_status_date (trading_date)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-
-    // Create market_index table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS market_index (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        trading_date VARCHAR(20) NOT NULL,
-        market_status_date VARCHAR(50),
-        market_status_time VARCHAR(50),
-        nepse_index DECIMAL(15, 4),
-        index_change DECIMAL(15, 4),
-        index_percentage_change DECIMAL(10, 4),
-        total_turnover DECIMAL(25, 2),
-        total_traded_shares BIGINT,
-        advanced INT,
-        declined INT,
-        unchanged INT,
-        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_trading_date (trading_date),
-        INDEX idx_market_index_date (trading_date)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-
-    // Create dividends table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS dividends (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        security_id INT NOT NULL,
-        fiscal_year VARCHAR(20),
-        bonus_share DECIMAL(10, 2),
-        cash_dividend DECIMAL(10, 2),
-        total_dividend DECIMAL(10, 2),
-        book_close_date VARCHAR(20),
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_dividend (security_id, fiscal_year),
-        INDEX idx_dividends_security (security_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-
-    // Create company_financials table
-    await connection.execute(`
-      CREATE TABLE IF NOT EXISTS company_financials (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        security_id INT NOT NULL,
-        fiscal_year VARCHAR(20),
-        quarter VARCHAR(50),
-        paid_up_capital DECIMAL(25, 2),
-        net_profit DECIMAL(25, 2),
-        earnings_per_share DECIMAL(20, 2),
-        net_worth_per_share DECIMAL(20, 2),
-        price_earnings_ratio DECIMAL(20, 4),
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY unique_financial (security_id, fiscal_year, quarter),
-        INDEX idx_financials_security (security_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    `);
-
-    logger.info('Schema initialized successfully.');
-  } catch (err) {
-    logger.error('Failed to create schema:', err);
-  } finally {
-    connection.release();
-  }
-}
+// Check connection on module load
+testConnection();
 
 async function savePrices(prices) {
   if (!prices || prices.length === 0) return Promise.resolve();

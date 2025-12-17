@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS market_status (
+  id INT PRIMARY KEY DEFAULT 1,
+  is_open TINYINT(1) DEFAULT 0,
+  status VARCHAR(20) DEFAULT 'CLOSED',
+  trading_date VARCHAR(20),
+  last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_market_status_date (trading_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
