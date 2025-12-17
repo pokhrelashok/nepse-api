@@ -140,4 +140,80 @@ router.post('/fcm', verifyToken, async (req, res) => {
   }
 });
 
+/**
+ * @route POST /api/auth/test-notification
+ * @desc Send a test notification to a specific user
+ * @access Private (Admin or for testing)
+ */
+router.post('/test-notification', verifyToken, async (req, res) => {
+  const { userId, email, title, body } = req.body;
+
+  if (!userId && !email) {
+    return res.status(400).json({ error: 'Either userId or email is required' });
+  }
+
+  let connection;
+  try {
+    connection = await mysql.createConnection(dbConfig);
+
+    // Find user
+    let userQuery = userId
+      ? 'SELECT id, email, display_name FROM users WHERE id = ?'
+      : 'SELECT id, email, display_name FROM users WHERE email = ?';
+    const [users] = await connection.execute(userQuery, [userId || email]);
+
+    if (users.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const targetUser = users[0];
+
+    // Get FCM tokens for the user
+    const [tokens] = await connection.execute(
+      'SELECT fcm_token FROM notification_tokens WHERE user_id = ?',
+      [targetUser.id]
+    );
+
+    if (tokens.length === 0) {
+      return res.status(404).json({ error: 'No FCM tokens registered for this user' });
+    }
+
+    const fcmTokens = tokens.map(t => t.fcm_token);
+
+    // Send notification to all user devices
+    const message = {
+      notification: {
+        title: title || 'Test Notification',
+        body: body || `Hello ${targetUser.display_name || 'User'}! This is a test notification from NEPSE Portfolio.`
+      },
+      data: {
+        type: 'test',
+        timestamp: new Date().toISOString()
+      },
+      tokens: fcmTokens
+    };
+
+    const response = await admin.messaging().sendEachForMulticast(message);
+
+    logger.info(`Test notification sent to ${targetUser.email}: ${response.successCount} success, ${response.failureCount} failures`);
+
+    res.json({
+      success: true,
+      message: 'Test notification sent',
+      details: {
+        user: targetUser.email,
+        devicesTargeted: fcmTokens.length,
+        successCount: response.successCount,
+        failureCount: response.failureCount
+      }
+    });
+
+  } catch (error) {
+    logger.error('Test Notification Error:', error);
+    res.status(500).json({ error: 'Failed to send notification', details: error.message });
+  } finally {
+    if (connection) await connection.end();
+  }
+});
+
 module.exports = router;
