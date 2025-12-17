@@ -19,6 +19,7 @@ const {
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { formatResponse, formatError } = require('./utils/formatter');
 const logger = require('./utils/logger');
+const { loginHandler, authMiddleware } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -68,17 +69,20 @@ process.on('unhandledRejection', async (reason, promise) => {
   await cleanup('unhandledRejection');
 });
 
+const path = require('path');
+
 // Middleware
 app.use(cors());
 app.use(bodyParser.json());
 
-// In server this is done by nginx
-if (process.env.NODE_ENV == "development") {
-  app.use(express.static('public'));
-  app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  });
-}
+// Serve static files
+app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+// Serve React App for non-API routes that aren't caught by static files
+// This should be placed AFTER API routes, but we need API routes defined first in the code.
+// However, express executes sequentially. If we put this at the end of the file, it's safer.
+// But we need to remove the existing development block.
 
 // API info route
 app.get('/api', (req, res) => {
@@ -109,8 +113,11 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Auth routes
+app.post('/api/admin/login', loginHandler);
+
 // Scheduler endpoints
-app.post('/api/scheduler/start', async (req, res) => {
+app.post('/api/scheduler/start', authMiddleware, async (req, res) => {
   try {
     if (scheduler.isSchedulerRunning()) {
       return res.status(400).json(formatError('Scheduler is already running', 400));
@@ -123,7 +130,7 @@ app.post('/api/scheduler/start', async (req, res) => {
   }
 });
 
-app.post('/api/scheduler/stop', async (req, res) => {
+app.post('/api/scheduler/stop', authMiddleware, async (req, res) => {
   try {
     await scheduler.stopAllSchedules();
     res.json(formatResponse({ message: 'Scheduler stopped successfully' }));
@@ -513,6 +520,15 @@ app.get('/api', (req, res) => {
     description: 'Enhanced API with comprehensive company data, real-time prices via API capture, market analytics, and financial metrics',
     endpoints
   }));
+});
+
+// React Fallback
+app.get(/(.*)/, (req, res) => {
+  if (!req.path.startsWith('/api')) {
+    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
+  } else {
+    res.status(404).json(formatError('Not Found', 404));
+  }
 });
 
 app.listen(PORT, async () => {

@@ -170,7 +170,15 @@ else
         echo "ℹ️ package-lock.json not found, using npm install --omit=dev"
         npm install --omit=dev
     fi
+    fi
 fi
+
+echo "📦 Building Frontend..."
+cd frontend
+# Always install/update dependencies to ensure build works with latest changes
+npm install
+npm run build
+cd ..
 mkdir -p logs public/storage/images/logos
 DEPS_EOF
 
@@ -371,7 +379,7 @@ if [ "$DOMAIN" != "localhost" ] && [ "$DOMAIN" != "127.0.0.1" ]; then
     fi
     
     # Request SSL certificate with enhanced options
-    if certbot --nginx -d $DOMAIN -d www.$DOMAIN \
+    if certbot --nginx -d $DOMAIN -d www.$DOMAIN -d admin.$DOMAIN \
         --non-interactive \
         --agree-tos \
         --email admin@$DOMAIN \
@@ -435,6 +443,7 @@ SSL_CONF_EOF
         echo "🔍 Domain resolution check:"
         dig +short $DOMAIN A || echo "❌ Failed to resolve $DOMAIN"
         dig +short www.$DOMAIN A || echo "❌ Failed to resolve www.$DOMAIN"
+        dig +short admin.$DOMAIN A || echo "❌ Failed to resolve admin.$DOMAIN"
         
         echo "🔍 Port accessibility check:"
         netstat -tuln | grep -E ':(80|443)\s' || echo "❌ Ports 80/443 may not be open"
@@ -445,7 +454,7 @@ SSL_CONF_EOF
         echo "   3. Domain is accessible from the internet"
         echo "   4. No conflicting Nginx configurations"
         echo ""
-        echo "💡 You can manually retry with: sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN"
+        echo "💡 You can manually retry with: sudo certbot --nginx -d $DOMAIN -d www.$DOMAIN -d admin.$DOMAIN"
     fi
 else
     echo "⚠️ Skipping SSL setup for localhost"

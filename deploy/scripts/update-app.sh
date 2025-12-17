@@ -7,8 +7,12 @@ echo "🔄 Updating NEPSE API..."
 echo "📥 Pulling latest code..."
 git pull origin main
 
-echo "📦 Installing dependencies..."
-npm ci --omit=dev
+echo "📦 Installing/Updating dependencies..."
+# Install using npm install to ensure devDependencies (vite, etc) are available for build
+npm install
+
+echo "🏗️ Building Frontend..."
+npm run build
 
 echo "🔄 Reloading application..."
 export PM2_HOME="/home/$USER/.pm2"

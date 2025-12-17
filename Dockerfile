@@ -27,6 +27,9 @@ RUN npm install
 # Copy source code
 COPY . .
 
+# Build frontend
+RUN cd frontend && npm install && npm run build
+
 # Create logs directory
 RUN mkdir -p logs public/images
 
