@@ -14,7 +14,8 @@ const {
   getCurrentMarketStatus,
   updateMarketStatus,
   getMarketIndexData,
-  saveMarketIndex
+  saveMarketIndex,
+  getIpos
 } = require('./database/queries');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { formatResponse, formatError } = require('./utils/formatter');
@@ -266,6 +267,19 @@ app.get('/api/companies', async (req, res) => {
   }
 });
 
+app.get('/api/ipos', async (req, res) => {
+  try {
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
+
+    const ipos = await getIpos(limit, offset);
+    res.json(formatResponse(ipos));
+  } catch (e) {
+    console.error('API IPOs Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+});
+
 app.get('/api/companies/sector/:sector', async (req, res) => {
   try {
     const sector = req.params.sector;
@@ -506,6 +520,7 @@ app.get('/api', (req, res) => {
     { method: 'GET', path: '/api/scripts/SYMBOL', description: 'Get detailed information for a specific stock' },
     { method: 'POST', path: '/api/updates', description: 'Get consolidated market updates with stock prices, market status, and index data', body: '{ "symbols": ["NABIL", "SHIVM"] }' },
     { method: 'GET', path: '/api/companies?limit=100&offset=0', description: 'Get paginated list of all companies' },
+    { method: 'GET', path: '/api/ipos?limit=100&offset=0', description: 'Get latest IPOs' },
     { method: 'GET', path: '/api/companies/sector/SECTOR_NAME?limit=50', description: 'Get companies by sector' },
     { method: 'GET', path: '/api/companies/top/20', description: 'Get top companies by market capitalization' },
     { method: 'GET', path: '/api/market/stats', description: 'Get market statistics, top gainers/losers (10), and top turnover/volume' },

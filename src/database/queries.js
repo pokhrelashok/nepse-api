@@ -467,5 +467,72 @@ module.exports = {
   getCurrentMarketStatus,
   saveMarketIndex,
   getMarketIndexData,
-  getMarketIndexHistory
+  getMarketIndexHistory,
+  insertIpo,
+  getIpos
 };
+
+// IPO functions
+async function insertIpo(ipoData) {
+  const sql = `
+    INSERT INTO ipos (
+      ipo_id, company_name, symbol, share_registrar, sector_name, 
+      share_type, price_per_unit, rating, units, min_units, max_units, 
+      total_amount, opening_date, closing_date, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      company_name = VALUES(company_name),
+      symbol = VALUES(symbol),
+      share_registrar = VALUES(share_registrar),
+      sector_name = VALUES(sector_name),
+      share_type = VALUES(share_type),
+      price_per_unit = VALUES(price_per_unit),
+      rating = VALUES(rating),
+      units = VALUES(units),
+      min_units = VALUES(min_units),
+      max_units = VALUES(max_units),
+      total_amount = VALUES(total_amount),
+      opening_date = VALUES(opening_date),
+      closing_date = VALUES(closing_date),
+      status = VALUES(status)
+  `;
+
+  const {
+    ipoId, companyName, stockSymbol, shareRegistrar, sectorName,
+    shareType, pricePerUnit, rating, units, minUnits, maxUnits,
+    totalAmount, openingDateAD, closingDateAD, status
+  } = ipoData;
+
+  const [result] = await pool.execute(sql, [
+    ipoId, companyName, stockSymbol, shareRegistrar, sectorName,
+    shareType, pricePerUnit, rating, units, minUnits, maxUnits,
+    totalAmount, openingDateAD, closingDateAD, status
+  ]);
+  return result;
+}
+
+async function getIpos(limit = 100, offset = 0) {
+  const sql = `
+    SELECT 
+      ipo_id as ipoId,
+      company_name as companyName,
+      symbol as stockSymbol,
+      share_registrar as shareRegistrar,
+      sector_name as sectorName,
+      share_type as shareType,
+      price_per_unit as pricePerUnit,
+      rating,
+      units,
+      min_units as minUnits,
+      max_units as maxUnits,
+      total_amount as totalAmount,
+      opening_date as openingDateAD,
+      closing_date as closingDateAD,
+      status
+    FROM ipos
+    ORDER BY opening_date DESC
+    LIMIT ? OFFSET ?
+  `;
+  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+  return rows;
+}

@@ -13,6 +13,9 @@ echo "📦 Installing/Updating dependencies..."
 # Install using npm install to ensure devDependencies (vite, etc) are available for build
 npm install
 
+echo "🗄️ Running Database Migrations..."
+npm run migrate
+
 echo "🏗️ Building Frontend..."
 npm run build
 

@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS ipos (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  ipo_id INT NOT NULL UNIQUE,
+  company_name VARCHAR(255) NOT NULL,
+  symbol VARCHAR(20),
+  share_registrar VARCHAR(255),
+  sector_name VARCHAR(100),
+  share_type VARCHAR(50),
+  price_per_unit DECIMAL(10, 2),
+  rating VARCHAR(50),
+  units BIGINT,
+  min_units INT,
+  max_units INT,
+  total_amount DECIMAL(20, 2),
+  opening_date DATE,
+  closing_date DATE,
+  status VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_symbol (symbol),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

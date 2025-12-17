@@ -55,6 +55,8 @@ jobs:
               echo "update.sh missing; running inline update"
               # Install all dependencies (including devDeps for build)
               npm install
+              # Run migrations
+              npm run migrate
               # Build the React Frontend
               cd frontend && npm install && npm run build && cd ..
               # Restart the application

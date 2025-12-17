@@ -74,6 +74,16 @@ class Scheduler {
     this.jobs.set('closeUpdate', closeJob);
     this.jobs.set('companyDetailsUpdate', companyDetailsJob);
 
+    // IPO Scraper (Once a day at 2:00 AM)
+    const ipoJob = cron.schedule('0 2 * * *', async () => {
+      await this.runIpoScrape();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('ipoUpdate', ipoJob);
+    ipoJob.start();
+
     indexJob.start();
     priceJob.start();
     closeJob.start();
@@ -240,6 +250,39 @@ class Scheduler {
       this.stats[jobKey].successCount++;
     } catch (error) {
       logger.error('Company details update failed:', error);
+      this.stats[jobKey].failCount++;
+    } finally {
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async runIpoScrape() {
+    const jobKey = 'ipoUpdate';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.stats[jobKey] = this.stats[jobKey] || { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 };
+    this.stats[jobKey].lastRun = new Date().toISOString();
+
+    logger.info('Starting scheduled IPO scrape...');
+
+    try {
+      const { scrapeIpos } = require('./scrapers/ipo-scraper');
+      // Run with checkAll=true for nightly full check, or false for incremental.
+      // User said "default we will only check the first page", but "add a --all flag".
+      // For nightly job, maybe we should check a few pages or just page 1 if frequent?
+      // "run this code once a day at night ... add any new listing"
+      // Default behavior of scraper (without --all) is page 1?
+      // My scraper implementation checks page 1 by default if checkAll is false.
+      // But for nightly, maybe we want to be safe?
+      // Let's stick to default (page 1) as requested "by default we will only check the first page".
+      // If user wants --all, they can run manual script.
+      await scrapeIpos(false);
+
+      this.stats[jobKey].lastSuccess = new Date().toISOString();
+      this.stats[jobKey].successCount++;
+    } catch (error) {
+      logger.error('Scheduled IPO scrape failed:', error);
       this.stats[jobKey].failCount++;
     } finally {
       this.isJobRunning.set(jobKey, false);
