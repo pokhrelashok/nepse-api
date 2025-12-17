@@ -45,6 +45,7 @@ jobs:
             # Refresh the update script from the repository
             if [ -f deploy/scripts/update-app.sh ]; then
               cp deploy/scripts/update-app.sh ./update.sh
+              sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" ./update.sh
               chmod +x ./update.sh
             fi
 
