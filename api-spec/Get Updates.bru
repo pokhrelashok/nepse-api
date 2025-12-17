@@ -1,0 +1,22 @@
+meta {
+  name: Get Updates
+  type: http
+  seq: 1
+}
+
+post {
+  url: https://nepseportfoliotracker.app/api/updates
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "symbols":["NABIL"]
+  }
+}
+
+settings {
+  encodeUrl: true
+  timeout: 0
+}

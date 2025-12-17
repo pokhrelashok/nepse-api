@@ -56,6 +56,8 @@ app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 // API Routes
 app.use('/api', apiRoutes);
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/portfolios', require('./routes/portfolio'));
 
 // React Fallback
 app.get(/(.*)/, (req, res) => {
@@ -66,16 +68,20 @@ app.get(/(.*)/, (req, res) => {
   }
 });
 
-app.listen(PORT, async () => {
-  logger.info(`API running at http://localhost:${PORT}`);
+// Only listen if run directly, not when imported for tests
+if (require.main === module) {
+  app.listen(PORT, async () => {
+    logger.info(`API running at http://localhost:${PORT}`);
 
-  // Auto-start the scheduler
-  try {
-    await scheduler.startPriceUpdateSchedule();
-    logger.info('Scheduler auto-started on server boot');
-  } catch (error) {
-    logger.error('Failed to auto-start scheduler:', error);
-  }
-});
+    // Auto-start the scheduler
+    try {
+      await scheduler.startPriceUpdateSchedule();
+      logger.info('Scheduler auto-started on server boot');
+    } catch (error) {
+      logger.error('Failed to auto-start scheduler:', error);
+    }
+  });
+}
+
 
 module.exports = app;
