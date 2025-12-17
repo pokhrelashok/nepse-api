@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "scheduler": "node src/scheduler.js",
+    "scheduler": "node src/index.js schedule",
     "scraper": "node src/index.js prices",
     "scraper:companies": "node src/index.js companies",
     "scraper:details": "node src/index.js companies",
