@@ -13,6 +13,7 @@
     "scraper": "node src/index.js prices",
     "scraper:companies": "node src/index.js companies",
     "scraper:details": "node src/index.js companies",
+    "scraper:ipo": "node src/index.js ipos",
     "test": "npm run test:scraper && npm run test:api",
     "test:scraper": "node tests/scraper.test.js",
     "test:api": "node tests/api.test.js",
