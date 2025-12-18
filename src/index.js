@@ -5,7 +5,7 @@ const Scheduler = require('./scheduler');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeIpos } = require('./scrapers/ipo-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
-const { getAllSecurityIds, getSecurityIdsWithoutDetails, getSecurityIdsBySymbols, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
+const { getAllSecurityIds, getSecurityIdsWithoutDetails, getSecurityIdsBySymbols, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials, updateMarketStatus } = require('./database/queries');
 const { formatPricesForDatabase, formatCompanyDetailsForDatabase } = require('./utils/formatter');
 const { db } = require('./database/database');
 const fs = require('fs');
@@ -51,12 +51,18 @@ program
 program
   .command('market-status')
   .description('Check current market status')
-  .action(async () => {
+  .option('-s, --save', 'Save status to database')
+  .action(async (options) => {
     try {
       console.log('🔍 Checking market status...');
       scraper = new NepseScraper();
       const status = await scraper.scrapeMarketStatus();
       console.log(`📊 Market is ${status}`);
+
+      if (options.save) {
+        await updateMarketStatus(status);
+        console.log('💾 Market status saved to database');
+      }
     } catch (error) {
       console.error('❌ Error:', error.message);
       process.exit(1);
