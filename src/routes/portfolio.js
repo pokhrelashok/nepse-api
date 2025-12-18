@@ -60,11 +60,12 @@ router.get('/sync', async (req, res) => {
     if (portfolioIds.length > 0) {
       const placeholders = portfolioIds.map(() => '?').join(',');
       const [transactions] = await pool.execute(
-        `SELECT * FROM transactions WHERE portfolio_id IN (${placeholders}) ORDER BY transaction_date DESC, created_at DESC`,
+        `SELECT * FROM transactions WHERE portfolio_id IN (${placeholders}) ORDER BY date DESC, created_at DESC`,
         portfolioIds
       );
       allTransactions = transactions;
     }
+
 
     // Build the nested response structure
     const portfoliosData = portfolios.map(portfolio => {
@@ -84,11 +85,12 @@ router.get('/sync', async (req, res) => {
         }
         stocksMap.get(symbol).transactions.push({
           id: t.id.toString(),
-          type: t.transaction_type,
+          type: t.type,
           quantity: t.quantity,
           price: parseFloat(t.price) || 0,
-          date: new Date(t.transaction_date).getTime()
+          date: new Date(t.date).getTime()
         });
+
       });
 
       // Find the latest transaction date for lastUpdated
@@ -257,9 +259,10 @@ router.get('/:id/transactions', async (req, res) => {
     if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
 
     const [rows] = await pool.execute(
-      'SELECT * FROM transactions WHERE portfolio_id = ? ORDER BY transaction_date DESC, created_at DESC',
+      'SELECT * FROM transactions WHERE portfolio_id = ? ORDER BY date DESC, created_at DESC',
       [portfolioId]
     );
+
     res.json(rows);
   } catch (error) {
     logger.error('Get Transactions Error:', error);
@@ -277,15 +280,16 @@ router.post('/:id/transactions', async (req, res) => {
 
   const { isValid, error, data } = validate(req.body, {
     stock_symbol: { type: 'string', required: true, message: 'Stock symbol is required' },
-    transaction_type: { type: 'enum', values: TRANSACTION_TYPES, required: true, message: 'Invalid transaction type' },
+    type: { type: 'enum', values: TRANSACTION_TYPES, required: true, message: 'Invalid transaction type' },
     quantity: { type: 'number', positive: true, required: true, message: 'Quantity must be a positive number' },
     price: { type: 'number', min: 0, required: true, message: 'Price must be a non-negative number' },
-    transaction_date: { type: 'string' },
+    date: { type: 'string' },
     id: { type: 'string' }
   });
 
   if (!isValid) return res.status(400).json({ error });
-  const { id, stock_symbol, transaction_type, quantity, price, transaction_date } = data;
+  const { id, stock_symbol, type, quantity, price, date } = data;
+
 
   try {
     // Verify ownership of portfolio
@@ -311,24 +315,26 @@ router.post('/:id/transactions', async (req, res) => {
 
     const [result] = await pool.execute(
       `INSERT INTO transactions 
-            (id, portfolio_id, stock_symbol, transaction_type, quantity, price, transaction_date) 
+            (id, portfolio_id, stock_symbol, type, quantity, price, date) 
             VALUES (?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
             stock_symbol = VALUES(stock_symbol),
-            transaction_type = VALUES(transaction_type),
+            type = VALUES(type),
             quantity = VALUES(quantity),
             price = VALUES(price),
-            transaction_date = VALUES(transaction_date)
+            date = VALUES(date)
             `,
+
       [
         transactionId,
         portfolioId,
         stock_symbol.toUpperCase(),
-        transaction_type,
+        type,
         quantity,
         price,
-        transaction_date || new Date()
+        date || new Date()
       ]
+
     );
 
     const [newItem] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [transactionId]);
@@ -369,5 +375,94 @@ router.delete('/:id/transactions/:tid', async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 });
+
+/**
+ * @route POST /api/portfolios/:id/import
+ * @desc Bulk import transactions for a portfolio
+ */
+router.post('/:id/import', async (req, res) => {
+  const portfolioId = req.params.id;
+  const { transactions } = req.body;
+
+  if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
+
+  if (!transactions || !Array.isArray(transactions)) {
+    return res.status(400).json({ error: 'Transactions array required' });
+  }
+
+  try {
+    // Verify ownership
+    const [check] = await pool.execute(
+      'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
+      [portfolioId, req.currentUser.id]
+    );
+    if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
+
+    const results = {
+      imported: 0,
+      errors: []
+    };
+
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+
+      for (const t of transactions) {
+        // Basic validation for each item
+        if (!t.stock_symbol || !t.type || t.quantity === undefined || t.price === undefined) {
+          results.errors.push({ item: t, error: 'Missing required fields' });
+          continue;
+        }
+
+        if (!TRANSACTION_TYPES.includes(t.type)) {
+          results.errors.push({ item: t, error: 'Invalid transaction type' });
+          continue;
+        }
+
+        const transactionId = t.id || generateUuid();
+
+        await connection.execute(
+          `INSERT INTO transactions 
+              (id, portfolio_id, stock_symbol, type, quantity, price, date) 
+              VALUES (?, ?, ?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+              stock_symbol = VALUES(stock_symbol),
+              type = VALUES(type),
+              quantity = VALUES(quantity),
+              price = VALUES(price),
+              date = VALUES(date)`,
+          [
+            transactionId,
+            portfolioId,
+            t.stock_symbol.toUpperCase(),
+            t.type,
+            t.quantity,
+            t.price,
+            t.date || new Date()
+          ]
+        );
+        results.imported++;
+      }
+
+      await connection.commit();
+      res.json({
+        success: true,
+        message: `Imported ${results.imported} transactions`,
+        results
+      });
+
+    } catch (err) {
+      await connection.rollback();
+      throw err;
+    } finally {
+      connection.release();
+    }
+
+  } catch (error) {
+    logger.error('Import Transactions Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 
 module.exports = router;

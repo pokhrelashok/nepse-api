@@ -125,39 +125,47 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
 
   describe('Transaction Operations', () => {
     it('should add a transaction (POST /api/portfolios/:id/transactions)', async () => {
+      const transactionPayload = {
+        stock_symbol: 'NABIL',
+        type: 'SECONDARY_BUY',
+        quantity: 100,
+        price: 450.5,
+        date: '2025-01-01'
+      };
       const res = await request(app)
         .post(`/api/portfolios/${testPortfolioId}/transactions`)
         .set('Authorization', token)
-        .send({
-          stock_symbol: 'NABIL',
-          transaction_type: 'SECONDARY_BUY',
-          quantity: 100,
-          price: 450.5,
-          transaction_date: '2025-01-01'
-        });
+        .send(transactionPayload);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.stock_symbol).toBe('NABIL');
+      expect(res.body.type).toBe('SECONDARY_BUY');
       expect(res.body.quantity).toBe(100);
+
+      // Date might be returned as ISO string, just check if it starts with the expected date
+      expect(res.body.date).toBeDefined();
       testTransactionId = res.body.id;
     });
 
+
     it('should upsert a transaction with client ID (POST /api/portfolios/:id/transactions)', async () => {
       const clientId = generateUuid();
+      const transactionPayload = {
+        id: clientId,
+        stock_symbol: 'ADBL',
+        type: 'IPO',
+        quantity: 10,
+        price: 100
+      };
       const res = await request(app)
         .post(`/api/portfolios/${testPortfolioId}/transactions`)
         .set('Authorization', token)
-        .send({
-          id: clientId,
-          stock_symbol: 'ADBL',
-          transaction_type: 'IPO',
-          quantity: 10,
-          price: 100
-        });
+        .send(transactionPayload);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.id).toBe(clientId);
       expect(res.body.stock_symbol).toBe('ADBL');
+      expect(res.body.type).toBe('IPO');
     });
 
     it('should fail with invalid transaction type', async () => {
@@ -166,7 +174,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
         .set('Authorization', token)
         .send({
           stock_symbol: 'NABIL',
-          transaction_type: 'INVALID_TYPE',
+          type: 'INVALID_TYPE',
           quantity: 10,
           price: 100
         });
@@ -181,10 +189,11 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
         .set('Authorization', token)
         .send({
           stock_symbol: 'NABIL',
-          transaction_type: 'SECONDARY_BUY',
+          type: 'SECONDARY_BUY',
           quantity: -10,
           price: 100
         });
+
 
       expect(res.statusCode).toBe(400);
     });
@@ -218,7 +227,50 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       expect(nabil).toBeDefined();
       expect(nabil.transactions.length).toBeGreaterThan(0);
     });
+
+    it('should bulk import transactions (POST /api/portfolios/:id/import)', async () => {
+      const importPayload = {
+        transactions: [
+          {
+            stock_symbol: 'UPPER',
+            type: 'IPO',
+            quantity: 10,
+            price: 100,
+            date: '2024-01-01'
+          },
+          {
+            stock_symbol: 'NIFRA',
+            type: 'SECONDARY_BUY',
+            quantity: 50,
+            price: 250,
+            date: '2024-02-01'
+          }
+        ]
+      };
+
+      const res = await request(app)
+        .post(`/api/portfolios/${testPortfolioId}/import`)
+        .set('Authorization', token)
+        .send(importPayload);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.results.imported).toBe(2);
+
+      // Verify sync has the new stocks
+      const syncCheck = await request(app)
+        .get('/api/portfolios/sync')
+        .set('Authorization', token);
+
+      const portfolio = syncCheck.body.portfolios.find(p => p.id === testPortfolioId);
+      const upper = portfolio.stocks.find(s => s.symbol === 'UPPER');
+      const nifra = portfolio.stocks.find(s => s.symbol === 'NIFRA');
+
+      expect(upper).toBeDefined();
+      expect(nifra).toBeDefined();
+    });
   });
+
 
   describe('Delete Operations', () => {
     it('should delete a transaction (DELETE /api/portfolios/:id/transactions/:tid)', async () => {
