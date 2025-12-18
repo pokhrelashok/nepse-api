@@ -5,8 +5,10 @@ import {
   Building2,
   Banknote,
   LogOut,
-  Megaphone
+  Megaphone,
+  Key
 } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "@tanstack/react-router"
 
@@ -47,7 +49,13 @@ export function AdminSidebar({ className }: SidebarProps) {
       icon: Banknote,
       href: "/admin/dividends",
     },
+    {
+      title: "API Keys",
+      icon: Key,
+      href: "/admin/api-keys",
+    },
   ]
+
 
   return (
     <div className={cn("pb-12 min-h-screen border-r bg-background", className)}>

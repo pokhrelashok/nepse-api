@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS api_keys (
+  id VARCHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  api_key VARCHAR(255) NOT NULL UNIQUE,
+  status ENUM('active', 'revoked') DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  last_used_at TIMESTAMP NULL,
+  INDEX idx_api_key (api_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

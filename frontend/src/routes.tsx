@@ -26,6 +26,8 @@ import CompaniesPage from './pages/admin/Companies'
 import PricesPage from './pages/admin/Prices'
 import IposPage from './pages/admin/Ipos'
 import DividendsPage from './pages/admin/Dividends'
+import ApiKeysPage from './pages/admin/ApiKeys'
+
 
 // ... existing imports
 
@@ -96,6 +98,13 @@ export const adminDividendsRoute = createRoute({
   component: DividendsPage,
 })
 
+export const adminApiKeysRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'api-keys',
+  component: ApiKeysPage,
+})
+
+
 export const routeTree = rootRoute.addChildren([
   indexRoute,
   adminRoute.addChildren([
@@ -108,7 +117,9 @@ export const routeTree = rootRoute.addChildren([
       adminCompaniesRoute,
       adminPricesRoute,
       adminIposRoute,
-      adminDividendsRoute
+      adminDividendsRoute,
+      adminApiKeysRoute
+
     ])
   ]),
 ])

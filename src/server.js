@@ -54,10 +54,23 @@ app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
+const apiKeyAuth = require('./middleware/apiKeyAuth');
+
 // API Routes
+app.use('/api', (req, res, next) => {
+  // Paths to exclude from API Key requirement
+  const excludedPaths = ['/health', '/admin/login', '/auth/google'];
+  if (excludedPaths.includes(req.path)) {
+    return next();
+  }
+  return apiKeyAuth(req, res, next);
+});
+
 app.use('/api', apiRoutes);
+app.use('/api/admin', require('./routes/admin'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/portfolios', require('./routes/portfolio'));
+
 
 // React Fallback
 app.get(/(.*)/, (req, res) => {
