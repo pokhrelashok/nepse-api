@@ -154,7 +154,7 @@ router.post('/test-notification', async (req, res) => {
     res.json({
       success: true,
       message: 'Test notification sent',
-      messageId: response
+      message_id: response
     });
 
   } catch (error) {

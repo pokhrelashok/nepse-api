@@ -34,23 +34,24 @@ exports.getMarketStatus = async (req, res) => {
         await saveMarketIndex(indexData);
 
         res.json(formatResponse({
-          isOpen,
+          is_open: isOpen,
           status,
-          marketIndex: {
-            nepseIndex: indexData.nepseIndex,
+          market_index: {
+            nepse_index: indexData.nepseIndex,
             change: indexData.indexChange,
-            percentageChange: indexData.indexPercentageChange,
-            totalTurnover: indexData.totalTurnover,
-            totalTradedShares: indexData.totalTradedShares,
+            percentage_change: indexData.indexPercentageChange,
+            total_turnover: indexData.totalTurnover,
+            total_traded_shares: indexData.totalTradedShares,
             advanced: indexData.advanced,
             declined: indexData.declined,
             unchanged: indexData.unchanged,
-            statusDate: indexData.marketStatusDate,
-            statusTime: indexData.marketStatusTime
+            status_date: indexData.marketStatusDate,
+            status_time: indexData.marketStatusTime
           },
           source: 'LIVE_SCRAPER',
-          lastUpdated: new Date().toISOString()
+          last_updated: new Date().toISOString()
         }));
+
       } finally {
         await scraper.close();
       }
@@ -60,28 +61,30 @@ exports.getMarketStatus = async (req, res) => {
       const marketIndex = await getMarketIndexData();
 
       const response = {
-        isOpen: marketStatus?.isOpen || false,
-        status: marketStatus?.isOpen ? 'OPEN' : 'CLOSED',
+        is_open: marketStatus?.is_open || false,
+        status: marketStatus?.is_open ? 'OPEN' : 'CLOSED',
         source: 'DATABASE_CACHE',
-        lastUpdated: marketStatus?.lastUpdated || new Date().toISOString(),
-        tradingDate: marketStatus?.tradingDate || null
+        last_updated: marketStatus?.last_updated || new Date().toISOString(),
+        trading_date: marketStatus?.trading_date || null
       };
+
 
       // Add market index data if available
       if (marketIndex) {
-        response.marketIndex = {
-          nepseIndex: marketIndex.nepse_index,
+        response.market_index = {
+          nepse_index: marketIndex.nepse_index,
           change: marketIndex.index_change,
-          percentageChange: marketIndex.index_percentage_change,
-          totalTurnover: marketIndex.total_turnover,
-          totalTradedShares: marketIndex.total_traded_shares,
+          percentage_change: marketIndex.index_percentage_change,
+          total_turnover: marketIndex.total_turnover,
+          total_traded_shares: marketIndex.total_traded_shares,
           advanced: marketIndex.advanced,
           declined: marketIndex.declined,
           unchanged: marketIndex.unchanged,
-          statusDate: marketIndex.market_status_date,
-          statusTime: marketIndex.market_status_time
+          status_date: marketIndex.market_status_date,
+          status_time: marketIndex.market_status_time
         };
       }
+
 
       if (marketStatus || marketIndex) {
         res.json(formatResponse(response));
@@ -123,31 +126,33 @@ exports.getUpdates = async (req, res) => {
     }
 
     const response = {
-      isOpen: marketStatus?.isOpen || false,
-      status: marketStatus?.isOpen ? 'OPEN' : 'CLOSED',
+      is_open: marketStatus?.is_open || false,
+      status: marketStatus?.is_open ? 'OPEN' : 'CLOSED',
       source: 'DATABASE_CACHE',
-      lastUpdated: marketStatus?.lastUpdated || new Date().toISOString(),
-      tradingDate: marketStatus?.tradingDate || null,
+      last_updated: marketStatus?.last_updated || new Date().toISOString(),
+      trading_date: marketStatus?.trading_date || null,
       stocks: stocks
     };
 
+
     // Add market index data if available
     if (marketIndex) {
-      response.marketIndex = {
-        nepseIndex: marketIndex.nepse_index,
+      response.market_index = {
+        nepse_index: marketIndex.nepse_index,
         change: marketIndex.index_change,
-        percentageChange: marketIndex.index_percentage_change,
-        totalTurnover: marketIndex.total_turnover,
-        totalTradedShares: marketIndex.total_traded_shares,
+        percentage_change: marketIndex.index_percentage_change,
+        total_turnover: marketIndex.total_turnover,
+        total_traded_shares: marketIndex.total_traded_shares,
         advanced: marketIndex.advanced,
         declined: marketIndex.declined,
         unchanged: marketIndex.unchanged,
-        statusDate: marketIndex.market_status_date,
-        statusTime: marketIndex.market_status_time,
-        tradingDate: marketIndex.trading_date,
+        status_date: marketIndex.market_status_date,
+        status_time: marketIndex.market_status_time,
+        trading_date: marketIndex.trading_date,
         source: marketIndexSource
       };
     }
+
 
     res.json(formatResponse(response));
   } catch (e) {
@@ -194,9 +199,10 @@ exports.getMarketStats = async (req, res) => {
       stats,
       gainers,
       losers,
-      topTurnover,
-      topVolume
+      top_turnover: topTurnover,
+      top_volume: topVolume
     }));
+
   } catch (e) {
     logger.error('API Stats Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
@@ -217,16 +223,17 @@ exports.getMarketSummary = async (req, res) => {
 
     res.json(formatResponse({
       ...stats,
-      marketMetrics: {
-        totalVolume,
-        totalTurnover,
+      market_metrics: {
+        total_volume: totalVolume,
+        total_turnover: totalTurnover,
         gainers,
         losers,
         unchanged,
-        totalStocks: recentPrices.length
+        total_stocks: recentPrices.length
       },
       timestamp: new Date().toISOString()
     }));
+
   } catch (e) {
     console.error('API Market Summary Error:', e);
     res.status(500).json(formatError("Internal Server Error"));

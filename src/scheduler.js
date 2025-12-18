@@ -13,22 +13,24 @@ class Scheduler {
     this.isMarketOpen = false; // Track market status for index updates
     this.isJobRunning = new Map(); // Track if a specific job is currently executing
     this.stats = {
-      indexUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 },
-      priceUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 },
-      closeUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 },
-      companyDetailsUpdate: { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 }
+      index_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
+      price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
+      close_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
+      company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 }
     };
+
   }
 
   // Get scheduler health/stats
   getHealth() {
     return {
-      isRunning: this.isRunning,
-      activeJobs: this.getActiveJobs(),
-      currentlyExecuting: Array.from(this.isJobRunning.entries()).filter(([, v]) => v).map(([k]) => k),
+      is_running: this.isRunning,
+      active_jobs: this.getActiveJobs(),
+      currently_executing: Array.from(this.isJobRunning.entries()).filter(([, v]) => v).map(([k]) => k),
       stats: this.stats
     };
   }
+
 
   async startPriceUpdateSchedule() {
     if (this.isRunning) {
@@ -70,10 +72,11 @@ class Scheduler {
       timezone: 'Asia/Kathmandu'
     });
 
-    this.jobs.set('indexUpdate', indexJob);
-    this.jobs.set('priceUpdate', priceJob);
-    this.jobs.set('closeUpdate', closeJob);
-    this.jobs.set('companyDetailsUpdate', companyDetailsJob);
+    this.jobs.set('index_update', indexJob);
+    this.jobs.set('price_update', priceJob);
+    this.jobs.set('close_update', closeJob);
+    this.jobs.set('company_details_update', companyDetailsJob);
+
 
     // IPO Scraper (Once a day at 2:00 AM)
     const ipoJob = cron.schedule('0 2 * * *', async () => {
@@ -82,7 +85,8 @@ class Scheduler {
       scheduled: false,
       timezone: 'Asia/Kathmandu'
     });
-    this.jobs.set('ipoUpdate', ipoJob);
+    this.jobs.set('ipo_update', ipoJob);
+
     ipoJob.start();
 
     // Announced Dividends Scraper (Once a day at 2:30 AM)
@@ -92,7 +96,8 @@ class Scheduler {
       scheduled: false,
       timezone: 'Asia/Kathmandu'
     });
-    this.jobs.set('dividendUpdate', dividendJob);
+    this.jobs.set('dividend_update', dividendJob);
+
     dividendJob.start();
 
     indexJob.start();
@@ -105,7 +110,8 @@ class Scheduler {
   }
 
   async updateMarketIndex() {
-    const jobKey = 'indexUpdate';
+    const jobKey = 'index_update';
+
 
     // Only update when market is open (check time in Nepal timezone)
     const now = new Date();
@@ -130,7 +136,8 @@ class Scheduler {
     }
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].lastRun = new Date().toISOString();
+    this.stats[jobKey].last_run = new Date().toISOString();
+
 
     try {
       // Check market status
@@ -147,19 +154,21 @@ class Scheduler {
         await saveMarketIndex(indexData);
         console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
 
-        this.stats[jobKey].lastSuccess = new Date().toISOString();
-        this.stats[jobKey].successCount++;
+        this.stats[jobKey].last_success = new Date().toISOString();
+        this.stats[jobKey].success_count++;
       }
     } catch (error) {
       logger.error('Index update failed:', error);
-      this.stats[jobKey].failCount++;
+      this.stats[jobKey].fail_count++;
     } finally {
+
       this.isJobRunning.set(jobKey, false);
     }
   }
 
   async updatePricesAndStatus(phase) {
-    const jobKey = phase === 'AFTER_CLOSE' ? 'closeUpdate' : 'priceUpdate';
+    const jobKey = phase === 'AFTER_CLOSE' ? 'close_update' : 'price_update';
+
 
     // Prevent overlapping runs
     if (this.isJobRunning.get(jobKey)) {
@@ -168,7 +177,8 @@ class Scheduler {
     }
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].lastRun = new Date().toISOString();
+    this.stats[jobKey].last_run = new Date().toISOString();
+
 
     logger.info(`Scheduled ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update started...`);
 
@@ -205,18 +215,20 @@ class Scheduler {
         console.log('🔒 Market is closed, skipping price update');
       }
 
-      this.stats[jobKey].lastSuccess = new Date().toISOString();
-      this.stats[jobKey].successCount++;
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
     } catch (error) {
       logger.error('Scheduled update failed:', error);
-      this.stats[jobKey].failCount++;
+      this.stats[jobKey].fail_count++;
     } finally {
+
       this.isJobRunning.set(jobKey, false);
     }
   }
 
   async updateCompanyDetails(fetchAll = false) {
-    const jobKey = 'companyDetailsUpdate';
+    const jobKey = 'company_details_update';
+
 
     // Prevent overlapping runs
     if (this.isJobRunning.get(jobKey)) {
@@ -225,7 +237,8 @@ class Scheduler {
     }
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].lastRun = new Date().toISOString();
+    this.stats[jobKey].last_run = new Date().toISOString();
+
 
     console.log(`🏢 Scheduled company details update started (fetchAll: ${fetchAll})...`);
 
@@ -257,23 +270,25 @@ class Scheduler {
 
       console.log(`✅ Scraped and saved details for ${details.length} companies`);
 
-      this.stats[jobKey].lastSuccess = new Date().toISOString();
-      this.stats[jobKey].successCount++;
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
     } catch (error) {
       logger.error('Company details update failed:', error);
-      this.stats[jobKey].failCount++;
+      this.stats[jobKey].fail_count++;
     } finally {
+
       this.isJobRunning.set(jobKey, false);
     }
   }
 
   async runIpoScrape() {
-    const jobKey = 'ipoUpdate';
+    const jobKey = 'ipo_update';
     if (this.isJobRunning.get(jobKey)) return;
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey] = this.stats[jobKey] || { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 };
-    this.stats[jobKey].lastRun = new Date().toISOString();
+    this.stats[jobKey] = this.stats[jobKey] || { last_run: null, last_success: null, success_count: 0, fail_count: 0 };
+    this.stats[jobKey].last_run = new Date().toISOString();
+
 
     logger.info('Starting scheduled IPO scrape...');
 
@@ -290,44 +305,48 @@ class Scheduler {
       // If user wants --all, they can run manual script.
       await scrapeIpos(false);
 
-      this.stats[jobKey].lastSuccess = new Date().toISOString();
-      this.stats[jobKey].successCount++;
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
     } catch (error) {
       logger.error('Scheduled IPO scrape failed:', error);
-      this.stats[jobKey].failCount++;
+      this.stats[jobKey].fail_count++;
     } finally {
+
       this.isJobRunning.set(jobKey, false);
     }
   }
 
   async runDividendScrape() {
-    const jobKey = 'dividendUpdate';
+    const jobKey = 'dividend_update';
     if (this.isJobRunning.get(jobKey)) return;
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey] = this.stats[jobKey] || { lastRun: null, lastSuccess: null, successCount: 0, failCount: 0 };
-    this.stats[jobKey].lastRun = new Date().toISOString();
+    this.stats[jobKey] = this.stats[jobKey] || { last_run: null, last_success: null, success_count: 0, fail_count: 0 };
+    this.stats[jobKey].last_run = new Date().toISOString();
+
 
     logger.info('Starting scheduled Announced Dividend scrape...');
 
     try {
       await scrapeDividends(false); // Default to incremental/page 1 if appropriate, maybe change to true if daily full check is needed
 
-      this.stats[jobKey].lastSuccess = new Date().toISOString();
-      this.stats[jobKey].successCount++;
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
     } catch (error) {
       logger.error('Scheduled Announced Dividend scrape failed:', error);
-      this.stats[jobKey].failCount++;
+      this.stats[jobKey].fail_count++;
     } finally {
+
       this.isJobRunning.set(jobKey, false);
     }
   }
 
   async stopPriceUpdateSchedule() {
-    const job = this.jobs.get('priceUpdate');
+    const job = this.jobs.get('price_update');
     if (job) {
       job.stop();
-      this.jobs.delete('priceUpdate');
+      this.jobs.delete('price_update');
+
       console.log('🛑 Price update schedule stopped');
     }
   }

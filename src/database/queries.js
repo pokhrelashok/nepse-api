@@ -200,9 +200,10 @@ async function getAllCompanies() {
       cd.logo_url AS logo,
       cd.sector_name AS sector,
       cd.status,
-      sp.percentage_change AS todaysChange,
-      sp.\`change\` AS priceChange
+      sp.percentage_change AS todays_change,
+      sp.\`change\` AS price_change
     FROM company_details cd
+
     LEFT JOIN stock_prices sp ON cd.symbol = sp.symbol
     ORDER BY cd.company_name
   `;
@@ -278,12 +279,13 @@ async function getCurrentMarketStatus() {
   if (rows.length > 0) {
     const row = rows[0];
     return {
-      isOpen: Boolean(row.is_open),
+      is_open: Boolean(row.is_open),
       status: row.status || (Boolean(row.is_open) ? 'OPEN' : 'CLOSED'),
-      lastUpdated: row.last_updated,
-      tradingDate: row.trading_date
+      last_updated: row.last_updated,
+      trading_date: row.trading_date
     };
   }
+
   return null;
 }
 
@@ -362,6 +364,7 @@ async function saveMarketIndex(indexData) {
     const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
     return nepaliDate.toISOString().split('T')[0];
   })();
+
 
   const sql = `
     INSERT INTO market_index (

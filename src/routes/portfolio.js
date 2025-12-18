@@ -102,26 +102,29 @@ router.get('/sync', async (req, res) => {
         id: portfolio.id.toString(), // Client expects "id"
         name: portfolio.name,
         stocks: Array.from(stocksMap.values()),
-        lastUpdated: lastUpdated
+        last_updated: lastUpdated
       };
     });
+
 
     // Build metadata (Optional, depends on client needs, but keeping it for now)
     const metadata = portfolios.map(p => ({
       id: p.id.toString(),
       name: p.name,
-      createdAt: new Date(p.created_at).getTime(),
-      lastUpdated: new Date(p.updated_at || p.created_at).getTime()
+      created_at: new Date(p.created_at).getTime(),
+      last_updated: new Date(p.updated_at || p.created_at).getTime()
     }));
 
+
     // Default selected portfolio is the first one
-    const selectedPortfolioId = portfolios.length > 0 ? portfolios[0].id.toString() : null;
+    const selected_portfolio_id = portfolios.length > 0 ? portfolios[0].id.toString() : null;
 
     res.json({
       portfolios: portfoliosData,
       metadata: metadata,
-      selectedPortfolioId: selectedPortfolioId
+      selected_portfolio_id: selected_portfolio_id
     });
+
 
   } catch (error) {
     logger.error('Get Portfolios Sync Error:', error);
