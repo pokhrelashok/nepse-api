@@ -62,7 +62,17 @@ class NepseScraper {
             '--disable-translate',
             '--disable-background-networking',
             '--disable-background-mode',
-            '--disable-http2'
+            '--disable-http2',
+            // Storage and Cache optimizations
+            '--aggressive-cache-discard',
+            '--disable-cache',
+            '--disable-application-cache',
+            '--disable-gpu-shader-disk-cache',
+            '--media-cache-size=0',
+            '--disk-cache-size=0',
+            // Speed and resource optimizations
+            '--blink-settings=imagesEnabled=false',
+            '--blink-settings=stylesheetEnabled=false'
           ]
         };
 

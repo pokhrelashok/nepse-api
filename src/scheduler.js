@@ -1,4 +1,7 @@
 const cron = require('node-cron');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
 const { insertTodayPrices, updateMarketStatus, saveMarketIndex, saveMarketSummary, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
@@ -16,7 +19,8 @@ class Scheduler {
       index_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
       price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
       close_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
-      company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 }
+      company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
+      cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 }
     };
 
   }
@@ -98,7 +102,17 @@ class Scheduler {
     });
     this.jobs.set('dividend_update', dividendJob);
 
+    // System Cleanup (Once a day at 4:30 AM - when no other jobs are running)
+    const cleanupJob = cron.schedule('30 4 * * *', async () => {
+      await this.runSystemCleanup();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('cleanup_update', cleanupJob);
+
     dividendJob.start();
+    cleanupJob.start();
 
     indexJob.start();
     priceJob.start();
@@ -329,6 +343,62 @@ class Scheduler {
       this.stats[jobKey].fail_count++;
     } finally {
 
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async runSystemCleanup() {
+    const jobKey = 'cleanup_update';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.stats[jobKey].last_run = new Date().toISOString();
+
+    logger.info('🧹 Starting scheduled system cleanup...');
+
+    try {
+      const tmpDir = os.tmpdir();
+      const files = fs.readdirSync(tmpDir);
+      const now = Date.now();
+      const MAX_AGE_MS = 3600 * 1000; // 1 hour
+
+      let deletedCount = 0;
+      let keptCount = 0;
+
+      for (const file of files) {
+        if (file.startsWith('nepse-scraper-')) {
+          const filePath = path.join(tmpDir, file);
+          try {
+            const stats = fs.statSync(filePath);
+            const age = now - stats.mtimeMs;
+
+            if (age > MAX_AGE_MS) {
+              fs.rmSync(filePath, { recursive: true, force: true });
+              deletedCount++;
+              // logger.info(`Deleted old temp dir: ${file}`);
+            } else {
+              keptCount++;
+            }
+          } catch (err) {
+            // Ignore errors (file might be gone or locked)
+          }
+        }
+      }
+
+      if (deletedCount > 0) {
+        logger.info(`✅ Cleaned up ${deletedCount} old temp directories (kept ${keptCount} recent ones)`);
+      } else if (keptCount > 0) {
+        logger.info(`ℹ️ No old temp directories to clean (found ${keptCount} active/recent ones)`);
+      } else {
+        logger.info('ℹ️ No temp directories found');
+      }
+
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
+    } catch (error) {
+      logger.error('System cleanup failed:', error);
+      this.stats[jobKey].fail_count++;
+    } finally {
       this.isJobRunning.set(jobKey, false);
     }
   }
