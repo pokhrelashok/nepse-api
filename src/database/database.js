@@ -71,11 +71,22 @@ async function savePrices(prices) {
 
     for (const p of prices) {
       await connection.execute(sql, [
-        p.businessDate, p.securityId, p.symbol, p.securityName,
-        p.openPrice, p.highPrice, p.lowPrice, p.closePrice,
-        p.totalTradedQuantity, p.totalTradedValue, p.previousClose,
-        p.change, p.percentageChange, p.lastTradedPrice,
-        p.fiftyTwoWeekHigh, p.fiftyTwoWeekLow
+        p.business_date || null,
+        p.security_id || null,
+        p.symbol || null,
+        p.security_name || null,
+        p.open_price ?? 0,
+        p.high_price ?? 0,
+        p.low_price ?? 0,
+        p.close_price ?? 0,
+        p.total_traded_quantity ?? 0,
+        p.total_traded_value ?? 0,
+        p.previous_close ?? 0,
+        p.change ?? 0,
+        p.percentage_change ?? 0,
+        p.last_traded_price ?? 0,
+        p.fifty_two_week_high ?? 0,
+        p.fifty_two_week_low ?? 0
       ]);
     }
 
@@ -144,15 +155,37 @@ async function saveCompanyDetails(detailsArray) {
 
     for (const d of detailsArray) {
       await connection.execute(sql, [
-        d.securityId, d.symbol, d.companyName, d.sectorName,
-        d.instrumentType, d.issueManager, d.shareRegistrar,
-        d.listingDate, d.totalListedShares, d.paidUpCapital,
-        d.totalPaidUpValue || null, d.email, d.website, d.status || null, d.permittedToTrade || null,
-        d.promoterShares || null, d.publicShares || null, d.marketCapitalization || null,
-        d.logoUrl || null, d.isLogoPlaceholder ? 1 : 0, d.lastTradedPrice || null,
-        d.openPrice || null, d.closePrice || null, d.highPrice || null, d.lowPrice || null, d.previousClose || null,
-        d.fiftyTwoWeekHigh || null, d.fiftyTwoWeekLow || null, d.totalTradedQuantity || null,
-        d.totalTrades || null, d.averageTradedPrice || null
+        d.security_id || null,
+        d.symbol || null,
+        d.company_name || null,
+        d.sector_name || null,
+        d.instrument_type || null,
+        d.issue_manager || null,
+        d.share_registrar || null,
+        d.listing_date || null,
+        d.total_listed_shares ?? 0,
+        d.paid_up_capital ?? 0,
+        d.total_paid_up_value ?? 0,
+        d.email || null,
+        d.website || null,
+        d.status || null,
+        d.permitted_to_trade || null,
+        d.promoter_shares ?? 0,
+        d.public_shares ?? 0,
+        d.market_capitalization ?? 0,
+        d.logo_url || null,
+        d.is_logo_placeholder ? 1 : 0,
+        d.last_traded_price ?? 0,
+        d.open_price ?? 0,
+        d.close_price ?? 0,
+        d.high_price ?? 0,
+        d.low_price ?? 0,
+        d.previous_close ?? 0,
+        d.fifty_two_week_high ?? 0,
+        d.fifty_two_week_low ?? 0,
+        d.total_traded_quantity ?? 0,
+        d.total_trades ?? 0,
+        d.average_traded_price ?? 0
       ]);
     }
 
@@ -188,8 +221,12 @@ async function saveDividends(dividends) {
 
     for (const d of dividends) {
       await connection.execute(sql, [
-        d.securityId, d.fiscalYear, d.bonusShare, d.cashDividend,
-        d.totalDividend, d.bookCloseDate
+        d.securityId || null,
+        d.fiscalYear || null,
+        d.bonusShare ?? 0,
+        d.cashDividend ?? 0,
+        d.totalDividend ?? 0,
+        d.bookCloseDate || null
       ]);
     }
 
@@ -227,9 +264,14 @@ async function saveFinancials(financials) {
 
     for (const f of financials) {
       await connection.execute(sql, [
-        f.securityId, f.fiscalYear, f.quarter, f.paidUpCapital,
-        f.netProfit, f.earningsPerShare, f.netWorthPerShare,
-        f.priceEarningsRatio
+        f.securityId || null,
+        f.fiscalYear || null,
+        f.quarter || null,
+        f.paidUpCapital ?? 0,
+        f.netProfit ?? 0,
+        f.earningsPerShare ?? 0,
+        f.netWorthPerShare ?? 0,
+        f.priceEarningsRatio ?? 0
       ]);
     }
 

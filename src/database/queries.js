@@ -410,31 +410,6 @@ async function getMarketIndexHistory(days = 7) {
   return rows;
 }
 
-module.exports = {
-  searchStocks,
-  getScriptDetails,
-  getLatestPrices,
-  getAllCompanies,
-  getCompaniesBySector,
-  getTopCompaniesByMarketCap,
-  getCompanyStats,
-  getAllSecurityIds,
-  getSecurityIdsWithoutDetails,
-  getSecurityIdsBySymbols,
-  insertTodayPrices,
-  insertCompanyDetails,
-  insertDividends,
-  insertFinancials,
-  updateMarketStatus,
-  getCurrentMarketStatus,
-  saveMarketIndex,
-  getMarketIndexData,
-  getMarketIndexHistory,
-  insertIpo,
-  getIpos,
-  insertAnnouncedDividends,
-  getAnnouncedDividends
-};
 
 // IPO functions
 async function insertIpo(ipoData) {
@@ -598,9 +573,13 @@ module.exports = {
   updateMarketStatus,
   saveMarketIndex,
   getCurrentMarketStatus,
-  getMarketIndexData, // Make sure this exists
-  getMarketIndexHistory, // Make sure this exists
+  getMarketIndexData,
+  getMarketIndexHistory,
   getMarketStatusHistory,
+  insertTodayPrices,
+  insertCompanyDetails,
+  insertDividends,
+  insertFinancials,
   insertIpo,
   getIpos,
   insertAnnouncedDividends,
