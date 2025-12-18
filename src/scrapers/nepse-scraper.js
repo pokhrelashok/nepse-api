@@ -28,6 +28,7 @@ class NepseScraper {
 
         const launchOptions = {
           headless: true,
+          pipe: true, // Use pipe instead of websocket for better stability
           timeout: 60000,
           ignoreHTTPSErrors: true, // Ignore SSL certificate errors from nepalstock.com
           args: [
@@ -51,7 +52,6 @@ class NepseScraper {
             '--disable-translate',
             '--disable-background-networking',
             '--disable-background-mode',
-            '--remote-debugging-port=0',
             '--disable-http2'
           ]
         };
