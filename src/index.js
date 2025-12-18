@@ -7,6 +7,7 @@ const { scrapeIpos } = require('./scrapers/ipo-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
 const { getAllSecurityIds, getSecurityIdsWithoutDetails, getSecurityIdsBySymbols, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials, updateMarketStatus, saveMarketSummary } = require('./database/queries');
 const { formatPricesForDatabase, formatCompanyDetailsForDatabase } = require('./utils/formatter');
+const NotificationService = require('./services/notification-service');
 const { db } = require('./database/database');
 const fs = require('fs');
 const path = require('path');
@@ -237,6 +238,18 @@ program
       console.log('📊 Scraping Announced Dividends...');
       await scrapeDividends(options.all);
       console.log('✅ Dividend scraping completed');
+    } catch (error) {
+      console.error('❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('notifications')
+  .description('Check and send daily notifications')
+  .action(async () => {
+    try {
+      await NotificationService.checkAndSendNotifications();
     } catch (error) {
       console.error('❌ Error:', error.message);
       process.exit(1);
