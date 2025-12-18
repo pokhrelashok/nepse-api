@@ -10,15 +10,9 @@ const { formatResponse } = require('../utils/formatter');
 router.get('/', (req, res) => {
   res.json({
     message: 'Welcome to NEPSE Portfolio API',
-    version: '2.2.0',
-    endpoints: {
-      updates: '/api/updates',
-      market: '/api/market/status',
-      companies: '/api/companies',
-      search: '/api/search?q=NABIL',
-      health: '/api/health'
-    },
-    documentation: 'https://github.com/pokhrelashok/nepal-stock-scraper'
+    version: '2.1.0',
+    documentation: 'API specification available in the api-spec directory of the repository',
+    github: 'https://github.com/pokhrelashok/nepal-stock-scraper'
   });
 });
 

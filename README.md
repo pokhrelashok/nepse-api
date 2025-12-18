@@ -46,22 +46,9 @@ npm run scraper
 npm test
 ```
 
-## API Endpoints
+## API Specification
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/scripts` | Get all companies with pagination |
-| GET | `/api/scripts/SYMBOL` | Get detailed company information |
-| GET | `/api/companies/sector/SECTOR` | Filter companies by sector |
-| GET | `/api/companies/top/N` | Top N companies by market cap |
-| GET | `/api/market/stats` | Market statistics and insights |
-| **GET** | **`/api/market/status`** | **Get current market status (cached)** |
-| **GET** | **`/api/market/status?refresh=true`** | **Get live market status** |
-| GET | `/api/search?q=QUERY` | Search stocks by symbol or name |
-| **POST** | **`/api/updates`** | **Get consolidated market updates: stock prices, market status, and index data** |
-| **POST** | **`/api/scheduler/start`** | **Start the automated price scheduler** |
-| **POST** | **`/api/scheduler/stop`** | **Stop the automated price scheduler** |
-| **GET** | **`/api/scheduler/status`** | **Get scheduler status and active jobs** |
+Detailed information about all available API endpoints, including request/response examples, can be found in the [api-spec](./api-spec) directory. We use [Bruno](https://usebruno.com) for API exploration.
 
 ## Scripts
 

@@ -94,32 +94,10 @@ curl http://localhost/api/market/status
 ./monitor.sh
 ```
 
-## 🌐 API Endpoints
+## API Specification
 
-After deployment, these endpoints will be available:
+Refer to the [api-spec](./api-spec) directory for full documentation of all available endpoints.
 
-### Market Data
-
-- `GET /api/market/status` - Market open/closed status
-- `GET /api/market/stats` - Market statistics
-- `GET /api/market/gainers` - Top gainers
-- `GET /api/market/losers` - Top losers
-
-### Stock Data
-
-- `GET /api/stocks/search?q={query}` - Search stocks
-- `GET /api/stocks/prices` - Latest stock prices
-- `GET /api/stocks/{symbol}` - Specific stock details
-
-### Company Data
-
-- `GET /api/companies` - All companies
-- `GET /api/companies/top` - Top companies by market cap
-- `GET /api/companies/sector/{sector}` - Companies by sector
-
-### Static Assets
-
-- `GET /images/{symbol}.png` - Company logos
 
 ## 🔄 Maintenance Commands
 

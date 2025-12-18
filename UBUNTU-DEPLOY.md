@@ -71,15 +71,10 @@ sudo -u nepse npm run update:prices     # Update stock prices
 sudo -u nepse npm run update:companies  # Update company data
 ```
 
-## 🌐 Your API Endpoints
+## API Specification
 
-After deployment, these will be available at `https://yourdomain.com`:
+Refer to the [api-spec](./api-spec) directory for full documentation of all available endpoints.
 
-- `/api/market/status` - Market open/closed
-- `/api/stocks/prices` - Latest stock prices  
-- `/api/stocks/search?q=NABIL` - Search stocks
-- `/api/companies/top` - Top companies
-- `/images/NABIL.png` - Company logos
 
 ## 📊 Monitoring Dashboard
 

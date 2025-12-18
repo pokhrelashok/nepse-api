@@ -55,8 +55,8 @@ program
     try {
       console.log('🔍 Checking market status...');
       scraper = new NepseScraper();
-      const isOpen = await scraper.scrapeMarketStatus();
-      console.log(`📊 Market is ${isOpen ? 'OPEN' : 'CLOSED'}`);
+      const status = await scraper.scrapeMarketStatus();
+      console.log(`📊 Market is ${status}`);
     } catch (error) {
       console.error('❌ Error:', error.message);
       process.exit(1);

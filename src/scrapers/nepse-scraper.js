@@ -104,8 +104,6 @@ class NepseScraper {
       console.log('✅ Page loaded successfully');
 
       try {
-        console.log('⏳ Waiting for page body...');
-        await page.waitForSelector('body', { timeout: 10000 });
         console.log('📖 Reading page content...');
         const bodyText = await page.evaluate(() => document.body.innerText);
 
@@ -118,8 +116,13 @@ class NepseScraper {
         if (isOpen) return 'OPEN';
         if (isClosed) return 'CLOSED';
 
+        // Additional Check: Look for "As of ... 3:00:00 PM" which typically implies closed
+        if (bodyText.includes('3:00:00 PM')) {
+          return 'CLOSED';
+        }
+
         // Fallback: time-based check
-        console.log('⏰ Using time-based market status fallback...');
+        // console.log('⏰ Standard status text not found, validating against market hours...');
         const now = DateTime.now().setZone('Asia/Kathmandu');
         const currentTime = now.hour * 100 + now.minute;
 

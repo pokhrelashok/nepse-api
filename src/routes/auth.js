@@ -5,6 +5,7 @@ const logger = require('../utils/logger');
 const { verifyToken } = require('../middleware/auth');
 const { pool } = require('../database/database');
 const { generateUuid } = require('../utils/uuid');
+const { validate } = require('../utils/validator');
 
 /**
  * @route POST /api/auth/google
@@ -31,7 +32,7 @@ router.post('/google', async (req, res) => {
       // Update existing user
       await pool.execute(
         'UPDATE users SET email = ?, display_name = ?, avatar_url = ? WHERE google_id = ?',
-        [email, name, picture, uid]
+        [email, name || null, picture || null, uid]
       );
       // Fetch updated
       const [updated] = await pool.execute('SELECT * FROM users WHERE google_id = ?', [uid]);
@@ -42,7 +43,7 @@ router.post('/google', async (req, res) => {
       const userId = generateUuid();
       await pool.execute(
         'INSERT INTO users (id, google_id, email, display_name, avatar_url) VALUES (?, ?, ?, ?, ?)',
-        [userId, uid, email, name, picture]
+        [userId, uid, email, name || null, picture || null]
       );
       const [newUser] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
       user = newUser[0];
@@ -71,16 +72,18 @@ router.post('/google', async (req, res) => {
  * @access Private
  */
 router.post('/fcm', verifyToken, async (req, res) => {
-  const { fcm_token, device_type } = req.body;
   const userId = req.currentUser ? req.currentUser.id : null;
-
-  if (!fcm_token) {
-    return res.status(400).json({ error: 'FCM token required' });
-  }
-
   if (!userId) {
     return res.status(404).json({ error: 'User not found in database. Please login first.' });
   }
+
+  const { isValid, error, data } = validate(req.body, {
+    fcm_token: { type: 'string', required: true, message: 'FCM token required' },
+    device_type: { type: 'string', default: 'android' }
+  });
+
+  if (!isValid) return res.status(400).json({ error });
+  const { fcm_token, device_type } = data;
 
   try {
     // Check if token exists
@@ -121,11 +124,14 @@ router.post('/fcm', verifyToken, async (req, res) => {
  * @access Semi-public (requires knowing the FCM token)
  */
 router.post('/test-notification', async (req, res) => {
-  const { fcm_token, title, body } = req.body;
+  const { isValid, error, data } = validate(req.body, {
+    fcm_token: { type: 'string', required: true, message: 'fcm_token is required' },
+    title: { type: 'string', default: 'Test Notification' },
+    body: { type: 'string', default: 'This is a test notification from NEPSE Portfolio.' }
+  });
 
-  if (!fcm_token) {
-    return res.status(400).json({ error: 'fcm_token is required' });
-  }
+  if (!isValid) return res.status(400).json({ error });
+  const { fcm_token, title, body } = data;
 
   try {
     // Send notification directly to the provided FCM token

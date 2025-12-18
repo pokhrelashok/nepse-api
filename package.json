@@ -14,9 +14,11 @@
     "scraper:companies": "node src/index.js companies",
     "scraper:details": "node src/index.js companies",
     "scraper:ipo": "node src/index.js ipos",
-    "test": "npm run test:scraper && npm run test:api",
+    "test": "npm run test:scraper && npm run test:api && npm run test:portfolio",
     "test:scraper": "node tests/scraper.test.js",
     "test:api": "node tests/api.test.js",
+    "test:portfolio": "npx jest tests/portfolio_full_crud.test.js",
+    "test:unit": "npx jest",
     "clean": "rm -rf logs/*.log public/images/*",
     "build": "cd frontend && npm install && npm run build",
     "lint": "echo 'Linting not configured'",
@@ -63,7 +65,8 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.0",
-    "supertest": "^7.1.4"
+    "supertest": "^7.1.4",
+    "jest": "^29.7.0"
   },
   "engines": {
     "node": ">=16.0.0"

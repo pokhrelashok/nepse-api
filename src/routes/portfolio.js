@@ -4,6 +4,7 @@ const { pool } = require('../database/database');
 const logger = require('../utils/logger');
 const { verifyToken } = require('../middleware/auth');
 const { generateUuid } = require('../utils/uuid');
+const { validate } = require('../utils/validator');
 
 // Apply auth middleware to all portfolio routes
 router.use(verifyToken);
@@ -131,17 +132,16 @@ router.get('/sync', async (req, res) => {
  * @desc Create or Update (Sync) a new portfolio
  */
 router.post('/', async (req, res) => {
-  const { id, name, color } = req.body;
-
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
-  // Validation
-  if (!name || typeof name !== 'string' || name.trim().length === 0) {
-    return res.status(400).json({ error: 'Portfolio name required' });
-  }
-  if (name.length > 50) {
-    return res.status(400).json({ error: 'Portfolio name too long (max 50 chars)' });
-  }
+  const { isValid, error, data } = validate(req.body, {
+    name: { type: 'string', required: true, max: 50, message: 'Portfolio name required' },
+    color: { type: 'string', default: '#000000' },
+    id: { type: 'string' }
+  });
+
+  if (!isValid) return res.status(400).json({ error });
+  const { id, name, color } = data;
 
   try {
     let portfolioId = id;
@@ -179,18 +179,16 @@ router.post('/', async (req, res) => {
  * @desc Update a portfolio (Legacy - Sync uses POST with ID)
  */
 router.put('/:id', async (req, res) => {
-  const { name, color } = req.body;
   const portfolioId = req.params.id;
-
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
-  // Validation
-  if (name && (typeof name !== 'string' || name.trim().length === 0)) {
-    return res.status(400).json({ error: 'Invalid portfolio name' });
-  }
-  if (name && name.length > 50) {
-    return res.status(400).json({ error: 'Portfolio name too long (max 50 chars)' });
-  }
+  const { isValid, error, data } = validate(req.body, {
+    name: { type: 'string', max: 50 },
+    color: { type: 'string' }
+  });
+
+  if (!isValid) return res.status(400).json({ error });
+  const { name, color } = data;
 
   try {
     // Verify ownership
@@ -275,30 +273,19 @@ router.get('/:id/transactions', async (req, res) => {
  */
 router.post('/:id/transactions', async (req, res) => {
   const portfolioId = req.params.id;
-  const { id, stock_symbol, transaction_type, quantity, price, transaction_date } = req.body;
-
   if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
 
-  // Validation
-  if (!transaction_type || !TRANSACTION_TYPES.includes(transaction_type)) {
-    return res.status(400).json({
-      error: 'Invalid transaction type',
-      validTypes: TRANSACTION_TYPES
-    });
-  }
+  const { isValid, error, data } = validate(req.body, {
+    stock_symbol: { type: 'string', required: true, message: 'Stock symbol is required' },
+    transaction_type: { type: 'enum', values: TRANSACTION_TYPES, required: true, message: 'Invalid transaction type' },
+    quantity: { type: 'number', positive: true, required: true, message: 'Quantity must be a positive number' },
+    price: { type: 'number', min: 0, required: true, message: 'Price must be a non-negative number' },
+    transaction_date: { type: 'string' },
+    id: { type: 'string' }
+  });
 
-  if (quantity === undefined || isNaN(quantity) || parseFloat(quantity) <= 0) {
-    return res.status(400).json({ error: 'Quantity must be a positive number' });
-  }
-
-  if (price === undefined || isNaN(price) || parseFloat(price) < 0) {
-    return res.status(400).json({ error: 'Price must be a non-negative number' });
-  }
-
-  // Ensure stock_symbol is present
-  if (!stock_symbol) {
-    return res.status(400).json({ error: 'Stock symbol is required' });
-  }
+  if (!isValid) return res.status(400).json({ error });
+  const { id, stock_symbol, transaction_type, quantity, price, transaction_date } = data;
 
   try {
     // Verify ownership of portfolio
