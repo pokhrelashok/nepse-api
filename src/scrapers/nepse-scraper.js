@@ -72,7 +72,8 @@ class NepseScraper {
             '--disk-cache-size=0',
             // Speed and resource optimizations
             '--blink-settings=imagesEnabled=false',
-            '--blink-settings=stylesheetEnabled=false'
+            '--blink-settings=stylesheetEnabled=false',
+            '--ignore-certificate-errors'
           ]
         };
 
