@@ -153,17 +153,53 @@ router.get('/preferences', verifyToken, async (req, res) => {
 
 /**
  * @route PUT /api/auth/preferences
- * @desc Update user notification preferences
+ * @desc Update user notification preferences (Full Update)
  * @access Private
  */
 router.put('/preferences', verifyToken, async (req, res) => {
+  return updatePreferences(req, res);
+});
+
+/**
+ * @route PATCH /api/auth/preferences
+ * @desc Update user notification preferences (Partial Update)
+ * @access Private
+ */
+router.patch('/preferences', verifyToken, async (req, res) => {
+  return updatePreferences(req, res);
+});
+
+// Shared helper for updating preferences
+async function updatePreferences(req, res) {
   const userId = req.currentUser ? req.currentUser.id : null;
   if (!userId) return res.status(404).json({ error: 'User not found' });
 
-  const { notify_ipos, notify_dividends } = req.body;
+  // Handle both naming conventions (DB vs Client)
+  // Client usage: ipo_alerts, dividend_alerts
+  // DB usage: notify_ipos, notify_dividends
+  let { notify_ipos, notify_dividends, ipo_alerts, dividend_alerts } = req.body;
 
+  // Map client keys to DB keys if provided
+  if (ipo_alerts !== undefined) notify_ipos = ipo_alerts;
+  if (dividend_alerts !== undefined) notify_dividends = dividend_alerts;
+
+  // For PATCH, we need to fetch current values first if some are missing
+  if (req.method === 'PATCH' && (notify_ipos === undefined || notify_dividends === undefined)) {
+    try {
+      const [current] = await pool.execute('SELECT notify_ipos, notify_dividends FROM users WHERE id = ?', [userId]);
+      if (current.length > 0) {
+        if (notify_ipos === undefined) notify_ipos = !!current[0].notify_ipos;
+        if (notify_dividends === undefined) notify_dividends = !!current[0].notify_dividends;
+      }
+    } catch (e) {
+      logger.error('Error fetching current prefs for PATCH:', e);
+      return res.status(500).json({ error: 'Server error' });
+    }
+  }
+
+  // Validate booleans (allow explicit false)
   if (typeof notify_ipos !== 'boolean' || typeof notify_dividends !== 'boolean') {
-    return res.status(400).json({ error: 'notify_ipos and notify_dividends must be booleans' });
+    return res.status(400).json({ error: 'Preferences must be booleans' });
   }
 
   try {
@@ -194,13 +230,19 @@ router.put('/preferences', verifyToken, async (req, res) => {
     res.json({
       success: true,
       message: 'Preferences updated',
-      preferences: { notify_ipos, notify_dividends }
+      preferences: {
+        notify_ipos,
+        notify_dividends,
+        // Return client keys too for convenience
+        ipo_alerts: notify_ipos,
+        dividend_alerts: notify_dividends
+      }
     });
   } catch (error) {
     logger.error('Update Preferences Error:', error);
     res.status(500).json({ error: 'Server error' });
   }
-});
+}
 
 /**
  * @route POST /api/auth/test-notification
