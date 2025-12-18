@@ -114,11 +114,10 @@ export const routeTree = rootRoute.addChildren([
       adminDashboardRoute,
       adminCompaniesRoute,
       adminPricesRoute,
-      adminCompaniesRoute,
-      adminPricesRoute,
       adminIposRoute,
       adminDividendsRoute,
       adminApiKeysRoute
+
 
     ])
   ]),
