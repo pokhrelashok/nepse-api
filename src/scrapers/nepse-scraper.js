@@ -1,6 +1,9 @@
 const puppeteer = require('puppeteer');
 const { processImageData } = require('../utils/image-handler');
 const { DateTime } = require('luxon');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 
 const NEPSE_URL = 'https://www.nepalstock.com';
 const TODAY_PRICE_URL = 'https://www.nepalstock.com/today-price';
@@ -10,6 +13,7 @@ class NepseScraper {
     this.browser = null;
     this.initializingPromise = null;
     this.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    this.userDataDir = null;
   }
 
   async init() {
@@ -26,8 +30,14 @@ class NepseScraper {
       try {
         console.log('🚀 Initializing Puppeteer browser...');
 
+        // Create a unique temp directory for this session
+        const tmpDir = os.tmpdir();
+        this.userDataDir = fs.mkdtempSync(path.join(tmpDir, 'nepse-scraper-'));
+        console.log(`📂 Created temp user data dir: ${this.userDataDir}`);
+
         const launchOptions = {
           headless: true,
+          userDataDir: this.userDataDir,
           pipe: true, // Use pipe instead of websocket for better stability
           timeout: 60000,
           ignoreHTTPSErrors: true, // Ignore SSL certificate errors from nepalstock.com
@@ -102,8 +112,21 @@ class NepseScraper {
 
   async close() {
     if (this.browser) {
+      console.log('🔒 Closing browser...');
       await this.browser.close();
       this.browser = null;
+    }
+
+    if (this.userDataDir) {
+      try {
+        console.log(`🧹 Cleaning up temp dir: ${this.userDataDir}`);
+        // Use recursive force deletion to ensure it's gone
+        fs.rmSync(this.userDataDir, { recursive: true, force: true });
+        console.log('✅ Temp dir cleaned up');
+      } catch (err) {
+        console.warn(`⚠️ Failed to clean up temp dir: ${err.message}`);
+      }
+      this.userDataDir = null;
     }
   }
 
