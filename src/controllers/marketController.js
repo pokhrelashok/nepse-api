@@ -61,10 +61,10 @@ exports.getMarketStatus = async (req, res) => {
       const marketIndex = await getMarketIndexData();
 
       const response = {
-        is_open: marketStatus?.is_open || false,
-        status: marketStatus?.is_open ? 'OPEN' : 'CLOSED',
+        is_open: marketStatus?.isOpen || false,
+        status: marketStatus?.status || 'CLOSED',
         source: 'DATABASE_CACHE',
-        last_updated: marketStatus?.last_updated || new Date().toISOString(),
+        last_updated: marketStatus?.lastUpdated || new Date().toISOString(),
         trading_date: marketStatus?.trading_date || null
       };
 
@@ -126,10 +126,10 @@ exports.getUpdates = async (req, res) => {
     }
 
     const response = {
-      is_open: marketStatus?.is_open || false,
-      status: marketStatus?.is_open ? 'OPEN' : 'CLOSED',
+      is_open: marketStatus?.isOpen || false,
+      status: marketStatus?.status || 'CLOSED',
       source: 'DATABASE_CACHE',
-      last_updated: marketStatus?.last_updated || new Date().toISOString(),
+      last_updated: marketStatus?.lastUpdated || new Date().toISOString(),
       trading_date: marketStatus?.trading_date || null,
       stocks: stocks
     };
