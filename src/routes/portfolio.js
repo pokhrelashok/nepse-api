@@ -380,6 +380,30 @@ router.delete('/:id/transactions/:tid', async (req, res) => {
 });
 
 /**
+ * @route DELETE /api/portfolios/:id/transactions
+ * @desc Delete all transactions for a portfolio
+ */
+router.delete('/:id/transactions', async (req, res) => {
+  const portfolioId = req.params.id;
+  if (!req.currentUser) return res.status(404).json({ error: 'User not found' });
+
+  try {
+    // Verify ownership of portfolio
+    const [check] = await pool.execute(
+      'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
+      [portfolioId, req.currentUser.id]
+    );
+    if (check.length === 0) return res.status(404).json({ error: 'Portfolio not found' });
+
+    await pool.execute('DELETE FROM transactions WHERE portfolio_id = ?', [portfolioId]);
+    res.json({ success: true, message: 'All transactions deleted for the portfolio' });
+  } catch (error) {
+    logger.error('Delete All Transactions Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
  * @route POST /api/portfolios/:id/import
  * @desc Bulk import transactions for a portfolio
  */

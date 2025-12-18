@@ -8,82 +8,118 @@ const TODAY_PRICE_URL = 'https://www.nepalstock.com/today-price';
 class NepseScraper {
   constructor() {
     this.browser = null;
+    this.initializingPromise = null;
     this.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
   }
 
   async init() {
-    if (!this.browser) {
-      console.log('🚀 Initializing Puppeteer browser...');
+    if (this.initializingPromise) {
+      return this.initializingPromise;
+    }
 
-      const launchOptions = {
-        headless: true,
-        timeout: 60000,
-        ignoreHTTPSErrors: true, // Ignore SSL certificate errors from nepalstock.com
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-features=TranslateUI',
-          '--disable-ipc-flooding-protection',
-          '--no-first-run',
-          '--no-default-browser-check',
-          '--disable-web-security',
-          '--disable-features=VizDisplayCompositor',
-          '--disable-extensions',
-          '--disable-default-apps',
-          '--disable-sync',
-          '--disable-translate',
-          '--disable-background-networking',
-          '--disable-background-mode',
-          '--remote-debugging-port=0',
-          '--disable-http2'
-        ]
-      };
+    if (this.browser && this.browser.isConnected()) {
+      console.log('♻️ Reusing existing browser instance');
+      return;
+    }
 
-      // Use system Chrome in production
-      if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-        console.log(`🔧 Using Chrome executable: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
-        launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-
-        // Check if executable exists
-        const fs = require('fs');
-        try {
-          if (fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
-            console.log('✅ Chrome executable found');
-          } else {
-            console.error(`❌ Chrome executable not found at: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
-          }
-        } catch (e) {
-          console.warn('⚠️ Could not verify Chrome executable existence:', e.message);
-        }
-      } else {
-        console.log('📦 Using bundled Chromium');
-      }
-
-      console.log('🌐 Launching browser...');
+    this.initializingPromise = (async () => {
       try {
+        console.log('🚀 Initializing Puppeteer browser...');
+
+        const launchOptions = {
+          headless: true,
+          timeout: 60000,
+          ignoreHTTPSErrors: true, // Ignore SSL certificate errors from nepalstock.com
+          args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--disable-gpu',
+            '--disable-background-timer-throttling',
+            '--disable-backgrounding-occluded-windows',
+            '--disable-renderer-backgrounding',
+            '--disable-features=TranslateUI',
+            '--disable-ipc-flooding-protection',
+            '--no-first-run',
+            '--no-default-browser-check',
+            '--disable-web-security',
+            '--disable-features=VizDisplayCompositor',
+            '--disable-extensions',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--disable-translate',
+            '--disable-background-networking',
+            '--disable-background-mode',
+            '--remote-debugging-port=0',
+            '--disable-http2'
+          ]
+        };
+
+        // Use system Chrome in production
+        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+          console.log(`🔧 Using Chrome executable: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+          launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+
+          // Check if executable exists
+          const fs = require('fs');
+          try {
+            if (fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+              console.log('✅ Chrome executable found');
+            } else {
+              console.error(`❌ Chrome executable not found at: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+            }
+          } catch (e) {
+            console.warn('⚠️ Could not verify Chrome executable existence:', e.message);
+          }
+        } else {
+          console.log('📦 Using bundled Chromium');
+        }
+
+        console.log('🌐 Launching browser...');
         this.browser = await puppeteer.launch(launchOptions);
         console.log('✅ Browser launched successfully');
 
+        // Reset if browser disconnects
+        this.browser.on('disconnected', () => {
+          console.warn('⚠️ Browser disconnected');
+          this.browser = null;
+          this.initializingPromise = null;
+        });
+
       } catch (error) {
         console.error('❌ Browser launch failed:', error.message);
-        console.error('🔍 Launch options:', JSON.stringify(launchOptions, null, 2));
+        this.browser = null;
+        this.initializingPromise = null;
         throw error;
+      } finally {
+        this.initializingPromise = null;
       }
-    } else {
-      console.log('♻️ Reusing existing browser instance');
-    }
+    })();
+
+    return this.initializingPromise;
   }
 
   async close() {
     if (this.browser) {
       await this.browser.close();
       this.browser = null;
+    }
+  }
+
+  async scrapeMarketSummary() {
+    try {
+      const status = await this.scrapeMarketStatus();
+      const indexData = await this.scrapeMarketIndex();
+
+      return {
+        status,
+        isOpen: status === 'OPEN' || status === 'PRE_OPEN',
+        indexData
+      };
+    } catch (error) {
+      console.error('❌ Failed to scrape market summary:', error.message);
+      throw error;
     }
   }
 
@@ -183,10 +219,7 @@ class NepseScraper {
       try {
         console.log(`🔄 Attempt ${attempt}/${maxRetries} - Creating new page...`);
         page = await this.browser.newPage();
-        console.log('🔧 Setting user agent and timeouts...');
         await page.setUserAgent(this.userAgent);
-
-        // Set longer timeouts for all page operations
         await page.setDefaultTimeout(60000);
         await page.setDefaultNavigationTimeout(60000);
 
@@ -194,20 +227,36 @@ class NepseScraper {
         try {
           const result = await this.scrapeTodayPricesCSVDownload(page);
           await page.close().catch(() => { });
+          page = null;
           return result;
         } catch (csvError) {
           console.log(`⚠️ CSV download method failed (attempt ${attempt}): ${csvError.message}`);
-          console.log('🔄 Falling back to API capture...');
 
+          // Close old page and open a fresh one for the next method to avoid "main frame too early"
+          await page.close().catch(() => { });
+          page = await this.browser.newPage();
+          await page.setUserAgent(this.userAgent);
+          await page.setDefaultTimeout(60000);
+
+          console.log('🔄 Falling back to API capture...');
           try {
             const result = await this.scrapeTodayPricesAPI(page);
             await page.close().catch(() => { });
+            page = null;
             return result;
           } catch (apiError) {
             console.log(`⚠️ API capture failed (attempt ${attempt}): ${apiError.message}`);
+
+            // Fresh page for HTML scraping
+            await page.close().catch(() => { });
+            page = await this.browser.newPage();
+            await page.setUserAgent(this.userAgent);
+            await page.setDefaultTimeout(60000);
+
             console.log('🔄 Falling back to HTML scraping...');
             const result = await this.scrapeTodayPricesHTML(page);
             await page.close().catch(() => { });
+            page = null;
             return result;
           }
         }
@@ -215,7 +264,10 @@ class NepseScraper {
         lastError = error;
         console.error(`❌ Attempt ${attempt} failed: ${error.message}`);
 
-        // Close page on error
+        if (page) {
+          await page.close().catch(() => { });
+          page = null;
+        }
         if (page) {
           await page.close().catch(() => { });
           page = null;

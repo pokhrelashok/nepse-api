@@ -34,6 +34,11 @@ jest.mock('../src/config/firebase', () => {
   };
 });
 
+// Mock API Key Auth
+jest.mock('../src/database/apiKeyQueries', () => ({
+  validateApiKey: jest.fn().mockResolvedValue(true)
+}));
+
 // DB Config
 const dbConfig = {
   host: (process.env.DB_HOST === 'localhost' || !process.env.DB_HOST) ? '127.0.0.1' : process.env.DB_HOST,
@@ -47,6 +52,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
   let connection;
   const token = 'Bearer valid-token';
   const otherToken = 'Bearer other-user-token';
+  const apiKey = 'test-api-key';
   let testPortfolioId;
   let testTransactionId;
 
@@ -56,8 +62,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
     await connection.execute('DELETE FROM users WHERE google_id IN (?, ?)', ['full-crud-test-uid', 'other-user-uid']);
 
     // Ensure user exists (triggering first login)
-    await request(app).post('/api/auth/google').send({ token: 'valid-token' });
-    await request(app).post('/api/auth/google').send({ token: 'other-user-token' });
+    await request(app).post('/api/auth/google').set('x-api-key', apiKey).send({ token: 'valid-token' });
+    await request(app).post('/api/auth/google').set('x-api-key', apiKey).send({ token: 'other-user-token' });
   });
 
   afterAll(async () => {
@@ -73,6 +79,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       const res = await request(app)
         .post('/api/portfolios')
         .set('Authorization', token)
+        .set('x-api-key', apiKey)
         .send({ name: 'Investment Portfolio', color: '#4A90E2' });
 
       expect(res.statusCode).toBe(200);
@@ -86,6 +93,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       const res = await request(app)
         .post('/api/portfolios')
         .set('Authorization', token)
+        .set('x-api-key', apiKey)
         .send({ id: clientId, name: 'Client Managed Portfolio', color: '#50E3C2' });
 
       expect(res.statusCode).toBe(200);
@@ -96,7 +104,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
     it('should list portfolios (GET /api/portfolios)', async () => {
       const res = await request(app)
         .get('/api/portfolios')
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
 
       expect(res.statusCode).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -160,6 +169,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       const res = await request(app)
         .post(`/api/portfolios/${testPortfolioId}/transactions`)
         .set('Authorization', token)
+        .set('x-api-key', apiKey)
         .send(transactionPayload);
 
       expect(res.statusCode).toBe(200);
@@ -172,6 +182,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       const res = await request(app)
         .post(`/api/portfolios/${testPortfolioId}/transactions`)
         .set('Authorization', token)
+        .set('x-api-key', apiKey)
         .send({
           stock_symbol: 'NABIL',
           type: 'INVALID_TYPE',
@@ -187,6 +198,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       const res = await request(app)
         .post(`/api/portfolios/${testPortfolioId}/transactions`)
         .set('Authorization', token)
+        .set('x-api-key', apiKey)
         .send({
           stock_symbol: 'NABIL',
           type: 'SECONDARY_BUY',
@@ -201,7 +213,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
     it('should list transactions for a portfolio (GET /api/portfolios/:id/transactions)', async () => {
       const res = await request(app)
         .get(`/api/portfolios/${testPortfolioId}/transactions`)
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
 
       expect(res.statusCode).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -213,7 +226,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
     it('should get synced portfolio data (GET /api/portfolios/sync)', async () => {
       const res = await request(app)
         .get('/api/portfolios/sync')
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.portfolios).toBeDefined();
@@ -251,6 +265,7 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       const res = await request(app)
         .post(`/api/portfolios/${testPortfolioId}/import`)
         .set('Authorization', token)
+        .set('x-api-key', apiKey)
         .send(importPayload);
 
       expect(res.statusCode).toBe(200);
@@ -260,7 +275,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       // Verify sync has the new stocks
       const syncCheck = await request(app)
         .get('/api/portfolios/sync')
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
 
       const portfolio = syncCheck.body.portfolios.find(p => p.id === testPortfolioId);
       const upper = portfolio.stocks.find(s => s.symbol === 'UPPER');
@@ -276,7 +292,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
     it('should delete a transaction (DELETE /api/portfolios/:id/transactions/:tid)', async () => {
       const res = await request(app)
         .delete(`/api/portfolios/${testPortfolioId}/transactions/${testTransactionId}`)
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
@@ -284,14 +301,34 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       // Verify it's gone
       const check = await request(app)
         .get(`/api/portfolios/${testPortfolioId}/transactions`)
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
       expect(check.body.some(t => t.id === testTransactionId)).toBe(false);
+    });
+
+    it('should delete all transactions in a portfolio (DELETE /api/portfolios/:id/transactions)', async () => {
+      // First ensure there are some transactions (import added some previously)
+      const res = await request(app)
+        .delete(`/api/portfolios/${testPortfolioId}/transactions`)
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
+
+      expect(res.statusCode).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      // Verify they are all gone
+      const check = await request(app)
+        .get(`/api/portfolios/${testPortfolioId}/transactions`)
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
+      expect(check.body.length).toBe(0);
     });
 
     it('should delete a portfolio (DELETE /api/portfolios/:id)', async () => {
       const res = await request(app)
         .delete(`/api/portfolios/${testPortfolioId}`)
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
 
       expect(res.statusCode).toBe(200);
       expect(res.body.success).toBe(true);
@@ -299,7 +336,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       // Verify it's gone
       const check = await request(app)
         .get('/api/portfolios')
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
       expect(check.body.some(p => p.id === testPortfolioId)).toBe(false);
     });
 
@@ -309,7 +347,8 @@ describe('Comprehensive Portfolio & Transaction CRUD', () => {
       const otherPortfolioId = generateUuid();
       const res = await request(app)
         .delete(`/api/portfolios/${otherPortfolioId}`)
-        .set('Authorization', token);
+        .set('Authorization', token)
+        .set('x-api-key', apiKey);
 
       expect(res.statusCode).toBe(404);
     });
