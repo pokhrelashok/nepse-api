@@ -111,8 +111,19 @@ class Scheduler {
     });
     this.jobs.set('cleanup_update', cleanupJob);
 
+    // Notifications (Daily at 9:00 AM)
+    const notificationJob = cron.schedule('0 9 * * *', async () => {
+      const NotificationService = require('./services/notification-service');
+      await NotificationService.checkAndSendNotifications();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('notification_check', notificationJob);
+
     dividendJob.start();
     cleanupJob.start();
+    notificationJob.start();
 
     indexJob.start();
     priceJob.start();

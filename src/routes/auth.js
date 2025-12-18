@@ -115,7 +115,16 @@ router.post('/fcm', verifyToken, async (req, res) => {
       logger.info(`Subscribed ${fcm_token} to enabled topics`);
     } catch (subError) {
       logger.error('Failed to subscribe to topics:', subError);
-      // Don't fail the request, just log
+
+      // If subscription fails because token is invalid, remove it from DB and warn client
+      if (subError.code === 'messaging/invalid-registration-token' ||
+        subError.code === 'messaging/registration-token-not-registered') {
+
+        await pool.execute('DELETE FROM notification_tokens WHERE fcm_token = ?', [fcm_token]);
+        return res.status(400).json({ error: 'FCM token is invalid or expired. Please re-fetch from Firebase SDK.' });
+      }
+
+      // For other errors, log but allow success (maybe just a network blip)
     }
 
     res.json({ success: true, message: 'FCM registered' });
