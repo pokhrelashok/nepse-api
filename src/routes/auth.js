@@ -101,11 +101,18 @@ router.post('/fcm', verifyToken, async (req, res) => {
       );
     }
 
-    // Subscribe to topics
+    // Subscribe to topics if enabled by user preferences
     try {
-      await admin.messaging().subscribeToTopic([fcm_token], 'ipos');
-      await admin.messaging().subscribeToTopic([fcm_token], 'dividends');
-      logger.info(`Subscribed ${fcm_token} to topics`);
+      const [userRows] = await pool.execute('SELECT notify_ipos, notify_dividends FROM users WHERE id = ?', [userId]);
+      const userPrefs = userRows[0] || { notify_ipos: true, notify_dividends: true };
+
+      if (userPrefs.notify_ipos) {
+        await admin.messaging().subscribeToTopic([fcm_token], 'ipos');
+      }
+      if (userPrefs.notify_dividends) {
+        await admin.messaging().subscribeToTopic([fcm_token], 'dividends');
+      }
+      logger.info(`Subscribed ${fcm_token} to enabled topics`);
     } catch (subError) {
       logger.error('Failed to subscribe to topics:', subError);
       // Don't fail the request, just log
@@ -114,6 +121,83 @@ router.post('/fcm', verifyToken, async (req, res) => {
     res.json({ success: true, message: 'FCM registered' });
   } catch (error) {
     logger.error('FCM Registry Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * @route GET /api/auth/preferences
+ * @desc Get user notification preferences
+ * @access Private
+ */
+router.get('/preferences', verifyToken, async (req, res) => {
+  const userId = req.currentUser ? req.currentUser.id : null;
+  if (!userId) return res.status(404).json({ error: 'User not found' });
+
+  try {
+    const [rows] = await pool.execute('SELECT notify_ipos, notify_dividends FROM users WHERE id = ?', [userId]);
+    if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
+
+    res.json({
+      success: true,
+      preferences: {
+        notify_ipos: !!rows[0].notify_ipos,
+        notify_dividends: !!rows[0].notify_dividends
+      }
+    });
+  } catch (error) {
+    logger.error('Get Preferences Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
+ * @route PUT /api/auth/preferences
+ * @desc Update user notification preferences
+ * @access Private
+ */
+router.put('/preferences', verifyToken, async (req, res) => {
+  const userId = req.currentUser ? req.currentUser.id : null;
+  if (!userId) return res.status(404).json({ error: 'User not found' });
+
+  const { notify_ipos, notify_dividends } = req.body;
+
+  if (typeof notify_ipos !== 'boolean' || typeof notify_dividends !== 'boolean') {
+    return res.status(400).json({ error: 'notify_ipos and notify_dividends must be booleans' });
+  }
+
+  try {
+    // Update DB
+    await pool.execute(
+      'UPDATE users SET notify_ipos = ?, notify_dividends = ? WHERE id = ?',
+      [notify_ipos, notify_dividends, userId]
+    );
+
+    // Update topics for all user's tokens
+    const [tokens] = await pool.execute('SELECT fcm_token FROM notification_tokens WHERE user_id = ?', [userId]);
+    const fcmTokens = tokens.map(t => t.fcm_token);
+
+    if (fcmTokens.length > 0) {
+      if (notify_ipos) {
+        await admin.messaging().subscribeToTopic(fcmTokens, 'ipos');
+      } else {
+        await admin.messaging().unsubscribeFromTopic(fcmTokens, 'ipos');
+      }
+
+      if (notify_dividends) {
+        await admin.messaging().subscribeToTopic(fcmTokens, 'dividends');
+      } else {
+        await admin.messaging().unsubscribeFromTopic(fcmTokens, 'dividends');
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Preferences updated',
+      preferences: { notify_ipos, notify_dividends }
+    });
+  } catch (error) {
+    logger.error('Update Preferences Error:', error);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -161,10 +245,20 @@ router.post('/test-notification', async (req, res) => {
     logger.error('Test Notification Error:', error);
 
     // Provide helpful error messages for common FCM errors
-    if (error.code === 'messaging/invalid-registration-token') {
-      return res.status(400).json({ error: 'Invalid FCM token format' });
-    }
-    if (error.code === 'messaging/registration-token-not-registered') {
+    if (error.code === 'messaging/invalid-registration-token' ||
+      error.code === 'messaging/registration-token-not-registered') {
+
+      // Clean up invalid/expired token from database
+      try {
+        await pool.execute('DELETE FROM notification_tokens WHERE fcm_token = ?', [fcm_token]);
+        logger.info(`Removed invalid FCM token from database: ${fcm_token}`);
+      } catch (dbErr) {
+        logger.error('Failed to remove invalid token from DB:', dbErr);
+      }
+
+      if (error.code === 'messaging/invalid-registration-token') {
+        return res.status(400).json({ error: 'Invalid FCM token format' });
+      }
       return res.status(400).json({ error: 'FCM token is expired or unregistered' });
     }
 
