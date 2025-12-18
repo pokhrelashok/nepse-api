@@ -102,12 +102,12 @@ exports.getMarketStatus = async (req, res) => {
 exports.getUpdates = async (req, res) => {
   try {
     const { symbols } = req.body;
-    if (!symbols || !Array.isArray(symbols)) {
-      return res.status(400).json(formatError("Invalid body. Expected { symbols: ['SYM', ...] }", 400));
-    }
 
-    // Get stock prices
-    const stocks = await getLatestPrices(symbols);
+    // Get stock prices if symbols provided
+    let stocks = [];
+    if (symbols && Array.isArray(symbols) && symbols.length > 0) {
+      stocks = await getLatestPrices(symbols);
+    }
 
     // Get market status and index data
     const marketStatus = await getCurrentMarketStatus();
