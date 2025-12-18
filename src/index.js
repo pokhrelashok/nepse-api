@@ -5,7 +5,7 @@ const Scheduler = require('./scheduler');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeIpos } = require('./scrapers/ipo-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
-const { getAllSecurityIds, getSecurityIdsWithoutDetails, getSecurityIdsBySymbols, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials, updateMarketStatus } = require('./database/queries');
+const { getAllSecurityIds, getSecurityIdsWithoutDetails, getSecurityIdsBySymbols, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials, updateMarketStatus, saveMarketSummary } = require('./database/queries');
 const { formatPricesForDatabase, formatCompanyDetailsForDatabase } = require('./utils/formatter');
 const { db } = require('./database/database');
 const fs = require('fs');
@@ -50,21 +50,27 @@ program
 
 program
   .command('market-status')
-  .description('Check current market status')
-  .option('-s, --save', 'Save status to database')
+  .description('Check and optionally save current market status')
+  .option('-s, --save', 'Save the status to the database')
   .action(async (options) => {
     try {
-      console.log('🔍 Checking market status...');
+      console.log('🔍 Fetching market summary...');
       scraper = new NepseScraper();
-      const status = await scraper.scrapeMarketStatus();
-      console.log(`📊 Market is ${status}`);
+      const summary = await scraper.scrapeMarketSummary();
+
+      const { status, isOpen, indexData } = summary;
+      const color = isOpen ? '\x1b[32m' : '\x1b[31m'; // Green for Open, Red for Closed
+
+      console.log(`${color}Market Status: ${status} ${isOpen ? '(Open)' : '(Closed)'}\x1b[0m`);
+      console.log(`📊 Index: ${indexData.nepseIndex} (${indexData.indexChange >= 0 ? '+' : ''}${indexData.indexChange})`);
+      console.log(`💱 Turnover: Rs. ${indexData.totalTurnover.toLocaleString()}`);
 
       if (options.save) {
-        await updateMarketStatus(status);
-        console.log('💾 Market status saved to database');
+        await saveMarketSummary(summary);
+        console.log('💾 Market summary saved to database');
       }
     } catch (error) {
-      console.error('❌ Error:', error.message);
+      console.error('❌ Failed to check market status:', error.message);
       process.exit(1);
     } finally {
       if (scraper) {

@@ -255,123 +255,25 @@ async function getCompanyStats() {
   return rows[0];
 }
 
-// Market status functions
-async function insertMarketStatus(status, tradingDate, openTime = null, closeTime = null, additionalInfo = null) {
-  const sql = `
-    INSERT INTO market_status (id, is_open, trading_date, last_updated)
-    VALUES (1, ?, ?, CURRENT_TIMESTAMP)
-    ON DUPLICATE KEY UPDATE
-      is_open = VALUES(is_open),
-      trading_date = VALUES(trading_date),
-      last_updated = CURRENT_TIMESTAMP
-  `;
+// Market status functions - UNIFIED
+async function saveMarketSummary(summary) {
+  const { status, isOpen, indexData } = summary;
 
-  const isOpen = status === 'OPEN' ? 1 : 0;
-  const [result] = await pool.execute(sql, [isOpen, tradingDate]);
-  return result.insertId;
-}
-
-async function getCurrentMarketStatus() {
-  const sql = `SELECT is_open, status, last_updated, trading_date FROM market_status WHERE id = 1`;
-
-  const [rows] = await pool.execute(sql);
-
-  if (rows.length > 0) {
-    const row = rows[0];
-    return {
-      is_open: Boolean(row.is_open),
-      status: row.status || (Boolean(row.is_open) ? 'OPEN' : 'CLOSED'),
-      last_updated: row.last_updated,
-      trading_date: row.trading_date
-    };
-  }
-
-  return null;
-}
-
-async function getMarketStatusHistory(days = 7) {
-  // Note: MySQL date functions differ from SQLite
-  const sql = `
-    SELECT 
-      trading_date,
-      is_open as status_bool,
-      status,
-      last_updated
-    FROM market_status 
-    WHERE trading_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
-    ORDER BY trading_date DESC, last_updated DESC
-  `;
-
-  const [rows] = await pool.execute(sql, [String(days)]);
-  return rows;
-}
-
-// Market status functions
-async function updateMarketStatus(isOpenOrStatus) {
-  let isOpen = false;
-  let status = 'CLOSED';
-
-  // Handle both boolean (legacy) and string inputs
-  if (typeof isOpenOrStatus === 'boolean') {
-    isOpen = isOpenOrStatus;
-    status = isOpen ? 'OPEN' : 'CLOSED';
-  } else if (typeof isOpenOrStatus === 'string') {
-    status = isOpenOrStatus.toUpperCase();
-    // Consider PRE_OPEN as 'open' for scraping purposes, or strict 'OPEN'
-    // To match user request: "price scraping in the preopen session as well"
-    // So isOpen should probably be true for PRE_OPEN to trigger logic that depends on isOpen
-    isOpen = status === 'OPEN' || status === 'PRE_OPEN' || status === 'PRE-OPEN';
-  }
-
-  // Get today's date in Nepal timezone
-  const now = new Date();
-  const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-  const tradingDate = nepaliDate.toISOString().split('T')[0];
-
-  const sql = `
-    INSERT INTO market_status (id, is_open, status, trading_date, last_updated)
-    VALUES (1, ?, ?, ?, CURRENT_TIMESTAMP)
-    ON DUPLICATE KEY UPDATE
-      is_open = VALUES(is_open),
-      status = VALUES(status),
-      trading_date = VALUES(trading_date),
-      last_updated = CURRENT_TIMESTAMP
-  `;
-
-  const [result] = await pool.execute(sql, [isOpen ? 1 : 0, status, tradingDate]);
-  return result.insertId;
-}
-
-// Market index functions
-async function saveMarketIndex(indexData) {
-  const {
-    nepseIndex,
-    indexChange,
-    indexPercentageChange,
-    totalTurnover,
-    totalTradedShares,
-    advanced,
-    declined,
-    unchanged,
-    marketStatusDate = null,
-    marketStatusTime = null,
-    tradingDate = null
-  } = indexData;
-
-  // Get today's date in Nepal timezone if not provided
-  const date = tradingDate || (() => {
+  // Ensure we have a valid date
+  const tradingDate = indexData.tradingDate || (() => {
     const now = new Date();
     const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
     return nepaliDate.toISOString().split('T')[0];
   })();
 
-
   const sql = `
     INSERT INTO market_index (
-      trading_date, market_status_date, market_status_time, nepse_index, index_change, index_percentage_change,
-      total_turnover, total_traded_shares, advanced, declined, unchanged,
-      last_updated
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      trading_date, market_status_date, market_status_time, 
+      nepse_index, index_change, index_percentage_change, 
+      total_turnover, total_traded_shares, 
+      advanced, declined, unchanged,
+      status, is_open, last_updated
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
     ON DUPLICATE KEY UPDATE
       market_status_date = VALUES(market_status_date),
       market_status_time = VALUES(market_status_time),
@@ -383,16 +285,73 @@ async function saveMarketIndex(indexData) {
       advanced = VALUES(advanced),
       declined = VALUES(declined),
       unchanged = VALUES(unchanged),
+      status = VALUES(status),
+      is_open = VALUES(is_open),
       last_updated = CURRENT_TIMESTAMP
   `;
 
-  const [result] = await pool.execute(sql, [
-    date, marketStatusDate, marketStatusTime, nepseIndex, indexChange, indexPercentageChange,
-    totalTurnover, totalTradedShares, advanced, declined, unchanged
-  ]);
+  const values = [
+    tradingDate,
+    indexData.marketStatusDate,
+    indexData.marketStatusTime,
+    indexData.nepseIndex || 0,
+    indexData.indexChange || 0,
+    indexData.indexPercentageChange || 0,
+    indexData.totalTurnover || 0,
+    indexData.totalTradedShares || 0,
+    indexData.advanced || 0,
+    indexData.declined || 0,
+    indexData.unchanged || 0,
+    status,
+    isOpen ? 1 : 0
+  ];
 
-  logger.info('Market index saved successfully');
-  return result.insertId;
+  try {
+    const [result] = await pool.execute(sql, values);
+    logger.info(`💾 Market summary saved for ${tradingDate} (Status: ${status})`);
+    return result.insertId;
+  } catch (error) {
+    console.error('❌ Error saving market summary:', error.message);
+    throw error;
+  }
+}
+
+// Deprecated: Only logs warning
+async function updateMarketStatus(status) {
+  console.warn('⚠️ updateMarketStatus is deprecated. Use saveMarketSummary.');
+  return Promise.resolve();
+}
+
+// Legacy adapter
+async function saveMarketIndex(indexData) {
+  return saveMarketSummary({
+    status: (indexData.nepseIndex > 0) ? 'OPEN' : 'CLOSED',
+    isOpen: (indexData.nepseIndex > 0),
+    indexData
+  });
+}
+
+async function getCurrentMarketStatus() {
+  const sql = `
+    SELECT status, is_open, trading_date, last_updated 
+    FROM market_index 
+    ORDER BY trading_date DESC, last_updated DESC 
+    LIMIT 1
+  `;
+  try {
+    const [rows] = await pool.execute(sql);
+    if (rows.length > 0) {
+      return {
+        status: rows[0].status || 'CLOSED',
+        isOpen: !!rows[0].is_open,
+        lastUpdated: rows[0].last_updated
+      };
+    }
+    return { status: 'CLOSED', isOpen: false };
+  } catch (error) {
+    console.error('❌ Error fetching market status:', error.message);
+    return { status: 'CLOSED', isOpen: false };
+  }
 }
 
 async function getMarketIndexData(tradingDate = null) {
@@ -605,3 +564,45 @@ async function getAnnouncedDividends(limit = 100, offset = 0, startDate = null, 
   const [rows] = await pool.execute(sql, params);
   return rows;
 }
+
+async function getMarketStatusHistory(limit = 7) {
+  const sql = `
+    SELECT 
+      trading_date,
+      is_open as isOpen,
+      status,
+      last_updated as lastUpdated
+    FROM market_index 
+    ORDER BY trading_date DESC 
+    LIMIT ?
+  `;
+  const [rows] = await pool.execute(sql, [String(limit)]);
+  return rows.map(r => ({
+    ...r,
+    isOpen: !!r.isOpen
+  }));
+}
+
+module.exports = {
+  getAllSecurityIds,
+  getSecurityIdsWithoutDetails,
+  getSecurityIdsBySymbols,
+  searchStocks,
+  getScriptDetails,
+  getLatestPrices,
+  getAllCompanies,
+  getCompaniesBySector,
+  getTopCompaniesByMarketCap,
+  getCompanyStats,
+  saveMarketSummary,
+  updateMarketStatus,
+  saveMarketIndex,
+  getCurrentMarketStatus,
+  getMarketIndexData, // Make sure this exists
+  getMarketIndexHistory, // Make sure this exists
+  getMarketStatusHistory,
+  insertIpo,
+  getIpos,
+  insertAnnouncedDividends,
+  getAnnouncedDividends
+};

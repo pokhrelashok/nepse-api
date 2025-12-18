@@ -1,7 +1,7 @@
 const cron = require('node-cron');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
-const { insertTodayPrices, updateMarketStatus, saveMarketIndex, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
+const { insertTodayPrices, updateMarketStatus, saveMarketIndex, saveMarketSummary, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
 const { formatPricesForDatabase } = require('./utils/formatter');
 const logger = require('./utils/logger');
 
@@ -183,21 +183,13 @@ class Scheduler {
     logger.info(`Scheduled ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update started...`);
 
     try {
-      const status = await this.scraper.scrapeMarketStatus();
-      const isOpen = status === 'OPEN' || status === 'PRE_OPEN';
+      // Unified scraping call
+      const summary = await this.scraper.scrapeMarketSummary();
+      const { status, isOpen, indexData } = summary;
 
-      // Always update market status
-      await updateMarketStatus(status);
-      console.log(`📊 Market status updated: ${status}`);
-
-      // Scrape and save market index data
-      try {
-        const indexData = await this.scraper.scrapeMarketIndex();
-        await saveMarketIndex(indexData);
-        console.log(`📈 Market index updated: ${indexData.nepseIndex} (${indexData.indexChange})`);
-      } catch (indexError) {
-        logger.warn('Failed to update market index:', indexError);
-      }
+      // Save summary (index + status)
+      await saveMarketSummary(summary);
+      console.log(`📊 Market status: ${status}, Index: ${indexData.nepseIndex} (${indexData.indexChange})`);
 
       if (phase === 'DURING_HOURS' && isOpen) {
         console.log(`✅ Market is ${status}, updating prices...`);
