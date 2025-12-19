@@ -284,7 +284,7 @@ router.post('/:id/transactions', async (req, res) => {
   const { isValid, error, data } = validate(req.body, {
     stock_symbol: { type: 'string', required: true, message: 'Stock symbol is required' },
     type: { type: 'enum', values: TRANSACTION_TYPES, required: true, message: 'Invalid transaction type' },
-    quantity: { type: 'number', positive: true, required: true, message: 'Quantity must be a positive number' },
+    quantity: { type: 'number', min: 0, required: true, message: 'Quantity must be a non-negative number' },
     price: { type: 'number', min: 0, required: true, message: 'Price must be a non-negative number' },
     date: { type: 'string' },
     id: { type: 'string' }
@@ -292,6 +292,11 @@ router.post('/:id/transactions', async (req, res) => {
 
   if (!isValid) return res.status(400).json({ error });
   const { id, stock_symbol, type, quantity, price, date } = data;
+
+  // Enforce positive quantity for all types except DIVIDEND
+  if (type !== 'DIVIDEND' && quantity <= 0) {
+    return res.status(400).json({ error: 'Quantity must be a positive number for this transaction type' });
+  }
 
 
   try {
