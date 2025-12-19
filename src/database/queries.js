@@ -558,6 +558,86 @@ async function getMarketStatusHistory(limit = 7) {
   }));
 }
 
+// --- Price Alerts ---
+
+async function createPriceAlert(userId, symbol, price, condition) {
+  const sql = `
+    INSERT INTO price_alerts (user_id, symbol, target_price, alert_condition)
+    VALUES (?, ?, ?, ?)
+  `;
+  const [result] = await pool.execute(sql, [userId, symbol, price, condition]);
+  return result.insertId;
+}
+
+async function getUserPriceAlerts(userId) {
+  const sql = `
+    SELECT * FROM price_alerts 
+    WHERE user_id = ? 
+    ORDER BY created_at DESC
+  `;
+  const [rows] = await pool.execute(sql, [userId]);
+  return rows;
+}
+
+async function updatePriceAlert(alertId, userId, data) {
+  const { price, condition, is_active } = data;
+  const updates = [];
+  const params = [];
+
+  if (price !== undefined) {
+    updates.push('target_price = ?');
+    params.push(price);
+  }
+  if (condition !== undefined) {
+    updates.push('alert_condition = ?');
+    params.push(condition);
+  }
+  if (is_active !== undefined) {
+    updates.push('is_active = ?');
+    params.push(is_active);
+    if (is_active) {
+      updates.push('triggered_at = NULL');
+    }
+  }
+
+  if (updates.length === 0) return true;
+
+  params.push(alertId, userId);
+  const sql = `
+    UPDATE price_alerts 
+    SET ${updates.join(', ')} 
+    WHERE id = ? AND user_id = ?
+  `;
+  const [result] = await pool.execute(sql, params);
+  return result.affectedRows > 0;
+}
+
+async function deletePriceAlert(alertId, userId) {
+  const sql = 'DELETE FROM price_alerts WHERE id = ? AND user_id = ?';
+  const [result] = await pool.execute(sql, [alertId, userId]);
+  return result.affectedRows > 0;
+}
+
+async function getActivePriceAlerts() {
+  const sql = `
+    SELECT pa.*, nt.fcm_token 
+    FROM price_alerts pa
+    JOIN notification_tokens nt ON nt.user_id = pa.user_id
+    WHERE pa.is_active = TRUE
+  `;
+  const [rows] = await pool.execute(sql);
+  return rows;
+}
+
+async function markAlertTriggered(alertId) {
+  const sql = `
+    UPDATE price_alerts 
+    SET is_active = FALSE, triggered_at = CURRENT_TIMESTAMP 
+    WHERE id = ?
+  `;
+  await pool.execute(sql, [alertId]);
+}
+
 module.exports = {
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
@@ -583,5 +663,12 @@ module.exports = {
   insertIpo,
   getIpos,
   insertAnnouncedDividends,
-  getAnnouncedDividends
+  getAnnouncedDividends,
+  // Price Alerts
+  createPriceAlert,
+  getUserPriceAlerts,
+  updatePriceAlert,
+  deletePriceAlert,
+  getActivePriceAlerts,
+  markAlertTriggered
 };

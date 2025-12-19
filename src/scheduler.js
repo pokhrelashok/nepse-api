@@ -223,6 +223,10 @@ class Scheduler {
           const formattedPrices = formatPricesForDatabase(prices);
           await insertTodayPrices(formattedPrices);
           console.log(`✅ Updated ${prices.length} stock prices`);
+
+          // Trigger price alerts check
+          const NotificationService = require('./services/notification-service');
+          await NotificationService.checkAndSendPriceAlerts();
         } else {
           console.log('⚠️ No price data received');
         }

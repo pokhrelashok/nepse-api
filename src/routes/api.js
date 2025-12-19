@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { loginHandler, authMiddleware } = require('../middleware/auth');
-const marketController = require('../controllers/marketController');
 const companyController = require('../controllers/companyController');
+const alertController = require('../controllers/alertController');
 const schedulerController = require('../controllers/schedulerController');
+const { loginHandler, authMiddleware, verifyToken } = require('../middleware/auth');
 const { formatResponse } = require('../utils/formatter');
 
 // API Info
@@ -66,5 +66,11 @@ router.get('/market/losers', marketController.getLosers);
 
 // Today Prices
 router.get('/today-prices', marketController.getTodayPrices);
+
+// Price Alerts
+router.get('/alerts', verifyToken, alertController.getAlerts);
+router.post('/alerts', verifyToken, alertController.createAlert);
+router.put('/alerts/:id', verifyToken, alertController.updateAlert);
+router.delete('/alerts/:id', verifyToken, alertController.deleteAlert);
 
 module.exports = router;

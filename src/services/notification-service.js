@@ -1,5 +1,6 @@
 const admin = require('../config/firebase');
 const { pool } = require('../database/database');
+const queries = require('../database/queries');
 const logger = require('../utils/logger');
 
 class NotificationService {
@@ -15,6 +16,67 @@ class NotificationService {
       logger.info('✅ Daily notification check completed and sent.');
     } catch (error) {
       logger.error('❌ Notification check failed:', error);
+    }
+  }
+
+  /**
+   * Specifically check for stock price alerts
+   */
+  static async checkAndSendPriceAlerts() {
+    logger.info('🔔 Checking stock price alerts...');
+    try {
+      const allActiveAlerts = await queries.getActivePriceAlerts();
+      if (allActiveAlerts.length === 0) {
+        logger.info('No active price alerts to process.');
+        return;
+      }
+
+      const symbols = [...new Set(allActiveAlerts.map(a => a.symbol))];
+      const latestPrices = await queries.getLatestPrices(symbols);
+      const priceMap = new Map(latestPrices.map(p => [p.symbol, p.close_price]));
+
+      // Group alerts by user+alert_id to handle multiple tokens
+      const alertsToProcess = {};
+
+      for (const alert of allActiveAlerts) {
+        const currentPrice = priceMap.get(alert.symbol);
+        if (currentPrice === undefined) continue;
+
+        let triggered = false;
+        if (alert.alert_condition === 'ABOVE' && currentPrice >= alert.target_price) {
+          triggered = true;
+        } else if (alert.alert_condition === 'BELOW' && currentPrice <= alert.target_price) {
+          triggered = true;
+        }
+
+        if (triggered) {
+          if (!alertsToProcess[alert.id]) {
+            alertsToProcess[alert.id] = {
+              ...alert,
+              tokens: [],
+              current_price: currentPrice
+            };
+          }
+          alertsToProcess[alert.id].tokens.push(alert.fcm_token);
+        }
+      }
+
+      const alertIds = Object.keys(alertsToProcess);
+      if (alertIds.length === 0) {
+        logger.info('No price alerts triggered.');
+        return;
+      }
+
+      logger.info(`Triggering ${alertIds.length} price alerts...`);
+
+      for (const alertId of alertIds) {
+        const alert = alertsToProcess[alertId];
+        await this.sendPriceAlertNotification(alert);
+        await queries.markAlertTriggered(alert.id);
+      }
+
+    } catch (error) {
+      logger.error('❌ Price alert check failed:', error);
     }
   }
 
@@ -223,6 +285,38 @@ class NotificationService {
       } catch (err) {
         logger.error('Failed to cleanup invalid tokens:', err);
       }
+    }
+  }
+
+  /**
+   * Send notification for a triggered price alert
+   */
+  static async sendPriceAlertNotification(alert) {
+    const title = `Price Alert: ${alert.symbol}`;
+    const conditionText = alert.alert_condition === 'ABOVE' ? 'is above' : 'is below';
+    const body = `${alert.symbol} ${conditionText} your target of ${alert.target_price}. Current: ${alert.current_price}`;
+
+    const message = {
+      notification: { title, body },
+      data: {
+        type: 'price_alert',
+        symbol: alert.symbol,
+        id: alert.id.toString(),
+        target_price: alert.target_price.toString(),
+        current_price: alert.current_price.toString()
+      },
+      tokens: alert.tokens
+    };
+
+    try {
+      const response = await admin.messaging().sendEachForMulticast(message);
+      logger.info(`Sent price alert for ${alert.symbol} to user ${alert.user_id} (${response.successCount} devices).`);
+
+      if (response.failureCount > 0) {
+        this.handleFailedTokens(response.responses, alert.tokens);
+      }
+    } catch (error) {
+      logger.error(`Failed to send price alert for ${alert.symbol}:`, error);
     }
   }
 }
