@@ -4,7 +4,8 @@ const {
   updateMarketStatus,
   saveMarketIndex,
   getMarketIndexData,
-  getCompanyStats
+  getCompanyStats,
+  getRecentBonusForSymbols
 } = require('../database/queries');
 const { NepseScraper } = require('../scrapers/nepse-scraper');
 const { formatResponse, formatError } = require('../utils/formatter');
@@ -105,8 +106,10 @@ exports.getUpdates = async (req, res) => {
 
     // Get stock prices if symbols provided
     let stocks = [];
+    let recentBonus = {};
     if (symbols && Array.isArray(symbols) && symbols.length > 0) {
       stocks = await getLatestPrices(symbols);
+      recentBonus = await getRecentBonusForSymbols(symbols);
     }
 
     // Get market status and index data
@@ -131,7 +134,8 @@ exports.getUpdates = async (req, res) => {
       source: 'DATABASE_CACHE',
       last_updated: marketStatus?.lastUpdated || new Date().toISOString(),
       trading_date: marketStatus?.trading_date || null,
-      stocks: stocks
+      stocks: stocks,
+      recent_bonus: recentBonus
     };
 
 

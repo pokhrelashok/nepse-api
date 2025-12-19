@@ -540,6 +540,31 @@ async function getAnnouncedDividends(limit = 100, offset = 0, startDate = null, 
   return rows;
 }
 
+async function getRecentBonusForSymbols(symbols) {
+  if (!symbols || symbols.length === 0) return {};
+
+  const placeholders = symbols.map(() => '?').join(',');
+  const sql = `
+    SELECT symbol, company_name, bonus_share, cash_dividend, 
+           total_dividend, book_close_date, fiscal_year
+    FROM announced_dividends 
+    WHERE symbol IN (${placeholders})
+      AND updated_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
+    ORDER BY updated_at DESC
+  `;
+
+  const [rows] = await pool.execute(sql, symbols);
+
+  // Create a map by symbol (in case of multiple entries, take the most recent)
+  const bonusMap = {};
+  for (const row of rows) {
+    if (!bonusMap[row.symbol]) {
+      bonusMap[row.symbol] = row;
+    }
+  }
+  return bonusMap;
+}
+
 async function getMarketStatusHistory(limit = 7) {
   const sql = `
     SELECT 
@@ -670,6 +695,7 @@ module.exports = {
   getIpos,
   insertAnnouncedDividends,
   getAnnouncedDividends,
+  getRecentBonusForSymbols,
   // Price Alerts
   createPriceAlert,
   getUserPriceAlerts,
