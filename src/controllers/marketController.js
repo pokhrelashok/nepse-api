@@ -4,6 +4,7 @@ const {
   updateMarketStatus,
   saveMarketIndex,
   getMarketIndexData,
+  getLatestMarketIndexData,
   getCompanyStats,
   getRecentBonusForSymbols
 } = require('../database/queries');
@@ -116,15 +117,15 @@ exports.getUpdates = async (req, res) => {
     const marketStatus = await getCurrentMarketStatus();
     const primaryTradingDate = marketStatus?.tradingDate || getNepalDateString();
 
-    // Try to fetch today's market index; if missing, fall back to yesterday
+    // Try to fetch today's market index; if missing, fall back to the most recent available
     let marketIndex = await getMarketIndexData(primaryTradingDate);
     let marketIndexSource = 'DATABASE_CACHE';
 
     if (!marketIndex) {
-      const previousTradingDate = getNepalDateString(-1);
-      marketIndex = await getMarketIndexData(previousTradingDate);
+      // Fall back to most recent available market index data
+      marketIndex = await getLatestMarketIndexData();
       if (marketIndex) {
-        marketIndexSource = 'YESTERDAY_CACHE';
+        marketIndexSource = 'LAST_AVAILABLE_CACHE';
       }
     }
 

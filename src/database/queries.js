@@ -386,6 +386,31 @@ async function getMarketIndexData(tradingDate = null) {
   return rows.length > 0 ? rows[0] : null;
 }
 
+async function getLatestMarketIndexData() {
+  // Get the most recent market index data regardless of date
+  const sql = `
+    SELECT 
+      nepse_index,
+      index_change,
+      index_percentage_change,
+      total_turnover,
+      total_traded_shares,
+      advanced,
+      declined,
+      unchanged,
+      market_status_date,
+      market_status_time,
+      trading_date,
+      last_updated
+    FROM market_index 
+    ORDER BY trading_date DESC, last_updated DESC
+    LIMIT 1
+  `;
+
+  const [rows] = await pool.execute(sql);
+  return rows.length > 0 ? rows[0] : null;
+}
+
 async function getMarketIndexHistory(days = 7) {
   const sql = `
     SELECT 
@@ -685,6 +710,7 @@ module.exports = {
   saveMarketIndex,
   getCurrentMarketStatus,
   getMarketIndexData,
+  getLatestMarketIndexData,
   getMarketIndexHistory,
   getMarketStatusHistory,
   insertTodayPrices,
