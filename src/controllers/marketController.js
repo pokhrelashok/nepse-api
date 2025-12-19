@@ -184,14 +184,14 @@ exports.getMarketStats = async (req, res) => {
     // Fetch top 10 turnover (most active by value)
     const topTurnover = await getLatestPrices(null, {
       limit: 10,
-      sortBy: 'turnover',
+      sortBy: 'total_traded_value',
       order: 'DESC'
     });
 
     // Fetch top 10 volume (most active by shares traded)
     const topVolume = await getLatestPrices(null, {
       limit: 10,
-      sortBy: 'volume',
+      sortBy: 'total_traded_quantity',
       order: 'DESC'
     });
 
