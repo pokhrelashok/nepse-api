@@ -93,7 +93,7 @@ class NotificationService {
    */
   static async sendIpoNotification(ipo, tokens) {
     const title = `New IPO: ${ipo.company_name}`;
-    const body = `${ipo.share_type} is opening on ${new Date(ipo.opening_date).toDateString()}. Units: ${ipo.units}`;
+    const body = `${ipo.share_type} opened on ${new Date(ipo.opening_date).toDateString()}, apply before ${new Date(ipo.application_deadline).toDateString()}`;
 
     const message = {
       notification: { title, body },
