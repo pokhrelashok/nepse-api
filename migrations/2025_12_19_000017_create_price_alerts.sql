@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS price_alerts (
   user_id VARCHAR(36) NOT NULL,
   symbol VARCHAR(20) NOT NULL,
   target_price DECIMAL(10, 2) NOT NULL,
-  alert_condition ENUM('ABOVE', 'BELOW') NOT NULL,
+  alert_condition ENUM('ABOVE', 'BELOW', 'EQUAL') NOT NULL,
   last_state ENUM('MET', 'NOT_MET') DEFAULT 'NOT_MET',
   is_active BOOLEAN DEFAULT TRUE,
   triggered_at TIMESTAMP NULL,

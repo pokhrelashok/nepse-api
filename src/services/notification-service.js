@@ -43,7 +43,8 @@ class NotificationService {
         if (currentPrice === undefined) continue;
 
         const isCurrentlyMet = (alert.alert_condition === 'ABOVE' && currentPrice >= alert.target_price) ||
-          (alert.alert_condition === 'BELOW' && currentPrice <= alert.target_price);
+          (alert.alert_condition === 'BELOW' && currentPrice <= alert.target_price) ||
+          (alert.alert_condition === 'EQUAL' && currentPrice === alert.target_price);
 
         if (isCurrentlyMet) {
           if (alert.last_state === 'NOT_MET') {
