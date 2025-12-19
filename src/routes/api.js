@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const companyController = require('../controllers/companyController');
+const marketController = require('../controllers/marketController');
 const alertController = require('../controllers/alertController');
 const schedulerController = require('../controllers/schedulerController');
 const { loginHandler, authMiddleware, verifyToken } = require('../middleware/auth');
