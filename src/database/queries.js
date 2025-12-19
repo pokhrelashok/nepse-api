@@ -597,6 +597,7 @@ async function updatePriceAlert(alertId, userId, data) {
     params.push(is_active);
     if (is_active) {
       updates.push('triggered_at = NULL');
+      updates.push("last_state = 'NOT_MET'");
     }
   }
 
@@ -632,10 +633,15 @@ async function getActivePriceAlerts() {
 async function markAlertTriggered(alertId) {
   const sql = `
     UPDATE price_alerts 
-    SET is_active = FALSE, triggered_at = CURRENT_TIMESTAMP 
+    SET triggered_at = CURRENT_TIMESTAMP, last_state = 'MET' 
     WHERE id = ?
   `;
   await pool.execute(sql, [alertId]);
+}
+
+async function updateAlertState(alertId, state) {
+  const sql = 'UPDATE price_alerts SET last_state = ? WHERE id = ?';
+  await pool.execute(sql, [state, alertId]);
 }
 
 module.exports = {
@@ -670,5 +676,6 @@ module.exports = {
   updatePriceAlert,
   deletePriceAlert,
   getActivePriceAlerts,
-  markAlertTriggered
+  markAlertTriggered,
+  updateAlertState
 };

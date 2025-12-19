@@ -42,28 +42,32 @@ class NotificationService {
         const currentPrice = priceMap.get(alert.symbol);
         if (currentPrice === undefined) continue;
 
-        let triggered = false;
-        if (alert.alert_condition === 'ABOVE' && currentPrice >= alert.target_price) {
-          triggered = true;
-        } else if (alert.alert_condition === 'BELOW' && currentPrice <= alert.target_price) {
-          triggered = true;
-        }
+        const isCurrentlyMet = (alert.alert_condition === 'ABOVE' && currentPrice >= alert.target_price) ||
+          (alert.alert_condition === 'BELOW' && currentPrice <= alert.target_price);
 
-        if (triggered) {
-          if (!alertsToProcess[alert.id]) {
-            alertsToProcess[alert.id] = {
-              ...alert,
-              tokens: [],
-              current_price: currentPrice
-            };
+        if (isCurrentlyMet) {
+          if (alert.last_state === 'NOT_MET') {
+            // State crossed from NOT_MET to MET -> TRIGGER
+            if (!alertsToProcess[alert.id]) {
+              alertsToProcess[alert.id] = {
+                ...alert,
+                tokens: [],
+                current_price: currentPrice
+              };
+            }
+            alertsToProcess[alert.id].tokens.push(alert.fcm_token);
           }
-          alertsToProcess[alert.id].tokens.push(alert.fcm_token);
+        } else {
+          // If state is MET but condition no longer met -> Reset to NOT_MET
+          if (alert.last_state === 'MET') {
+            await queries.updateAlertState(alert.id, 'NOT_MET');
+          }
         }
       }
 
       const alertIds = Object.keys(alertsToProcess);
       if (alertIds.length === 0) {
-        logger.info('No price alerts triggered.');
+        logger.info('No new price alerts triggered.');
         return;
       }
 
