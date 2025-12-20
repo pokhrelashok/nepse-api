@@ -210,22 +210,22 @@ async function saveDividends(dividends) {
     const sql = `
       INSERT INTO dividends (
         security_id, fiscal_year, bonus_share, cash_dividend,
-        total_dividend, book_close_date
+        total_dividend, published_date
       ) VALUES (?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         updated_at = CASE 
           WHEN bonus_share != VALUES(bonus_share) OR 
                cash_dividend != VALUES(cash_dividend) OR 
                total_dividend != VALUES(total_dividend) OR 
-               (book_close_date IS NULL AND VALUES(book_close_date) IS NOT NULL) OR
-               (book_close_date != VALUES(book_close_date))
+               (published_date IS NULL AND VALUES(published_date) IS NOT NULL) OR
+               (published_date != VALUES(published_date))
           THEN NOW() 
           ELSE updated_at 
         END,
         bonus_share = VALUES(bonus_share),
         cash_dividend = VALUES(cash_dividend),
         total_dividend = VALUES(total_dividend),
-        book_close_date = VALUES(book_close_date)
+        published_date = VALUES(published_date)
     `;
 
     for (const d of dividends) {
@@ -235,7 +235,7 @@ async function saveDividends(dividends) {
         d.bonusShare ?? 0,
         d.cashDividend ?? 0,
         d.totalDividend ?? 0,
-        d.bookCloseDate || null
+        d.publishedDate || null
       ]);
     }
 

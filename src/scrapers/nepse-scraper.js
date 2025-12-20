@@ -1083,7 +1083,7 @@ class NepseScraper {
                       bonusShare: bonus,
                       cashDividend: cash,
                       totalDividend: total,
-                      bookCloseDate: cleanVal(idxBookClose) || ''
+                      publishedDate: cleanVal(idxBookClose) || ''
                     };
                   }).filter(d => d && d.fiscalYear);
                 }, security_id);

@@ -59,6 +59,9 @@ async function scrapeDividends(checkAll = false) {
       const items = result.data;
 
       for (const item of items) {
+        // Find published_date from dividends table
+        const publishedDate = await require('../database/queries').findPublishedDate(item.stockSymbol, item.fiscalYearAD, item.fiscalYearBS);
+
         // Map API response to database columns
         const dividendData = {
           symbol: item.stockSymbol,
@@ -67,7 +70,10 @@ async function scrapeDividends(checkAll = false) {
           cash_dividend: item.cash === "" ? null : item.cash,
           total_dividend: item.totalDividend === "" ? null : item.totalDividend,
           book_close_date: item.bookClosureDateAD === "" ? null : item.bookClosureDateAD,
+          published_date: publishedDate, // Synced from dividends table
           fiscal_year: item.fiscalYearAD,
+          fiscal_year_bs: item.fiscalYearBS,
+          book_close_date_bs: item.bookClosureDateBS === "" ? null : item.bookClosureDateBS,
           right_share: item.rightShare === "" ? null : item.rightShare,
           right_book_close_date: item.rightBookCloseDateAD === "" ? null : item.rightBookCloseDateAD
         };
