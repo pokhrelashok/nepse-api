@@ -101,7 +101,7 @@ router.get('/sync', async (req, res) => {
       return {
         id: portfolio.id.toString(), // Client expects "id"
         name: portfolio.name,
-        color: portfolio.color || '#000000',
+        color: portfolio.color || '#00E676',
         stocks: Array.from(stocksMap.values()),
         last_updated: lastUpdated
       };
@@ -142,7 +142,7 @@ router.post('/', async (req, res) => {
 
   const { isValid, error, data } = validate(req.body, {
     name: { type: 'string', required: true, max: 50, message: 'Portfolio name required' },
-    color: { type: 'string', default: '#000000' },
+    color: { type: 'string', default: '#00E676' },
     id: { type: 'string' }
   });
 
@@ -169,7 +169,7 @@ router.post('/', async (req, res) => {
     await pool.execute(
       `INSERT INTO portfolios (id, user_id, name, color) VALUES (?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE name = VALUES(name), color = VALUES(color)`,
-      [portfolioId, req.currentUser.id, name.trim(), color || '#000000']
+      [portfolioId, req.currentUser.id, name.trim(), color || '#00E676']
     );
 
     const [newItem] = await pool.execute('SELECT * FROM portfolios WHERE id = ?', [portfolioId]);
@@ -584,7 +584,7 @@ router.post('/check-conflict', async (req, res) => {
         return {
           id: portfolio.id.toString(),
           name: portfolio.name,
-          color: portfolio.color || '#000000',
+          color: portfolio.color || '#00E676',
           stocks: Array.from(stocksMap.values()),
           last_updated: lastUpdated
         };
@@ -655,7 +655,7 @@ router.post('/upload-local', async (req, res) => {
       // Insert portfolio
       await connection.execute(
         'INSERT INTO portfolios (id, user_id, name, color) VALUES (?, ?, ?, ?)',
-        [portfolio.id, req.currentUser.id, portfolio.name, '#000000']
+        [portfolio.id, req.currentUser.id, portfolio.name, '#00E676']
       );
 
       // Insert transactions for this portfolio
@@ -769,7 +769,7 @@ router.post('/resolve-conflict', async (req, res) => {
         return {
           id: portfolio.id.toString(),
           name: portfolio.name,
-          color: portfolio.color || '#000000',
+          color: portfolio.color || '#00E676',
           stocks: Array.from(stocksMap.values()),
           last_updated: lastUpdated
         };
@@ -811,7 +811,7 @@ router.post('/resolve-conflict', async (req, res) => {
 
           await connection.execute(
             'INSERT INTO portfolios (id, user_id, name, color) VALUES (?, ?, ?, ?)',
-            [portfolio.id, req.currentUser.id, portfolio.name, '#000000']
+            [portfolio.id, req.currentUser.id, portfolio.name, '#00E676']
           );
 
           if (portfolio.stocks && Array.isArray(portfolio.stocks)) {
@@ -913,7 +913,7 @@ router.post('/resolve-conflict', async (req, res) => {
             mergedPortfolios.set(localP.id, {
               id: localP.id,
               name: localP.name,
-              color: '#000000',
+              color: '#00E676',
               updated_at: localUpdated,
               stocks: new Map()
             });
@@ -1039,7 +1039,7 @@ router.post('/resolve-conflict', async (req, res) => {
           return {
             id: portfolio.id.toString(),
             name: portfolio.name,
-            color: portfolio.color || '#000000',
+            color: portfolio.color || '#00E676',
             stocks: Array.from(stocksMap.values()),
             last_updated: lastUpdated
           };
