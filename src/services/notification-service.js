@@ -166,6 +166,7 @@ class NotificationService {
       notification: { title, body },
       data: {
         type: 'ipo',
+        route: 'ipo_calendar',
         symbol: ipo.symbol || '',
         id: ipo.id.toString()
       },
@@ -242,6 +243,7 @@ class NotificationService {
       notification: { title, body },
       data: {
         type: 'dividend',
+        route: 'bonus_calendar',
         symbol: dividend.symbol,
         id: dividend.id.toString()
       },
