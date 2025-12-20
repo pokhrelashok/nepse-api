@@ -101,6 +101,7 @@ router.get('/sync', async (req, res) => {
       return {
         id: portfolio.id.toString(), // Client expects "id"
         name: portfolio.name,
+        color: portfolio.color || '#000000',
         stocks: Array.from(stocksMap.values()),
         last_updated: lastUpdated
       };
@@ -583,6 +584,7 @@ router.post('/check-conflict', async (req, res) => {
         return {
           id: portfolio.id.toString(),
           name: portfolio.name,
+          color: portfolio.color || '#000000',
           stocks: Array.from(stocksMap.values()),
           last_updated: lastUpdated
         };
@@ -767,6 +769,7 @@ router.post('/resolve-conflict', async (req, res) => {
         return {
           id: portfolio.id.toString(),
           name: portfolio.name,
+          color: portfolio.color || '#000000',
           stocks: Array.from(stocksMap.values()),
           last_updated: lastUpdated
         };
@@ -1036,6 +1039,7 @@ router.post('/resolve-conflict', async (req, res) => {
           return {
             id: portfolio.id.toString(),
             name: portfolio.name,
+            color: portfolio.color || '#000000',
             stocks: Array.from(stocksMap.values()),
             last_updated: lastUpdated
           };
