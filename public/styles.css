@@ -1121,151 +1121,75 @@ body {
 }
 
 /* ============================================
-   App Screenshots Gallery
+   App Screenshots Gallery (Masonry)
    ============================================ */
 
 .screenshots-gallery {
   padding: 5rem 2rem;
   background: linear-gradient(180deg, var(--light-bg) 0%, var(--white) 50%, var(--light-bg) 100%);
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
 .screenshots-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  column-count: 3;
+  column-gap: 1.25rem;
   margin-top: 3rem;
-  padding: 0 1rem;
 }
 
 .screenshot-card {
-  position: relative;
-  border-radius: 24px;
+  break-inside: avoid;
+  margin-bottom: 1.25rem;
+  border-radius: 16px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
+  transition: transform 0.3s ease;
 }
 
 .screenshot-card:hover {
-  transform: translateY(-8px) scale(1.02);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-4px);
 }
 
-.screenshot-card.featured {
-  grid-column: span 1;
-  background: linear-gradient(135deg, rgba(82, 183, 136, 0.1) 0%, rgba(45, 170, 79, 0.05) 100%);
-  border-color: rgba(82, 183, 136, 0.3);
-}
-
-.screenshot-image {
-  position: relative;
-  padding: 1.5rem 1.5rem 0.5rem;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.screenshot-image::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 60%;
-  height: 4px;
-  background: linear-gradient(90deg, transparent, var(--accent-color), transparent);
-  border-radius: 0 0 4px 4px;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.screenshot-card:hover .screenshot-image::before {
-  opacity: 1;
-}
-
-.screenshot-image img {
+.screenshot-card img {
   width: 100%;
-  max-width: 240px;
   height: auto;
-  border-radius: 20px;
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.screenshot-card:hover .screenshot-image img {
-  transform: scale(1.03);
-}
-
-.screenshot-label {
-  padding: 1rem 1.5rem 1.5rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.screenshot-title {
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--text-dark);
-}
-
-.screenshot-tag {
-  padding: 0.25rem 0.75rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--accent-color) 0%, #e67e22 100%);
-  color: var(--white);
+  display: block;
+  border-radius: 16px;
 }
 
 /* Responsive adjustments */
-@media (min-width: 1024px) {
+@media (max-width: 900px) {
   .screenshots-grid {
-    grid-template-columns: repeat(3, 1fr);
+    column-count: 2;
+    column-gap: 1rem;
   }
   
-  .screenshot-card.featured {
-    grid-row: span 1;
+  .screenshot-card {
+    margin-bottom: 1rem;
+    border-radius: 14px;
+  }
+  
+  .screenshot-card img {
+    border-radius: 14px;
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 480px) {
   .screenshots-gallery {
     padding: 3rem 1rem;
   }
   
   .screenshots-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1rem;
-    padding: 0;
+    column-count: 2;
+    column-gap: 0.75rem;
   }
   
-  .screenshot-image {
-    padding: 1rem 1rem 0.5rem;
+  .screenshot-card {
+    margin-bottom: 0.75rem;
+    border-radius: 12px;
   }
   
-  .screenshot-label {
-    padding: 0.75rem 1rem 1rem;
-  }
-  
-  .screenshot-title {
-    font-size: 0.9rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .screenshots-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .screenshot-image img {
-    max-width: 280px;
+  .screenshot-card img {
+    border-radius: 12px;
   }
 }
 
