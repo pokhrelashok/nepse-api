@@ -246,6 +246,44 @@ async function updatePreferences(req, res) {
 }
 
 /**
+ * @route DELETE /api/auth/fcm
+ * @desc Unregister FCM Token on sign-out (works without Firebase auth)
+ * @access Public (requires FCM token in body)
+ */
+router.delete('/fcm', async (req, res) => {
+  const { isValid, error, data } = validate(req.body, {
+    fcm_token: { type: 'string', required: true, message: 'FCM token required' }
+  });
+
+  if (!isValid) return res.status(400).json({ error });
+  const { fcm_token } = data;
+
+  try {
+    // 1. Unsubscribe from all topics
+    try {
+      await admin.messaging().unsubscribeFromTopic([fcm_token], 'ipos');
+      await admin.messaging().unsubscribeFromTopic([fcm_token], 'dividends');
+      logger.info(`Unsubscribed ${fcm_token.substring(0, 20)}... from topics`);
+    } catch (topicError) {
+      // Token might already be invalid/expired, that's okay - continue with DB cleanup
+      logger.warn('Failed to unsubscribe from topics (token may be expired):', topicError.code);
+    }
+
+    // 2. Delete from database
+    const [result] = await pool.execute('DELETE FROM notification_tokens WHERE fcm_token = ?', [fcm_token]);
+
+    if (result.affectedRows > 0) {
+      logger.info(`FCM token unregistered: ${fcm_token.substring(0, 20)}...`);
+    }
+
+    res.json({ success: true, message: 'FCM token unregistered' });
+  } catch (error) {
+    logger.error('FCM Unregister Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+/**
  * @route POST /api/auth/test-notification
  * @desc Send a test notification to a specific FCM token
  * @access Semi-public (requires knowing the FCM token)
