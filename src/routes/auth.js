@@ -48,14 +48,6 @@ router.post('/google', async (req, res) => {
       const [newUser] = await pool.execute('SELECT * FROM users WHERE id = ?', [userId]);
       user = newUser[0];
       logger.info(`New user created: ${email}`);
-
-      // Create default "Mine" portfolio for new user with UUID
-      const portfolioId = generateUuid();
-      await pool.execute(
-        'INSERT INTO portfolios (id, user_id, name, color) VALUES (?, ?, ?, ?)',
-        [portfolioId, user.id, 'Mine', '#4CAF50']
-      );
-      logger.info(`Default portfolio created for user: ${email}`);
     }
 
     res.json({ success: true, user });
