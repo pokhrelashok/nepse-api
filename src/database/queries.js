@@ -70,7 +70,10 @@ async function getScriptDetails(symbol) {
   const sql = `
     SELECT 
       cd.*,
-      sp.business_date
+      sp.business_date,
+      sp.close_price AS ltp,
+      sp.\`change\` AS price_change,
+      sp.percentage_change
     FROM company_details cd
     LEFT JOIN stock_prices sp ON cd.symbol = sp.symbol
     WHERE cd.symbol = ?
