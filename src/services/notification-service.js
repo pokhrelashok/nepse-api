@@ -5,6 +5,20 @@ const logger = require('../utils/logger');
 
 class NotificationService {
   /**
+   * Format a date to a clean, readable string like "Feb 27, 2025"
+   */
+  static formatDate(date) {
+    if (!date) return 'TBD';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'TBD';
+    return d.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  }
+
+  /**
    * Main orchestrator to check for new data and send notifications
    */
   static async checkAndSendNotifications() {
@@ -160,7 +174,7 @@ class NotificationService {
    */
   static async sendIpoNotification(ipo, tokens) {
     const title = `New IPO: ${ipo.company_name}`;
-    const body = `${ipo.share_type} opened on ${new Date(ipo.opening_date).toDateString()}, apply before ${new Date(ipo.application_deadline).toDateString()}`;
+    const body = `${ipo.share_type} opens ${this.formatDate(ipo.opening_date)}, apply before ${this.formatDate(ipo.application_deadline)}`;
 
     const message = {
       notification: { title, body },
@@ -237,7 +251,7 @@ class NotificationService {
 
     const tokens = holders.map(h => h.fcm_token);
     const title = `Dividend Announcement: ${dividend.symbol}`;
-    const body = `Bonus: ${dividend.bonus_share}%, Cash: ${dividend.cash_dividend}%. Book Close: ${dividend.book_close_date}`;
+    const body = `Bonus: ${dividend.bonus_share}%, Cash: ${dividend.cash_dividend}%. Book Close: ${this.formatDate(dividend.book_close_date)}`;
 
     const message = {
       notification: { title, body },
