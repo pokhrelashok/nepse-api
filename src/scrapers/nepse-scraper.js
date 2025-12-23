@@ -101,6 +101,17 @@ class NepseScraper {
         this.browser = await puppeteer.launch(launchOptions);
         console.log('✅ Browser launched successfully');
 
+        // Configure download behavior to use temp directory
+        const pages = await this.browser.pages();
+        if (pages.length > 0) {
+          const client = await pages[0].target().createCDPSession();
+          await client.send('Browser.setDownloadBehavior', {
+            behavior: 'allow',
+            downloadPath: this.userDataDir
+          });
+          console.log(`📥 Download path set to: ${this.userDataDir}`);
+        }
+
         // Reset if browser disconnects
         this.browser.on('disconnected', () => {
           console.warn('⚠️ Browser disconnected');

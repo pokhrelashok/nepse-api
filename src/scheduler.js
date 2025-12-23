@@ -373,13 +373,14 @@ class Scheduler {
 
     try {
       const tmpDir = os.tmpdir();
-      const files = fs.readdirSync(tmpDir);
       const now = Date.now();
       const MAX_AGE_MS = 3600 * 1000; // 1 hour
 
+      // Cleanup 1: Temp directories created by scraper
       let deletedCount = 0;
       let keptCount = 0;
 
+      const files = fs.readdirSync(tmpDir);
       for (const file of files) {
         if (file.startsWith('nepse-scraper-')) {
           const filePath = path.join(tmpDir, file);
@@ -390,7 +391,6 @@ class Scheduler {
             if (age > MAX_AGE_MS) {
               fs.rmSync(filePath, { recursive: true, force: true });
               deletedCount++;
-              // logger.info(`Deleted old temp dir: ${file}`);
             } else {
               keptCount++;
             }
@@ -406,6 +406,41 @@ class Scheduler {
         logger.info(`ℹ️ No old temp directories to clean (found ${keptCount} active/recent ones)`);
       } else {
         logger.info('ℹ️ No temp directories found');
+      }
+
+      // Cleanup 2: Downloads directory (CSV files from NEPSE scraper)
+      const downloadsDir = '/home/nepse/Downloads';
+      let csvDeletedCount = 0;
+
+      try {
+        if (fs.existsSync(downloadsDir)) {
+          const downloadFiles = fs.readdirSync(downloadsDir);
+
+          for (const file of downloadFiles) {
+            // Only clean up CSV files (from NEPSE downloads)
+            if (file.toLowerCase().endsWith('.csv')) {
+              const filePath = path.join(downloadsDir, file);
+              try {
+                const stats = fs.statSync(filePath);
+                const age = now - stats.mtimeMs;
+
+                if (age > MAX_AGE_MS) {
+                  fs.unlinkSync(filePath);
+                  csvDeletedCount++;
+                }
+              } catch (err) {
+                // Ignore errors (file might be gone or locked)
+              }
+            }
+          }
+
+          if (csvDeletedCount > 0) {
+            logger.info(`✅ Cleaned up ${csvDeletedCount} old CSV files from Downloads directory`);
+          }
+        }
+      } catch (err) {
+        // Directory doesn't exist or no permissions - this is fine on dev machines
+        logger.info('ℹ️ Downloads directory not accessible (expected on dev machines)');
       }
 
       this.stats[jobKey].last_success = new Date().toISOString();
