@@ -15,7 +15,7 @@ module.exports = {
         DB_PASSWORD: process.env.DB_PASSWORD || 'nepse_password',
         DB_NAME: process.env.DB_NAME || 'nepse_db',
         DB_POOL_SIZE: process.env.DB_POOL_SIZE || 10,
-        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'false',
+        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true',
         PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable'
       },
       env_production: {
@@ -27,7 +27,7 @@ module.exports = {
         DB_PASSWORD: process.env.DB_PASSWORD || 'nepse_password',
         DB_NAME: process.env.DB_NAME || 'nepse_db',
         DB_POOL_SIZE: process.env.DB_POOL_SIZE || 10,
-        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'false',
+        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true',
         PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable'
       },
       error_file: './logs/api-err.log',
