@@ -1,5 +1,6 @@
 const { pool, savePrices, saveCompanyDetails, saveDividends, saveFinancials } = require('./database');
 const logger = require('../utils/logger');
+const { normalizeShareType, formatShareType } = require('../utils/share-type-utils');
 
 // Wrapper functions for database operations
 function insertTodayPrices(prices) {
@@ -472,9 +473,12 @@ async function insertIpo(ipoData) {
     totalAmount, openingDateAD, closingDateAD, status
   } = ipoData;
 
+  // Normalize share_type to lowercase_underscore format for storage
+  const normalizedShareType = normalizeShareType(shareType);
+
   const [result] = await pool.execute(sql, [
     ipoId, companyName, stockSymbol, shareRegistrar, sectorName,
-    shareType, pricePerUnit, rating, units, minUnits, maxUnits,
+    normalizedShareType, pricePerUnit, rating, units, minUnits, maxUnits,
     totalAmount, openingDateAD, closingDateAD, status
   ]);
   return result;
@@ -518,7 +522,12 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
   params.push(String(limit), String(offset));
 
   const [rows] = await pool.execute(sql, params);
-  return rows;
+
+  // Format share_type for display (Title Case)
+  return rows.map(row => ({
+    ...row,
+    share_type: formatShareType(row.share_type)
+  }));
 }
 // Announced Dividend functions
 async function insertAnnouncedDividends(dividendData) {

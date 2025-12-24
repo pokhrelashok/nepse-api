@@ -136,14 +136,15 @@ router.get('/preferences', verifyToken, async (req, res) => {
   if (!userId) return res.status(404).json({ error: 'User not found' });
 
   try {
-    const [rows] = await pool.execute('SELECT notify_ipos, notify_dividends FROM users WHERE id = ?', [userId]);
+    const [rows] = await pool.execute('SELECT notify_ipos, notify_dividends, ipo_notification_types FROM users WHERE id = ?', [userId]);
     if (rows.length === 0) return res.status(404).json({ error: 'User not found' });
 
     res.json({
       success: true,
       preferences: {
         notify_ipos: !!rows[0].notify_ipos,
-        notify_dividends: !!rows[0].notify_dividends
+        notify_dividends: !!rows[0].notify_dividends,
+        ipo_notification_types: rows[0].ipo_notification_types || ['ordinary']
       }
     });
   } catch (error) {
@@ -178,19 +179,20 @@ async function updatePreferences(req, res) {
   // Handle both naming conventions (DB vs Client)
   // Client usage: ipo_alerts, dividend_alerts
   // DB usage: notify_ipos, notify_dividends
-  let { notify_ipos, notify_dividends, ipo_alerts, dividend_alerts } = req.body;
+  let { notify_ipos, notify_dividends, ipo_alerts, dividend_alerts, ipo_notification_types } = req.body;
 
   // Map client keys to DB keys if provided
   if (ipo_alerts !== undefined) notify_ipos = ipo_alerts;
   if (dividend_alerts !== undefined) notify_dividends = dividend_alerts;
 
   // For PATCH, we need to fetch current values first if some are missing
-  if (req.method === 'PATCH' && (notify_ipos === undefined || notify_dividends === undefined)) {
+  if (req.method === 'PATCH' && (notify_ipos === undefined || notify_dividends === undefined || ipo_notification_types === undefined)) {
     try {
-      const [current] = await pool.execute('SELECT notify_ipos, notify_dividends FROM users WHERE id = ?', [userId]);
+      const [current] = await pool.execute('SELECT notify_ipos, notify_dividends, ipo_notification_types FROM users WHERE id = ?', [userId]);
       if (current.length > 0) {
         if (notify_ipos === undefined) notify_ipos = !!current[0].notify_ipos;
         if (notify_dividends === undefined) notify_dividends = !!current[0].notify_dividends;
+        if (ipo_notification_types === undefined) ipo_notification_types = current[0].ipo_notification_types || ['ordinary'];
       }
     } catch (e) {
       logger.error('Error fetching current prefs for PATCH:', e);
@@ -203,11 +205,23 @@ async function updatePreferences(req, res) {
     return res.status(400).json({ error: 'Preferences must be booleans' });
   }
 
+  // Validate and set default for ipo_notification_types
+  if (ipo_notification_types === undefined || ipo_notification_types === null) {
+    ipo_notification_types = ['ordinary'];
+  }
+  if (!Array.isArray(ipo_notification_types)) {
+    return res.status(400).json({ error: 'ipo_notification_types must be an array' });
+  }
+  // Validate that all types are strings
+  if (!ipo_notification_types.every(type => typeof type === 'string')) {
+    return res.status(400).json({ error: 'All IPO notification types must be strings' });
+  }
+
   try {
     // Update DB
     await pool.execute(
-      'UPDATE users SET notify_ipos = ?, notify_dividends = ? WHERE id = ?',
-      [notify_ipos, notify_dividends, userId]
+      'UPDATE users SET notify_ipos = ?, notify_dividends = ?, ipo_notification_types = ? WHERE id = ?',
+      [notify_ipos, notify_dividends, JSON.stringify(ipo_notification_types), userId]
     );
 
     // Update topics for all user's tokens
@@ -234,6 +248,7 @@ async function updatePreferences(req, res) {
       preferences: {
         notify_ipos,
         notify_dividends,
+        ipo_notification_types,
         // Return client keys too for convenience
         ipo_alerts: notify_ipos,
         dividend_alerts: notify_dividends

@@ -27,6 +27,7 @@ class NotificationService {
     try {
       await this.processNewIpos();
       await this.processNewDividends();
+      await this.processNewRightShares();
       logger.info('✅ Daily notification check completed and sent.');
     } catch (error) {
       logger.error('❌ Notification check failed:', error);
@@ -100,12 +101,11 @@ class NotificationService {
   }
 
   /**
-   * Find IPOs created in the last 24 hours and broadcast to subscribed users
+   * Find IPOs created in the last 24 hours and broadcast to subscribed users based on their preferences
    */
   static async processNewIpos() {
     try {
-      // 1. Find new IPOs (created in last 24h)
-      // Note: We use created_at because IPOs are usually new entries.
+      // 1. Find all new IPOs (created in last 24h)
       const [newIpos] = await pool.execute(`
         SELECT * FROM ipos 
         WHERE created_at >= NOW() - INTERVAL 1 DAY
@@ -118,20 +118,30 @@ class NotificationService {
 
       logger.info(`Found ${newIpos.length} new IPOs. Preparing notifications...`);
 
-      // 2. Get tokens of users who enabled IPO alerts
-      // We process in batches if needed, but for now getting all is fine for scale < 10k users
-      const [rows] = await pool.execute(`
-        SELECT DISTINCT nt.fcm_token 
-        FROM notification_tokens nt 
-        JOIN users u ON u.id = nt.user_id 
-        WHERE u.notify_ipos = TRUE
-      `);
-
-      const tokens = rows.map(r => r.fcm_token);
-      if (tokens.length === 0) return;
-
-      // 3. Send notification for each new IPO
+      // 2. For each IPO, find users who want notifications for that specific type
       for (const ipo of newIpos) {
+        // Get the normalized share_type (lowercase_underscore) for querying
+        // The ipo object from scraper has the raw value, we need to normalize it
+        const { normalizeShareType } = require('../utils/share-type-utils');
+        const normalizedType = normalizeShareType(ipo.share_type);
+
+        // Get tokens of users who:
+        // - Have IPO alerts enabled (notify_ipos = TRUE)
+        // - Have this specific IPO type in their preferences
+        const [rows] = await pool.execute(`
+          SELECT DISTINCT nt.fcm_token 
+          FROM notification_tokens nt 
+          JOIN users u ON u.id = nt.user_id 
+          WHERE u.notify_ipos = TRUE
+          AND JSON_CONTAINS(u.ipo_notification_types, JSON_QUOTE(?))
+        `, [normalizedType]);
+
+        const tokens = rows.map(r => r.fcm_token);
+        if (tokens.length === 0) {
+          logger.info(`No users subscribed to ${normalizedType} IPO notifications.`);
+          continue;
+        }
+
         await this.sendIpoNotification(ipo, tokens);
       }
 
@@ -174,6 +184,7 @@ class NotificationService {
    */
   static async sendIpoNotification(ipo, tokens) {
     const title = `New IPO: ${ipo.company_name}`;
+    // share_type is already formatted by the query (e.g., "Ordinary", "Migrant Workers")
     const body = `${ipo.share_type} opens ${this.formatDate(ipo.opening_date)}, apply before ${this.formatDate(ipo.application_deadline)}`;
 
     const message = {
@@ -279,6 +290,95 @@ class NotificationService {
       }
     } catch (error) {
       logger.error(`Failed to send Dividend notification for ${dividend.symbol}:`, error);
+    }
+  }
+
+  /**
+   * Find right shares announced in the last 24 hours and notify holders
+   */
+  static async processNewRightShares() {
+    try {
+      // 1. Find new/updated right shares
+      // We look for dividends with right_share populated that were updated in the last 24h
+      const [newRightShares] = await pool.execute(`
+        SELECT * FROM announced_dividends 
+        WHERE updated_at >= NOW() - INTERVAL 1 DAY
+        AND right_share IS NOT NULL 
+        AND right_share != '' 
+        AND right_share != '0'
+      `);
+
+      if (newRightShares.length === 0) {
+        logger.info('No new right shares found in the last 24h.');
+        return;
+      }
+
+      logger.info(`Found ${newRightShares.length} new right shares.`);
+
+      // 2. For each right share, find users who hold that stock
+      for (const rightShare of newRightShares) {
+        await this.sendRightShareNotification(rightShare);
+      }
+
+    } catch (error) {
+      logger.error('Error processing Right Share notifications:', error);
+    }
+  }
+
+  /**
+   * Send targeted notification for a Right Share
+   */
+  static async sendRightShareNotification(rightShare) {
+    // Find users who hold this stock AND have dividend alerts on
+    // (Right shares are related to dividends, so we use the same preference)
+    const [holders] = await pool.execute(`
+       SELECT DISTINCT nt.fcm_token 
+       FROM transactions t
+       JOIN portfolios p ON p.id = t.portfolio_id
+       JOIN users u ON u.id = p.user_id
+       JOIN notification_tokens nt ON nt.user_id = u.id
+       WHERE t.stock_symbol = ? 
+       AND u.notify_dividends = TRUE
+       GROUP BY p.user_id, nt.fcm_token
+       HAVING SUM(CASE 
+           WHEN t.type IN ('BUY', 'BONUS', 'RIGHTS', 'IPO') THEN t.quantity 
+           WHEN t.type IN ('SELL') THEN -t.quantity 
+           ELSE 0 
+       END) > 0
+    `, [rightShare.symbol]);
+
+    if (holders.length === 0) return;
+
+    const tokens = holders.map(h => h.fcm_token);
+    const title = `Right Share: ${rightShare.symbol}`;
+    const body = `${rightShare.right_share}% right share announced. Book Close: ${this.formatDate(rightShare.right_book_close_date)}`;
+
+    const message = {
+      notification: { title, body },
+      data: {
+        type: 'right_share',
+        route: 'bonus_calendar',
+        symbol: rightShare.symbol,
+        id: rightShare.id.toString()
+      },
+      tokens: tokens
+    };
+
+    try {
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+        const batchTokens = tokens.slice(i, i + BATCH_SIZE);
+        const batchMessage = { ...message, tokens: batchTokens };
+
+        const response = await admin.messaging().sendEachForMulticast(batchMessage);
+        logger.info(`Sent Right Share notification for ${rightShare.symbol} to ${response.successCount} holders.`);
+
+        if (response.failureCount > 0) {
+          this.handleFailedTokens(response.responses, batchTokens);
+        }
+      }
+    } catch (error) {
+      logger.error(`Failed to send Right Share notification for ${rightShare.symbol}:`, error);
     }
   }
 
