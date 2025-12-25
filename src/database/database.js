@@ -109,7 +109,7 @@ async function saveCompanyDetails(detailsArray) {
 
     const sql = `
       INSERT INTO company_details (
-        security_id, symbol, company_name, sector_name,
+        security_id, symbol, company_name, nepali_company_name, sector_name, nepali_sector_name,
         instrument_type, issue_manager, share_registrar,
         listing_date, total_listed_shares, paid_up_capital,
         total_paid_up_value, email, website, status, permitted_to_trade,
@@ -118,11 +118,13 @@ async function saveCompanyDetails(detailsArray) {
         open_price, close_price, high_price, low_price, previous_close,
         fifty_two_week_high, fifty_two_week_low, total_traded_quantity,
         total_trades, average_traded_price, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         symbol = VALUES(symbol),
         company_name = VALUES(company_name),
+        nepali_company_name = COALESCE(VALUES(nepali_company_name), nepali_company_name),
         sector_name = VALUES(sector_name),
+        nepali_sector_name = COALESCE(VALUES(nepali_sector_name), nepali_sector_name),
         instrument_type = VALUES(instrument_type),
         issue_manager = VALUES(issue_manager),
         share_registrar = VALUES(share_registrar),
@@ -158,7 +160,9 @@ async function saveCompanyDetails(detailsArray) {
         d.security_id || null,
         d.symbol || null,
         d.company_name || null,
+        d.nepali_company_name || null,
         d.sector_name || null,
+        d.nepali_sector_name || null,
         d.instrument_type || null,
         d.issue_manager || null,
         d.share_registrar || null,

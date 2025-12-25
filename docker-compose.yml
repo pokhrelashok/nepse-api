@@ -21,6 +21,7 @@ services:
       - DB_POOL_SIZE=10
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
       - PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
     depends_on:
       mysql:
         condition: service_healthy

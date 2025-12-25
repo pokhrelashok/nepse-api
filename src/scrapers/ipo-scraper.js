@@ -1,5 +1,6 @@
 const { insertIpo } = require('../database/queries');
 const logger = require('../utils/logger');
+const { translateToNepali } = require('../services/translation-service');
 
 // Headers user provided
 const HEADERS = {
@@ -71,6 +72,14 @@ async function scrapeIpos(checkAll = false) {
           openingDateAD: ipo.openingDateAD === "" ? null : ipo.openingDateAD,
           closingDateAD: ipo.closingDateAD === "" ? null : ipo.closingDateAD
         };
+
+        // Translate company name and sector name to Nepali
+        const nepaliCompanyName = await translateToNepali(ipo.companyName);
+        const nepaliSectorName = await translateToNepali(ipo.sectorName);
+
+        cleanedIpo.nepaliCompanyName = nepaliCompanyName;
+        cleanedIpo.nepaliSectorName = nepaliSectorName;
+
         await insertIpo(cleanedIpo);
       }
       newRecordCount += ipos.length;

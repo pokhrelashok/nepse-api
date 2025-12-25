@@ -1,5 +1,6 @@
 const { insertAnnouncedDividends } = require('../database/queries');
 const logger = require('../utils/logger');
+const { translateToNepali } = require('../services/translation-service');
 
 const HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0',
@@ -62,10 +63,14 @@ async function scrapeDividends(checkAll = false) {
         // Find published_date from dividends table
         const publishedDate = await require('../database/queries').findPublishedDate(item.stockSymbol, item.fiscalYearAD, item.fiscalYearBS);
 
+        // Translate company name to Nepali
+        const nepaliCompanyName = await translateToNepali(item.companyName);
+
         // Map API response to database columns
         const dividendData = {
           symbol: item.stockSymbol,
           company_name: item.companyName,
+          nepali_company_name: nepaliCompanyName,
           bonus_share: item.bonus === "" ? null : item.bonus,
           cash_dividend: item.cash === "" ? null : item.cash,
           total_dividend: item.totalDividend === "" ? null : item.totalDividend,

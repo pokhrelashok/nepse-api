@@ -4,6 +4,7 @@ const { DateTime } = require('luxon');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { translateToNepali } = require('../services/translation-service');
 
 const NEPSE_URL = 'https://www.nepalstock.com';
 const TODAY_PRICE_URL = 'https://www.nepalstock.com/today-price';
@@ -1010,10 +1011,16 @@ class NepseScraper {
           // Process the logo image - save base64 images, ignore URLs
           const processedLogoUrl = await processImageData(data.rawLogoData, symbol);
 
+          // Translate company name and sector name to Nepali
+          const nepaliCompanyName = await translateToNepali(data.companyName);
+          const nepaliSectorName = await translateToNepali(data.sectorName);
+
           const item = {
             securityId: security_id,
             symbol: symbol,
             ...data,
+            nepali_company_name: nepaliCompanyName,
+            nepali_sector_name: nepaliSectorName,
             logoUrl: processedLogoUrl // Replace with processed URL or null
           };
 

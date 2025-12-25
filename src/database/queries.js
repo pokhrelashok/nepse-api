@@ -446,15 +446,17 @@ async function getMarketIndexHistory(days = 7) {
 async function insertIpo(ipoData) {
   const sql = `
     INSERT INTO ipos (
-      ipo_id, company_name, symbol, share_registrar, sector_name, 
-      share_type, price_per_unit, rating, units, min_units, max_units, 
-      total_amount, opening_date, closing_date, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ipo_id, company_name, nepali_company_name, symbol, share_registrar, 
+      sector_name, nepali_sector_name, share_type, price_per_unit, rating, 
+      units, min_units, max_units, total_amount, opening_date, closing_date, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       company_name = VALUES(company_name),
+      nepali_company_name = COALESCE(VALUES(nepali_company_name), nepali_company_name),
       symbol = VALUES(symbol),
       share_registrar = VALUES(share_registrar),
       sector_name = VALUES(sector_name),
+      nepali_sector_name = COALESCE(VALUES(nepali_sector_name), nepali_sector_name),
       share_type = VALUES(share_type),
       price_per_unit = VALUES(price_per_unit),
       rating = VALUES(rating),
@@ -468,7 +470,7 @@ async function insertIpo(ipoData) {
   `;
 
   const {
-    ipoId, companyName, stockSymbol, shareRegistrar, sectorName,
+    ipoId, companyName, nepaliCompanyName, stockSymbol, shareRegistrar, sectorName, nepaliSectorName,
     shareType, pricePerUnit, rating, units, minUnits, maxUnits,
     totalAmount, openingDateAD, closingDateAD, status
   } = ipoData;
@@ -477,9 +479,9 @@ async function insertIpo(ipoData) {
   const normalizedShareType = normalizeShareType(shareType);
 
   const [result] = await pool.execute(sql, [
-    ipoId, companyName, stockSymbol, shareRegistrar, sectorName,
-    normalizedShareType, pricePerUnit, rating, units, minUnits, maxUnits,
-    totalAmount, openingDateAD, closingDateAD, status
+    ipoId, companyName, nepaliCompanyName || null, stockSymbol, shareRegistrar,
+    sectorName, nepaliSectorName || null, normalizedShareType, pricePerUnit, rating,
+    units, minUnits, maxUnits, totalAmount, openingDateAD, closingDateAD, status
   ]);
   return result;
 }
@@ -533,12 +535,13 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
 async function insertAnnouncedDividends(dividendData) {
   const sql = `
     INSERT INTO announced_dividends (
-      symbol, company_name, bonus_share, cash_dividend, total_dividend, 
+      symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend, 
       book_close_date, published_date, fiscal_year, fiscal_year_bs, 
       book_close_date_bs, right_share, right_book_close_date
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       company_name = VALUES(company_name),
+      nepali_company_name = COALESCE(VALUES(nepali_company_name), nepali_company_name),
       bonus_share = VALUES(bonus_share),
       cash_dividend = VALUES(cash_dividend),
       total_dividend = VALUES(total_dividend),
@@ -552,13 +555,13 @@ async function insertAnnouncedDividends(dividendData) {
   `;
 
   const {
-    symbol, company_name, bonus_share, cash_dividend, total_dividend,
+    symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend,
     book_close_date, published_date, fiscal_year, fiscal_year_bs,
     book_close_date_bs, right_share, right_book_close_date
   } = dividendData;
 
   const [result] = await pool.execute(sql, [
-    symbol, company_name, bonus_share, cash_dividend, total_dividend,
+    symbol, company_name, nepali_company_name || null, bonus_share, cash_dividend, total_dividend,
     book_close_date, published_date, fiscal_year, fiscal_year_bs,
     book_close_date_bs, right_share, right_book_close_date
   ]);
