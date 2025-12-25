@@ -196,50 +196,60 @@ class NepseScraper {
         try {
           console.log('📖 Reading page content...');
           const bodyText = await page.evaluate(() => document.body.innerText);
+          const bodyTextLower = bodyText.toLowerCase();
 
-          // Check for specific status strings
-          const isPreOpen = bodyText.includes('Pre Open') || /Market Status[:\s]*PRE[- ]?OPEN/i.test(bodyText) || /Status[:\s]*PRE[- ]?OPEN/i.test(bodyText);
-          const isOpen = bodyText.includes('Market Open') || /Market Status[:\s]*OPEN/i.test(bodyText) || /Status[:\s]*OPEN/i.test(bodyText);
-          const isClosed = bodyText.includes('Market Closed') || /Market Status[:\s]*CLOSED/i.test(bodyText) || /Status[:\s]*CLOSED/i.test(bodyText);
+          // Check for specific status strings - more lenient patterns
+          // Pre-Open detection
+          const isPreOpen = bodyText.includes('Pre Open') ||
+            bodyText.includes('Pre-Open') ||
+            /Market Status[:\s]*PRE[- ]?OPEN/i.test(bodyText) ||
+            /Status[:\s]*PRE[- ]?OPEN/i.test(bodyText) ||
+            bodyTextLower.includes('pre open') ||
+            bodyTextLower.includes('pre-open');
 
-          if (isPreOpen) return 'PRE_OPEN';
-          if (isOpen) return 'OPEN';
-          if (isClosed) return 'CLOSED';
+          // Open detection - be specific to avoid false positives with "Pre Open"
+          const isOpen = (bodyText.includes('Market Open') && !bodyText.includes('Pre')) ||
+            /Market Status[:\s]*OPEN(?!\s*-)/i.test(bodyText) ||
+            /Status[:\s]*OPEN(?!\s*-)/i.test(bodyText) ||
+            (bodyTextLower.includes('market open') && !bodyTextLower.includes('pre'));
 
-          // Additional Check: Look for "As of ... 3:00:00 PM" which typically implies closed
-          if (bodyText.includes('3:00:00 PM')) {
+          // Closed detection - more lenient patterns including just "Closed"
+          const isClosed = bodyText.includes('Market Closed') ||
+            bodyText.includes('Market Close') ||
+            /Market Status[:\s]*CLOSED?/i.test(bodyText) ||
+            /Status[:\s]*CLOSED?/i.test(bodyText) ||
+            bodyTextLower.includes('market closed') ||
+            bodyTextLower.includes('market close') ||
+            // Check for standalone "Closed" in context of market status area
+            /\bClosed\b/i.test(bodyText);
+
+          // Additional indicators that market is closed
+          const closedIndicators = bodyText.includes('3:00:00 PM') ||
+            bodyTextLower.includes('holiday') ||
+            bodyTextLower.includes('trading halt');
+
+          // Priority: Check explicit status first
+          if (isPreOpen && !isClosed) {
+            console.log('✅ Detected: PRE_OPEN from page content');
+            return 'PRE_OPEN';
+          }
+          if (isOpen && !isClosed && !isPreOpen) {
+            console.log('✅ Detected: OPEN from page content');
+            return 'OPEN';
+          }
+          if (isClosed || closedIndicators) {
+            console.log('✅ Detected: CLOSED from page content');
             return 'CLOSED';
           }
 
-          // Fallback: time-based check
-          // console.log('⏰ Standard status text not found, validating against market hours...');
-          const now = DateTime.now().setZone('Asia/Kathmandu');
-          const currentTime = now.hour * 100 + now.minute;
-
-          // Luxon uses 1=Monday, 7=Sunday. Trading days are Sun-Thu (7, 1, 2, 3, 4)
-          const isTradingDay = [7, 1, 2, 3, 4].includes(now.weekday);
-
-          if (!isTradingDay) return 'CLOSED';
-
-          // Pre-open session: 10:30 AM - 10:45 AM
-          if (currentTime >= 1030 && currentTime < 1045) {
-            return 'PRE_OPEN';
-          }
-
-          // Regular trading session: 11:00 AM - 3:00 PM (15:00)
-          // Also handling the gap between 10:45 and 11:00 which is usually "Open" or "Special Pre Open"
-          if (currentTime >= 1100 && currentTime <= 1500) {
-            return 'OPEN';
-          }
-
-          // Special Pre Open / Opening session buffer
-          if (currentTime >= 1045 && currentTime < 1100) {
-            return 'OPEN'; // Treat as open or maybe another status if strict
-          }
-
+          // If page loaded successfully but we couldn't detect any explicit OPEN status,
+          // default to CLOSED (safer for holidays and unexpected closures)
+          // Only use time-based fallback if we truly couldn't parse the page
+          console.log('⚠️ No explicit OPEN status detected on page, defaulting to CLOSED');
           return 'CLOSED';
         } catch (timeoutErr) {
-          console.warn('⚠️ Failed to detect market status from page, using time-based fallback');
+          // Only use time-based fallback when page parsing completely fails
+          console.warn('⚠️ Failed to read page content, using time-based fallback');
           const now = DateTime.now().setZone('Asia/Kathmandu');
           const currentTime = now.hour * 100 + now.minute;
           const isTradingDay = [7, 1, 2, 3, 4].includes(now.weekday);
