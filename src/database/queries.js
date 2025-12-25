@@ -57,7 +57,9 @@ async function getSecurityIdsBySymbols(symbols) {
 async function searchStocks(query) {
   const pattern = `%${query}%`;
   const [rows] = await pool.execute(
-    `SELECT DISTINCT sp.symbol, sp.security_name, sp.security_id, cd.sector_name as sector, cd.status 
+    `SELECT DISTINCT sp.symbol, sp.security_name, sp.security_id, 
+            cd.sector_name as sector, cd.nepali_sector_name, 
+            cd.company_name, cd.nepali_company_name, cd.status 
      FROM stock_prices sp
      LEFT JOIN company_details cd ON sp.symbol = cd.symbol
      WHERE sp.symbol LIKE ? OR sp.security_name LIKE ? 
@@ -126,7 +128,7 @@ async function getLatestPrices(symbols, options = {}) {
   if (symbols && Array.isArray(symbols) && symbols.length > 0) {
     const placeholders = symbols.map(() => '?').join(',');
     const sql = `
-      SELECT sp.*, cd.company_name, cd.sector_name 
+      SELECT sp.*, cd.company_name, cd.nepali_company_name, cd.sector_name, cd.nepali_sector_name 
       FROM stock_prices sp
       LEFT JOIN company_details cd ON sp.symbol = cd.symbol
       WHERE sp.symbol IN (${placeholders})
@@ -142,7 +144,9 @@ async function getLatestPrices(symbols, options = {}) {
     SELECT 
       sp.*,
       cd.company_name,
+      cd.nepali_company_name,
       cd.sector_name,
+      cd.nepali_sector_name,
       cd.market_capitalization as company_market_cap
     FROM stock_prices sp
     LEFT JOIN company_details cd ON sp.symbol = cd.symbol
@@ -203,8 +207,10 @@ async function getAllCompanies() {
     SELECT 
       cd.symbol,
       cd.company_name AS name,
+      cd.nepali_company_name,
       cd.logo_url AS logo,
       cd.sector_name AS sector,
+      cd.nepali_sector_name,
       cd.status,
       sp.percentage_change AS todays_change,
       sp.\`change\` AS price_change
@@ -491,9 +497,11 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
     SELECT 
       ipo_id,
       company_name,
+      nepali_company_name,
       symbol,
       share_registrar,
       sector_name,
+      nepali_sector_name,
       share_type,
       price_per_unit,
       rating,
@@ -628,7 +636,7 @@ async function getRecentBonusForSymbols(symbols) {
 
   const placeholders = symbols.map(() => '?').join(',');
   const sql = `
-    SELECT symbol, company_name, bonus_share, cash_dividend, 
+    SELECT symbol, company_name, nepali_company_name, bonus_share, cash_dividend, 
            total_dividend, book_close_date, published_date, fiscal_year, fiscal_year_bs
     FROM announced_dividends 
     WHERE symbol IN (${placeholders})
