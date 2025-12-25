@@ -15,6 +15,8 @@ class Scheduler {
     this.isRunning = false;
     this.isMarketOpen = false; // Track market status for index updates
     this.isJobRunning = new Map(); // Track if a specific job is currently executing
+    this.holidayDetectedDate = null; // Track if we detected a holiday/unexpected closure today
+    this.lastClosedCheckTime = null; // Track when we last checked and found closed
     this.stats = {
       index_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
       price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
@@ -31,8 +33,22 @@ class Scheduler {
       is_running: this.isRunning,
       active_jobs: this.getActiveJobs(),
       currently_executing: Array.from(this.isJobRunning.entries()).filter(([, v]) => v).map(([k]) => k),
+      holiday_detected_date: this.holidayDetectedDate,
       stats: this.stats
     };
+  }
+
+  // Check if today is detected as a holiday (market closed during trading hours)
+  isHolidayToday() {
+    const today = new Date().toISOString().split('T')[0];
+    return this.holidayDetectedDate === today;
+  }
+
+  // Reset holiday detection (called at end of day or when market opens)
+  resetHolidayDetection() {
+    this.holidayDetectedDate = null;
+    this.lastClosedCheckTime = null;
+    logger.info('Holiday detection reset');
   }
 
 
@@ -137,7 +153,6 @@ class Scheduler {
   async updateMarketIndex() {
     const jobKey = 'index_update';
 
-
     // Only update when market is open (check time in Nepal timezone)
     const now = new Date();
     const nepalTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
@@ -145,10 +160,28 @@ class Scheduler {
     const minutes = nepalTime.getMinutes();
     const currentTime = hour * 100 + minutes;
     const day = nepalTime.getDay(); // 0 = Sunday, 4 = Thursday
+    const today = now.toISOString().split('T')[0];
 
     // Market hours: 10:30 AM - 3 PM on Sun-Thu (days 0-4)
     // Pre-open starts at 10:30
     const isMarketHours = currentTime >= 1030 && currentTime < 1500 && day >= 0 && day <= 4;
+    const isPastOpeningTime = currentTime >= 1100; // After 11 AM when market should definitely be open
+
+    // Reset holiday detection if it's a new day
+    if (this.holidayDetectedDate && this.holidayDetectedDate !== today) {
+      this.resetHolidayDetection();
+    }
+
+    // Skip if we already detected a holiday today
+    if (this.isHolidayToday()) {
+      // Only log once per hour to avoid spam
+      const lastCheckHour = this.lastClosedCheckTime ? new Date(this.lastClosedCheckTime).getHours() : -1;
+      if (lastCheckHour !== hour) {
+        console.log(`🏖️ Holiday detected for ${today}, skipping market updates`);
+        this.lastClosedCheckTime = now.toISOString();
+      }
+      return;
+    }
 
     if (!isMarketHours && !this.isMarketOpen) {
       // Skip silently outside market hours
@@ -163,7 +196,6 @@ class Scheduler {
     this.isJobRunning.set(jobKey, true);
     this.stats[jobKey].last_run = new Date().toISOString();
 
-
     try {
       // Check market status
       const status = await this.scraper.scrapeMarketStatus();
@@ -174,19 +206,28 @@ class Scheduler {
       await updateMarketStatus(status);
 
       if (isOpen) {
-        // Scrape and save market index data
+        // Market is open - reset any holiday detection and scrape index
+        if (this.holidayDetectedDate) {
+          this.resetHolidayDetection();
+        }
+
         const indexData = await this.scraper.scrapeMarketIndex();
         await saveMarketIndex(indexData);
         console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
 
         this.stats[jobKey].last_success = new Date().toISOString();
         this.stats[jobKey].success_count++;
+      } else if (status === 'CLOSED' && isPastOpeningTime && isMarketHours) {
+        // Market is closed during what should be trading hours - likely a holiday
+        this.holidayDetectedDate = today;
+        this.lastClosedCheckTime = now.toISOString();
+        logger.info(`🏖️ Holiday/unexpected closure detected on ${today}. Pausing market scraping for today.`);
+        console.log(`🏖️ Market closed during trading hours (${hour}:${minutes.toString().padStart(2, '0')}). Assuming holiday - pausing scraping for today.`);
       }
     } catch (error) {
       logger.error('Index update failed:', error);
       this.stats[jobKey].fail_count++;
     } finally {
-
       this.isJobRunning.set(jobKey, false);
     }
   }
@@ -194,6 +235,11 @@ class Scheduler {
   async updatePricesAndStatus(phase) {
     const jobKey = phase === 'AFTER_CLOSE' ? 'close_update' : 'price_update';
 
+    // Skip if we already detected a holiday today (only for DURING_HOURS phase)
+    if (phase === 'DURING_HOURS' && this.isHolidayToday()) {
+      console.log(`🏖️ Holiday detected, skipping ${jobKey}`);
+      return;
+    }
 
     // Prevent overlapping runs
     if (this.isJobRunning.get(jobKey)) {
@@ -203,7 +249,6 @@ class Scheduler {
 
     this.isJobRunning.set(jobKey, true);
     this.stats[jobKey].last_run = new Date().toISOString();
-
 
     logger.info(`Scheduled ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update started...`);
 
