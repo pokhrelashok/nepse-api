@@ -213,15 +213,13 @@ class NepseScraper {
             /Status[:\s]*OPEN(?!\s*-)/i.test(bodyText) ||
             (bodyTextLower.includes('market open') && !bodyTextLower.includes('pre'));
 
-          // Closed detection - more lenient patterns including just "Closed"
+          // Closed detection - look for explicit "Market Closed" or "Market Status: Closed"
           const isClosed = bodyText.includes('Market Closed') ||
             bodyText.includes('Market Close') ||
             /Market Status[:\s]*CLOSED?/i.test(bodyText) ||
             /Status[:\s]*CLOSED?/i.test(bodyText) ||
             bodyTextLower.includes('market closed') ||
-            bodyTextLower.includes('market close') ||
-            // Check for standalone "Closed" in context of market status area
-            /\bClosed\b/i.test(bodyText);
+            bodyTextLower.includes('market close');
 
           // Additional indicators that market is closed
           const closedIndicators = bodyText.includes('3:00:00 PM') ||
@@ -242,10 +240,29 @@ class NepseScraper {
             return 'CLOSED';
           }
 
-          // If page loaded successfully but we couldn't detect any explicit OPEN status,
-          // default to CLOSED (safer for holidays and unexpected closures)
-          // Only use time-based fallback if we truly couldn't parse the page
-          console.log('⚠️ No explicit OPEN status detected on page, defaulting to CLOSED');
+          // Fallback: If no explicit status found, use time-based logic
+          console.log('⚠️ No explicit market status detected, using time-based fallback');
+          const now = DateTime.now().setZone('Asia/Kathmandu');
+          const currentTime = now.hour * 100 + now.minute;
+          const isTradingDay = [7, 1, 2, 3, 4].includes(now.weekday);
+
+          if (!isTradingDay) return 'CLOSED';
+
+          // Pre-open session: 10:30 AM - 10:45 AM
+          if (currentTime >= 1030 && currentTime < 1045) {
+            return 'PRE_OPEN';
+          }
+
+          // Regular trading session: 11:00 AM - 3:00 PM (15:00)
+          if (currentTime >= 1100 && currentTime <= 1500) {
+            return 'OPEN';
+          }
+
+          // Special Pre Open / Opening session buffer
+          if (currentTime >= 1045 && currentTime < 1100) {
+            return 'OPEN';
+          }
+
           return 'CLOSED';
         } catch (timeoutErr) {
           // Only use time-based fallback when page parsing completely fails
