@@ -334,11 +334,15 @@ async function updateMarketStatus(status) {
   return Promise.resolve();
 }
 
-// Legacy adapter
-async function saveMarketIndex(indexData) {
+// Legacy adapter - now accepts optional status parameter
+async function saveMarketIndex(indexData, status = null) {
+  // If status is explicitly provided, use it; otherwise infer from index
+  const finalStatus = status || ((indexData.nepseIndex > 0) ? 'OPEN' : 'CLOSED');
+  const isOpen = finalStatus === 'OPEN' || finalStatus === 'PRE_OPEN';
+
   return saveMarketSummary({
-    status: (indexData.nepseIndex > 0) ? 'OPEN' : 'CLOSED',
-    isOpen: (indexData.nepseIndex > 0),
+    status: finalStatus,
+    isOpen: isOpen,
     indexData
   });
 }
@@ -356,13 +360,14 @@ async function getCurrentMarketStatus() {
       return {
         status: rows[0].status || 'CLOSED',
         isOpen: !!rows[0].is_open,
+        tradingDate: rows[0].trading_date,
         lastUpdated: rows[0].last_updated
       };
     }
-    return { status: 'CLOSED', isOpen: false };
+    return { status: 'CLOSED', isOpen: false, tradingDate: null };
   } catch (error) {
     console.error('❌ Error fetching market status:', error.message);
-    return { status: 'CLOSED', isOpen: false };
+    return { status: 'CLOSED', isOpen: false, tradingDate: null };
   }
 }
 

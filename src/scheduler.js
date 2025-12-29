@@ -176,7 +176,7 @@ class Scheduler {
       if (isOpen) {
         // Scrape and save market index data
         const indexData = await this.scraper.scrapeMarketIndex();
-        await saveMarketIndex(indexData);
+        await saveMarketIndex(indexData, status); // Pass the actual status (OPEN or PRE_OPEN)
         console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
 
         this.stats[jobKey].last_success = new Date().toISOString();

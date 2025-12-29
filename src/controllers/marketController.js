@@ -33,7 +33,7 @@ exports.getMarketStatus = async (req, res) => {
         const indexData = await scraper.scrapeMarketIndex();
 
         await updateMarketStatus(status);
-        await saveMarketIndex(indexData);
+        await saveMarketIndex(indexData, status); // Pass the actual status (OPEN, PRE_OPEN, or CLOSED)
 
         res.json(formatResponse({
           is_open: isOpen,
