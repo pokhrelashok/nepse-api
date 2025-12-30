@@ -240,42 +240,16 @@ class NepseScraper {
             return 'CLOSED';
           }
 
-          // Fallback: If no explicit status found, use time-based logic
-          console.log('⚠️ No explicit market status detected, using time-based fallback');
-          const now = DateTime.now().setZone('Asia/Kathmandu');
-          const currentTime = now.hour * 100 + now.minute;
-          const isTradingDay = [7, 1, 2, 3, 4].includes(now.weekday);
-
-          if (!isTradingDay) return 'CLOSED';
-
-          // Pre-open session: 10:30 AM - 10:45 AM
-          if (currentTime >= 1030 && currentTime < 1045) {
-            return 'PRE_OPEN';
-          }
-
-          // Regular trading session: 11:00 AM - 3:00 PM (15:00)
-          if (currentTime >= 1100 && currentTime <= 1500) {
-            return 'OPEN';
-          }
-
-          // Special Pre Open / Opening session buffer
-          if (currentTime >= 1045 && currentTime < 1100) {
-            return 'OPEN';
-          }
-
+          // Fallback: No explicit status detected
+          // This typically means it's a holiday or the website hasn't updated
+          // During market hours, the website ALWAYS shows explicit status when open
+          // So if we don't see it, assume CLOSED (likely holiday or market issue)
+          console.log('⚠️ No explicit market status detected, defaulting to CLOSED (possible holiday)');
           return 'CLOSED';
         } catch (timeoutErr) {
-          // Only use time-based fallback when page parsing completely fails
-          console.warn('⚠️ Failed to read page content, using time-based fallback');
-          const now = DateTime.now().setZone('Asia/Kathmandu');
-          const currentTime = now.hour * 100 + now.minute;
-          const isTradingDay = [7, 1, 2, 3, 4].includes(now.weekday);
-
-          if (!isTradingDay) return 'CLOSED';
-
-          if (currentTime >= 1030 && currentTime < 1045) return 'PRE_OPEN';
-          if (currentTime >= 1045 && currentTime <= 1500) return 'OPEN';
-
+          // If page parsing fails, default to CLOSED for safety
+          // Better to show closed than incorrect open status
+          console.warn('⚠️ Failed to read page content, defaulting to CLOSED');
           return 'CLOSED';
         }
       } catch (error) {
