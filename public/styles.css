@@ -526,6 +526,133 @@ body {
   }
 }
 
+/* Market Status Container */
+.market-status-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  animation: pulse 1.6s infinite;
+}
+
+.status-dot.open {
+  background: #2ecc71;
+  box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.6);
+}
+
+.status-dot.pre-open {
+  background: #f1c40f;
+  box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.6);
+  animation: pulse-yellow 1.6s infinite;
+}
+
+.status-dot.closed {
+  background: #e74c3c;
+  box-shadow: none;
+  animation: none;
+}
+
+@keyframes pulse-yellow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(241, 196, 15, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(241, 196, 15, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(241, 196, 15, 0);
+  }
+}
+
+.status-text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Index Main Layout */
+.index-main {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.index-change {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.index-change.positive {
+  color: var(--success-color);
+}
+
+.index-change.negative {
+  color: var(--danger-color);
+}
+
+.last-updated {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  margin-top: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* Tab Container */
+.tab-container {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.tab-button {
+  flex: 1;
+  padding: 1rem;
+  border: none;
+  background: var(--light-bg);
+  color: var(--text-light);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.tab-button:hover {
+  background: var(--white);
+  color: var(--text-dark);
+}
+
+.tab-button.active {
+  background: var(--white);
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--accent-color);
+}
+
+.tab-content {
+  display: none;
+}
+
+.tab-content.active {
+  display: block;
+}
+
+/* Loading Placeholder */
+.loading-placeholder {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
 .widget-content {
   padding: 1.75rem;
 }

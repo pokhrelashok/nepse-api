@@ -177,52 +177,51 @@
   <!-- Portfolio Widget Section -->
   <section id="market-widget" class="market-widget-section">
     <div class="section-header">
-      <h2>Beautiful Widgets for Every Need</h2>
-      <p>See your portfolio at a glance with minimal, elegant widgets</p>
+      <h2>Live Market Data</h2>
+      <p>Real-time NEPSE market index, top gainers and losers</p>
     </div>
 
     <div class="widget-container">
       <div class="market-widget">
         <div class="widget-header">
-          <h3>Portfolio Summary</h3>
-          <span class="timestamp-dot" aria-label="Live status"></span>
+          <h3>Market Overview</h3>
+          <div class="market-status-container">
+            <span id="market-status-dot" class="status-dot closed" aria-label="Market status"></span>
+            <span id="market-status-text" class="status-text">Loading...</span>
+          </div>
         </div>
         <div class="widget-content">
           <div class="index-display">
-            <div class="index-value">Rs. 2.5M</div>
-            <div class="index-stats">
-              <div class="stat">
-                <span class="label">Total Gain</span>
-                <span class="value positive">+Rs. 380K (+15.8%)</span>
-              </div>
-              <div class="stat">
-                <span class="label">Holdings</span>
-                <span class="value">12 Stocks</span>
-              </div>
-              <div class="stat">
-                <span class="label">Today</span>
-                <span class="value positive">+Rs. 8.5K</span>
-              </div>
-              <div class="stat">
-                <span class="label">Invested</span>
-                <span class="value">Rs. 2.12M</span>
-              </div>
-              <div class="stat">
-                <span class="label">Unrealized P/L</span>
-                <span class="value positive">+Rs. 340K</span>
-              </div>
-              <div class="stat">
-                <span class="label">Dividends (YTD)</span>
-                <span class="value">Rs. 18.4K</span>
-              </div>
-              <div class="stat">
-                <span class="label">Cash Balance</span>
-                <span class="value">Rs. 120K</span>
-              </div>
-              <div class="stat">
-                <span class="label">Yield</span>
-                <span class="value">4.3%</span>
-              </div>
+            <div class="index-main">
+              <span id="nepse-index" class="index-value">--</span>
+              <span id="index-change" class="index-change">--</span>
+            </div>
+            <div id="last-updated" class="last-updated">Last updated: --</div>
+          </div>
+          <div class="index-stats">
+            <div class="stat">
+              <span class="label">Turnover</span>
+              <span id="stat-turnover" class="value">--</span>
+            </div>
+            <div class="stat">
+              <span class="label">Traded Shares</span>
+              <span id="stat-shares" class="value">--</span>
+            </div>
+            <div class="stat">
+              <span class="label">Advanced</span>
+              <span id="stat-advanced" class="value positive">--</span>
+            </div>
+            <div class="stat">
+              <span class="label">Declined</span>
+              <span id="stat-declined" class="value negative">--</span>
+            </div>
+            <div class="stat">
+              <span class="label">Unchanged</span>
+              <span id="stat-unchanged" class="value">--</span>
+            </div>
+            <div class="stat">
+              <span class="label">Trading Date</span>
+              <span id="stat-trading-date" class="value">--</span>
             </div>
           </div>
         </div>
@@ -230,49 +229,205 @@
 
       <div class="top-stocks-widget">
         <div class="widget-header">
-          <h3>Your Holdings</h3>
+          <h3>Top Movers</h3>
         </div>
-        <div class="stocks-list">
-          <div class="stock-item">
-            <div class="stock-info">
-              <div class="stock-name">NABIL</div>
-              <div class="stock-price">Rs. 1,250</div>
-            </div>
-            <div class="stock-change positive">+5.2%</div>
+        <div class="tab-container">
+          <button class="tab-button active" data-tab="gainers">
+            <i class="fa-solid fa-arrow-trend-up"></i> Gainers
+          </button>
+          <button class="tab-button" data-tab="losers">
+            <i class="fa-solid fa-arrow-trend-down"></i> Losers
+          </button>
+        </div>
+        <div id="gainers-tab" class="tab-content active">
+          <div class="stocks-list" id="gainers-list">
+            <div class="loading-placeholder">Loading gainers...</div>
           </div>
-          <div class="stock-item">
-            <div class="stock-info">
-              <div class="stock-name">EIC</div>
-              <div class="stock-price">Rs. 850</div>
-            </div>
-            <div class="stock-change positive">+4.1%</div>
-          </div>
-          <div class="stock-item">
-            <div class="stock-info">
-              <div class="stock-name">HBL</div>
-              <div class="stock-price">Rs. 580</div>
-            </div>
-            <div class="stock-change positive">+3.8%</div>
-          </div>
-          <div class="stock-item">
-            <div class="stock-info">
-              <div class="stock-name">SCB</div>
-              <div class="stock-price">Rs. 420</div>
-            </div>
-            <div class="stock-change negative">-2.1%</div>
-          </div>
-          <div class="stock-item">
-            <div class="stock-info">
-              <div class="stock-name">NBL</div>
-              <div class="stock-price">Rs. 780</div>
-            </div>
-            <div class="stock-change negative">-1.9%</div>
+        </div>
+        <div id="losers-tab" class="tab-content">
+          <div class="stocks-list" id="losers-list">
+            <div class="loading-placeholder">Loading losers...</div>
           </div>
         </div>
       </div>
     </div>
-    </div>
   </section>
+
+  <script>
+    // Market Data Widget JavaScript
+    const API_BASE = window.location.origin + '/api';
+    let refreshInterval = null;
+
+    // Format number with commas
+    function formatNumber(num) {
+      if (num === null || num === undefined || num === '') return '--';
+      const parsed = parseFloat(num);
+      if (isNaN(parsed)) return '--';
+      return parsed.toLocaleString('en-IN');
+    }
+
+    // Format currency in Nepali style
+    function formatCurrency(num) {
+      if (num === null || num === undefined || num === '') return '--';
+      const parsed = parseFloat(num);
+      if (isNaN(parsed)) return '--';
+      if (parsed >= 10000000) return 'Rs. ' + (parsed / 10000000).toFixed(2) + ' Cr';
+      if (parsed >= 100000) return 'Rs. ' + (parsed / 100000).toFixed(2) + ' L';
+      return 'Rs. ' + parsed.toLocaleString('en-IN');
+    }
+
+    // Update market status indicator
+    function updateMarketStatus(status, isOpen) {
+      const dot = document.getElementById('market-status-dot');
+      const text = document.getElementById('market-status-text');
+      
+      dot.classList.remove('open', 'pre-open', 'closed');
+      
+      if (status === 'PRE_OPEN' || status === 'PRE-OPEN') {
+        dot.classList.add('pre-open');
+        text.textContent = 'Pre-Open';
+      } else if (isOpen || status === 'OPEN') {
+        dot.classList.add('open');
+        text.textContent = 'Open';
+      } else {
+        dot.classList.add('closed');
+        text.textContent = 'Closed';
+      }
+    }
+
+    // Create stock item HTML
+    function createStockItem(stock, isGainer) {
+      const changeClass = isGainer ? 'positive' : 'negative';
+      const arrow = isGainer ? '↑' : '↓';
+      const change = stock.percentage_change || stock.percentageChange || 0;
+      const price = stock.close_price || stock.closePrice || stock.ltp || 0;
+      
+      return `
+        <div class="stock-item">
+          <div class="stock-info">
+            <div class="stock-name">${stock.symbol}</div>
+            <div class="stock-price">Rs. ${formatNumber(price)}</div>
+          </div>
+          <div class="stock-change ${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}%</div>
+        </div>
+      `;
+    }
+
+    // Fetch market updates
+    async function fetchMarketData() {
+      try {
+        const response = await fetch(API_BASE + '/updates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbols: [] })
+        });
+        
+        const result = await response.json();
+        const data = result.data || result;
+        
+        // Update market status
+        updateMarketStatus(data.status, data.is_open);
+        
+        // Update index data
+        if (data.market_index) {
+          const idx = data.market_index;
+          const nepseIndex = parseFloat(idx.nepse_index) || 0;
+          document.getElementById('nepse-index').textContent = formatNumber(nepseIndex.toFixed(2));
+          
+          const change = parseFloat(idx.change) || 0;
+          const pctChange = parseFloat(idx.percentage_change) || 0;
+          const changeEl = document.getElementById('index-change');
+          const arrow = change >= 0 ? '↑' : '↓';
+          changeEl.textContent = `${arrow} ${Math.abs(change).toFixed(2)} (${Math.abs(pctChange).toFixed(2)}%)`;
+          changeEl.className = 'index-change ' + (change >= 0 ? 'positive' : 'negative');
+          
+          // Update stats
+          document.getElementById('stat-turnover').textContent = formatCurrency(idx.total_turnover);
+          document.getElementById('stat-shares').textContent = formatNumber(idx.total_traded_shares);
+          document.getElementById('stat-advanced').textContent = idx.advanced || '--';
+          document.getElementById('stat-declined').textContent = idx.declined || '--';
+          document.getElementById('stat-unchanged').textContent = idx.unchanged || '--';
+          document.getElementById('stat-trading-date').textContent = idx.trading_date || '--';
+        }
+        
+        // Update last updated time
+        const now = new Date();
+        document.getElementById('last-updated').textContent = 
+          'Last updated: ' + now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+          
+      } catch (error) {
+        console.error('Failed to fetch market data:', error);
+      }
+    }
+
+    // Fetch top gainers
+    async function fetchGainers() {
+      try {
+        const response = await fetch(API_BASE + '/market/gainers?limit=5');
+        const result = await response.json();
+        const gainers = result.data || result;
+        
+        const list = document.getElementById('gainers-list');
+        if (gainers.length > 0) {
+          list.innerHTML = gainers.map(stock => createStockItem(stock, true)).join('');
+        } else {
+          list.innerHTML = '<div class="loading-placeholder">No data available</div>';
+        }
+      } catch (error) {
+        console.error('Failed to fetch gainers:', error);
+        document.getElementById('gainers-list').innerHTML = 
+          '<div class="loading-placeholder">Failed to load</div>';
+      }
+    }
+
+    // Fetch top losers
+    async function fetchLosers() {
+      try {
+        const response = await fetch(API_BASE + '/market/losers?limit=5');
+        const result = await response.json();
+        const losers = result.data || result;
+        
+        const list = document.getElementById('losers-list');
+        if (losers.length > 0) {
+          list.innerHTML = losers.map(stock => createStockItem(stock, false)).join('');
+        } else {
+          list.innerHTML = '<div class="loading-placeholder">No data available</div>';
+        }
+      } catch (error) {
+        console.error('Failed to fetch losers:', error);
+        document.getElementById('losers-list').innerHTML = 
+          '<div class="loading-placeholder">Failed to load</div>';
+      }
+    }
+
+    // Tab switching logic
+    document.querySelectorAll('.tab-button').forEach(button => {
+      button.addEventListener('click', () => {
+        document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        button.classList.add('active');
+        const tabId = button.dataset.tab + '-tab';
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+
+    // Refresh all data
+    async function refreshAllData() {
+      await Promise.all([fetchMarketData(), fetchGainers(), fetchLosers()]);
+    }
+
+    // Initial load
+    refreshAllData();
+
+    // Auto-refresh every 30 seconds
+    refreshInterval = setInterval(refreshAllData, 30000);
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+    });
+  </script>
 
   <!-- Features Section -->
   <section id="features" class="features">
