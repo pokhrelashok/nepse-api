@@ -63,6 +63,11 @@
         <li><a href="#market-widget">Widgets</a></li>
         <li><a href="#app-showcase">App</a></li>
       </ul>
+      <div class="market-ticker" id="nav-market-ticker">
+        <span class="ticker-status" id="nav-ticker-status"></span>
+        <span class="ticker-value" id="nav-ticker-value">--</span>
+        <span class="ticker-change" id="nav-ticker-change">--</span>
+      </div>
     </div>
   </nav>
 
@@ -327,7 +332,6 @@
         
         // Update market status
         updateMarketStatus(data.status, data.is_open);
-        
         // Update index data
         if (data.market_index) {
           const idx = data.market_index;
@@ -348,6 +352,21 @@
           document.getElementById('stat-declined').textContent = idx.declined || '--';
           document.getElementById('stat-unchanged').textContent = idx.unchanged || '--';
           document.getElementById('stat-trading-date').textContent = idx.trading_date || '--';
+          
+          // Update sticky navbar ticker
+          document.getElementById('nav-ticker-value').textContent = formatNumber(nepseIndex.toFixed(2));
+          const navTickerChange = document.getElementById('nav-ticker-change');
+          navTickerChange.textContent = `${arrow} ${Math.abs(pctChange).toFixed(2)}%`;
+          navTickerChange.className = 'ticker-change ' + (change >= 0 ? 'positive' : 'negative');
+        }
+        
+        // Update sticky ticker status
+        const navStatusDot = document.getElementById('nav-ticker-status');
+        navStatusDot.classList.remove('open', 'pre-open', 'closed');
+        if (data.status === 'PRE_OPEN' || data.status === 'PRE-OPEN') {
+          navStatusDot.classList.add('pre-open');
+        } else if (data.is_open || data.status === 'OPEN') {
+          navStatusDot.classList.add('open');
         }
         
         // Update last updated time
