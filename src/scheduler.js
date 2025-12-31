@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
-const { insertTodayPrices, updateMarketStatus, saveMarketIndex, saveMarketSummary, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
+const { insertTodayPrices, saveMarketIndex, saveMarketSummary, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
 const { formatPricesForDatabase } = require('./utils/formatter');
 const logger = require('./utils/logger');
 
@@ -170,18 +170,13 @@ class Scheduler {
       const isOpen = status === 'OPEN' || status === 'PRE_OPEN';
       this.isMarketOpen = isOpen;
 
-      // Update market status in database
-      await updateMarketStatus(status);
+      // Always scrape and save market index data so status is persisted
+      const indexData = await this.scraper.scrapeMarketIndex();
+      await saveMarketIndex(indexData, status); // This also saves status via saveMarketSummary
+      console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
 
-      if (isOpen) {
-        // Scrape and save market index data
-        const indexData = await this.scraper.scrapeMarketIndex();
-        await saveMarketIndex(indexData, status); // Pass the actual status (OPEN or PRE_OPEN)
-        console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
-
-        this.stats[jobKey].last_success = new Date().toISOString();
-        this.stats[jobKey].success_count++;
-      }
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
     } catch (error) {
       logger.error('Index update failed:', error);
       this.stats[jobKey].fail_count++;
