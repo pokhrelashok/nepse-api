@@ -165,14 +165,16 @@ class Scheduler {
 
 
     try {
-      // Check market status
-      const status = await this.scraper.scrapeMarketStatus();
+      // Scrape market index - this also captures market status from the same page load
+      const indexData = await this.scraper.scrapeMarketIndex();
+
+      // Get status from index data (captured from same page as index)
+      const status = indexData.marketStatus || 'CLOSED';
       const isOpen = status === 'OPEN' || status === 'PRE_OPEN';
       this.isMarketOpen = isOpen;
 
-      // Always scrape and save market index data so status is persisted
-      const indexData = await this.scraper.scrapeMarketIndex();
-      await saveMarketIndex(indexData, status); // This also saves status via saveMarketSummary
+      // Save index and status to database
+      await saveMarketIndex(indexData, status);
       console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
 
       this.stats[jobKey].last_success = new Date().toISOString();

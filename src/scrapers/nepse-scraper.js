@@ -1361,7 +1361,8 @@ class NepseScraper {
             declined: 0,
             unchanged: 0,
             marketStatusDate: null,
-            marketStatusTime: null
+            marketStatusTime: null,
+            marketStatus: 'CLOSED' // Will be updated based on page content
           };
 
           const parseNumber = (text) => {
@@ -1544,6 +1545,44 @@ class NepseScraper {
             if (altMatch) result.advanced = parseInt(altMatch[1], 10);
             if (decMatch) result.declined = parseInt(decMatch[1], 10);
             if (uncMatch) result.unchanged = parseInt(uncMatch[1], 10);
+          }
+
+          // ============ MARKET STATUS DETECTION ============
+          // Detect market status from page content (badges, buttons, text)
+          // pageText already declared above, so use it directly
+          const pageTextUpper = pageText.toUpperCase();
+
+          // Check for status badges/buttons - NEPSE shows these as green badges
+          // Priority order: PRE_OPEN > OPEN > CLOSED
+
+          // 1. Check for PRE-OPEN status (highest priority during pre-market)
+          const isPreOpen = pageTextUpper.includes('PRE OPEN') ||
+            pageTextUpper.includes('PRE-OPEN') ||
+            pageTextUpper.includes('PREOPEN') ||
+            /PRE[- ]?OPEN/i.test(pageText);
+
+          // 2. Check for OPEN/LIVE MARKET status
+          // Look for "MARKET OPEN" or "LIVE MARKET" badges
+          const isOpen = pageTextUpper.includes('MARKET OPEN') ||
+            pageTextUpper.includes('LIVE MARKET') ||
+            pageTextUpper.includes('MARKETOPEN') ||
+            pageTextUpper.includes('LIVEMARKET');
+
+          // 3. Check for CLOSED status indicators
+          const isClosed = pageTextUpper.includes('MARKET CLOSED') ||
+            pageTextUpper.includes('MARKET CLOSE') ||
+            pageTextUpper.includes('MARKETCLOSED');
+
+          // Determine final status with priority: PRE_OPEN > OPEN > CLOSED
+          if (isPreOpen && !isClosed) {
+            result.marketStatus = 'PRE_OPEN';
+          } else if (isOpen && !isClosed && !isPreOpen) {
+            result.marketStatus = 'OPEN';
+          } else if (isClosed) {
+            result.marketStatus = 'CLOSED';
+          } else {
+            // Default: if we have index data and no explicit closed indicator, assume open during data availability
+            result.marketStatus = 'CLOSED';
           }
 
           return result;
