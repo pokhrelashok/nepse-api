@@ -155,8 +155,9 @@ class NepseScraper {
 
   async scrapeMarketSummary() {
     try {
-      const status = await this.scrapeMarketStatus();
+      // Get index data which now includes market status from the same page load
       const indexData = await this.scrapeMarketIndex();
+      const status = indexData.marketStatus || 'CLOSED';
 
       return {
         status,
