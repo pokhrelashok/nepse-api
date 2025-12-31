@@ -1307,7 +1307,7 @@ body {
 
 .screenshots-gallery {
   padding: 3rem 2rem;
-  background: linear-gradient(180deg, var(--light-bg) 0%, var(--white) 100%);
+  background: transparent;
   max-width: 1400px;
   margin: 0 auto;
   overflow: hidden;
