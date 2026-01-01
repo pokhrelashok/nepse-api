@@ -194,16 +194,18 @@
 }
 
 .landing-store-link {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 1rem;
-  padding: 0.875rem 1.5rem;
+  padding: 0 1.5rem;
+  height: 72px;
   background: var(--white);
   border: 2px solid var(--border-color);
-  border-radius: 10px;
+  border-radius: 12px;
   text-decoration: none;
   transition: var(--transition);
-  font-size: 0.95rem;
+  box-sizing: border-box;
+  text-align: left;
 }
 
 .landing-store-link.disabled {
@@ -214,20 +216,25 @@
 
 .landing-store-icon {
   font-size: 1.75rem;
+  width: 32px;
+  display: flex;
+  justify-content: center;
 }
 
 .landing-store-label {
-  font-size: 0.7rem;
+  font-size: 0.75rem;
   color: var(--text-light);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 500;
+  letter-spacing: 0.8px;
+  font-weight: 600;
+  line-height: 1.2;
 }
 
 .landing-store-name {
-  font-size: 1rem;
-  font-weight: 700;
+  font-size: 1.1rem;
+  font-weight: 800;
   color: var(--text-dark);
+  line-height: 1.2;
 }
 
 /* Floating Cards */
@@ -415,12 +422,12 @@
 
 .beta-modal {
   background: var(--white);
-  border-radius: 20px;
-  max-width: 520px;
+  border-radius: 24px;
+  max-width: 580px;
   width: 100%;
   max-height: 90vh;
   overflow: hidden;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
   animation: modalScaleUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   position: relative;
 }
@@ -498,11 +505,15 @@
   content: '';
   position: absolute;
   top: 5rem;
-  left: 3rem;
+  left: 4.375rem; /* Calculated center: padding(2rem) + step-padding(1.25rem) + half-number(18px/1.125rem) = 4.375rem */
   bottom: 4rem;
   width: 2px;
-  background: linear-gradient(to bottom, var(--accent-color) 0%, var(--border-color) 100%);
-  opacity: 0.3;
+  background: linear-gradient(to bottom, 
+    var(--accent-color) 0%, 
+    var(--accent-color) 50%, 
+    var(--border-color) 100%
+  );
+  opacity: 0.4;
   z-index: 0;
 }
 
@@ -597,9 +608,16 @@
   font-size: 0.95rem;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 600px) {
+  .beta-modal {
+    max-width: 95%;
+  }
   .beta-modal-content::before {
-    left: 2.25rem;
+    left: 4.375rem;
+  }
+  .beta-step {
+    padding: 1rem;
+    gap: 1rem;
   }
 }
 
