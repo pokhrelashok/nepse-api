@@ -48,18 +48,19 @@ process.on('unhandledRejection', async (reason, promise) => {
 
 // Middleware
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for base64 images
 
-// Serve static files
+// Serve static assets from public folder (images, icons, etc.)
 app.use(express.static('public'));
+// Serve React app build files
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const apiKeyAuth = require('./middleware/apiKeyAuth');
 
 // API Routes
 app.use('/api', (req, res, next) => {
-  // Paths to exclude from API Key requirement
-  const excludedPaths = ['/health', '/admin/login', '/auth/google'];
+  // Paths to exclude from API Key requirement (public endpoints)
+  const excludedPaths = ['/health', '/admin/login', '/auth/google', '/feedback'];
   if (excludedPaths.includes(req.path)) {
     return next();
   }
@@ -72,14 +73,12 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/portfolios', require('./routes/portfolio'));
 app.use('/api/feedback', require('./routes/feedback'));
 
-
-// React Fallback
-app.get(/(.*)/, (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
-  } else {
-    res.status(404).json(formatError('Not Found', 404));
+// All non-API routes serve the React app (SPA fallback)
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json(formatError('Not Found', 404));
   }
+  res.sendFile(path.join(__dirname, '../frontend/dist', 'index.html'));
 });
 
 // Only listen if run directly, not when imported for tests
@@ -96,6 +95,5 @@ if (require.main === module) {
     }
   });
 }
-
 
 module.exports = app;

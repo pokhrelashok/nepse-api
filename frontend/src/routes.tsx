@@ -1,8 +1,11 @@
 import { createRootRoute, createRoute, Outlet, redirect } from '@tanstack/react-router'
-import Landing from './pages/Landing'
+import PublicLayout from './components/PublicLayout'
+import LandingPage from './pages/Landing'
 import Login from './pages/admin/Login'
 import Dashboard from './pages/admin/Dashboard'
 import FeedbackSubmit from './pages/FeedbackSubmit'
+import PrivacyPolicy from './pages/PrivacyPolicy'
+import TermsOfService from './pages/TermsOfService'
 
 export const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -16,16 +19,35 @@ export const rootRoute = createRootRoute({
   }
 })
 
-export const indexRoute = createRoute({
+// Public layout route (wraps all public pages with header/footer)
+export const publicLayoutRoute = createRoute({
   getParentRoute: () => rootRoute,
+  id: 'public-layout',
+  component: PublicLayout,
+})
+
+export const indexRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
   path: '/',
-  component: Landing,
+  component: LandingPage,
 })
 
 export const feedbackRoute = createRoute({
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => publicLayoutRoute,
   path: 'feedback',
   component: FeedbackSubmit,
+})
+
+export const privacyPolicyRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
+  path: 'privacy-policy',
+  component: PrivacyPolicy,
+})
+
+export const termsOfServiceRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
+  path: 'terms-of-service',
+  component: TermsOfService,
 })
 
 import AdminLayout from './components/admin/AdminLayout'
@@ -35,9 +57,6 @@ import IposPage from './pages/admin/Ipos'
 import DividendsPage from './pages/admin/Dividends'
 import ApiKeysPage from './pages/admin/ApiKeys'
 import FeedbackPage from './pages/admin/Feedback'
-
-
-// ... existing imports
 
 export const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -118,10 +137,13 @@ export const adminFeedbackRoute = createRoute({
   component: FeedbackPage,
 })
 
-
 export const routeTree = rootRoute.addChildren([
-  indexRoute,
-  feedbackRoute,
+  publicLayoutRoute.addChildren([
+    indexRoute,
+    feedbackRoute,
+    privacyPolicyRoute,
+    termsOfServiceRoute,
+  ]),
   adminRoute.addChildren([
     adminIndexRoute,
     adminLoginRoute,
@@ -136,5 +158,3 @@ export const routeTree = rootRoute.addChildren([
     ])
   ]),
 ])
-
-

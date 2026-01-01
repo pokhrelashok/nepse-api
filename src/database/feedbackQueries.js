@@ -32,9 +32,9 @@ async function getFeedbacks({ status = null, limit = 20, offset = 0 } = {}) {
     }
 
     sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
-    params.push(limit, offset);
+    params.push(String(limit), String(offset));
 
-    const [rows] = await pool.execute(sql, params);
+    const [rows] = await pool.query(sql, params);
 
     // Parse attachments JSON
     return rows.map(row => ({
