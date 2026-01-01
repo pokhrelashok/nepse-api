@@ -612,12 +612,63 @@
   .beta-modal {
     max-width: 95%;
   }
-  .beta-modal-content::before {
-    left: 4.375rem;
+
+  .beta-modal-header {
+    padding: 1rem 1.25rem;
   }
+
+  .beta-modal-header h2 {
+    font-size: 1.25rem;
+  }
+
+  .beta-modal-header h2 i {
+    font-size: 1.5rem;
+  }
+
+  .beta-modal-content {
+    padding: 1.25rem;
+  }
+
+  .beta-modal-intro {
+    font-size: 0.9rem;
+    margin-bottom: 1.5rem;
+  }
+
   .beta-step {
     padding: 1rem;
-    gap: 1rem;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .beta-step-number {
+    width: 28px;
+    height: 28px;
+    font-size: 0.8rem;
+  }
+
+  .beta-step-content h3 {
+    font-size: 1rem;
+  }
+
+  .beta-step-content p {
+    font-size: 0.85rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .beta-step-link {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem;
+  }
+
+  /* Recalculated timeline position for mobile:
+     Content Padding (1.25rem) + Step Padding (1rem) + Half Number (14px/0.875rem) 
+     = ~3.125rem
+  */
+  .beta-modal-content::before {
+    left: 3.125rem; 
+    top: 3.5rem;
+    bottom: 2rem;
   }
 }
 
@@ -685,6 +736,7 @@
   .landing-hero {
     grid-template-columns: 1fr;
     padding: 2rem 1rem;
+    margin-top: 60px; /* Adjust for smaller navbar */
     min-height: auto;
   }
 
@@ -702,6 +754,41 @@
 
   .landing-features-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* Mobile Navbar Adjustments */
+  .landing-nav-container {
+    padding: 0 1rem;
+  }
+
+  .landing-logo {
+    font-size: 1.1rem;
+  }
+
+  .landing-logo-mark {
+    width: 28px;
+    height: 28px;
+  }
+
+  .landing-market-ticker {
+    margin-left: auto; /* Push to right */
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    gap: 0.3rem;
+  }
+  
+  .landing-ticker-value {
+    display: inline-block;
+  }
+}
+
+@media (max-width: 400px) {
+  .landing-logo-text {
+    display: none; /* Only show logo mark on very small screens so ticker fits */
+  }
+  
+  .landing-logo-mark {
+    margin-right: 0;
   }
 }
 
