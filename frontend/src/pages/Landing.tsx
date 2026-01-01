@@ -31,6 +31,7 @@ export default function LandingPage() {
   const [gainers, setGainers] = useState<StockItem[]>([])
   const [losers, setLosers] = useState<StockItem[]>([])
   const [activeTab, setActiveTab] = useState<'gainers' | 'losers'>('gainers')
+  const [showBetaModal, setShowBetaModal] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,6 +89,93 @@ export default function LandingPage() {
 
   return (
     <>
+      {/* Beta Installation Modal */}
+      {showBetaModal && (
+        <div className="beta-modal-overlay" onClick={() => setShowBetaModal(false)}>
+          <div className="beta-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="beta-modal-header">
+              <h2><i className="fa-brands fa-android"></i> Android Release (Beta)</h2>
+              <button className="beta-modal-close" onClick={() => setShowBetaModal(false)}>
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+            <div className="beta-modal-content">
+              <p className="beta-modal-intro">
+                Follow these steps to join the closed beta testing and install the app:
+              </p>
+
+              <div className="beta-step">
+                <div className="beta-step-number">1</div>
+                <div className="beta-step-content">
+                  <h3>Join the Google Group</h3>
+                  <p>Request access to the closed testers group</p>
+                  <a
+                    href="https://groups.google.com/search?q=nepse-portfolio-closed-testers"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="beta-step-link"
+                  >
+                    <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                    Open Google Group
+                  </a>
+                </div>
+              </div>
+
+              <div className="beta-step">
+                <div className="beta-step-number">2</div>
+                <div className="beta-step-content">
+                  <h3>Become a Tester</h3>
+                  <p>Accept the tester invitation on the web</p>
+                  <a
+                    href="https://play.google.com/apps/testing/com.ashok.nepseportfoliotracker"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="beta-step-link"
+                  >
+                    <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                    Join Beta Program
+                  </a>
+                </div>
+              </div>
+
+              <div className="beta-step">
+                <div className="beta-step-number">3</div>
+                <div className="beta-step-content">
+                  <h3>Download the App</h3>
+                  <p>Install from Play Store after becoming a tester</p>
+                  <a
+                    href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="beta-step-link"
+                  >
+                    <i className="fa-brands fa-google-play"></i>
+                    Open Play Store
+                  </a>
+                </div>
+              </div>
+
+              <div className="beta-step">
+                <div className="beta-step-number">4</div>
+                <div className="beta-step-content">
+                  <h3>Leave a Review</h3>
+                  <p>Help us improve by sharing your feedback</p>
+                  <a
+                    href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="beta-step-link"
+                  >
+                    <i className="fa-solid fa-star"></i>
+                    Rate the App
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Hero Section */}
       <section className="landing-hero">
         <div className="landing-hero-content">
@@ -97,13 +185,13 @@ export default function LandingPage() {
             Focus on what matters—your holdings, your gains, and your growth.
           </p>
           <div className="landing-store-links">
-            <a className="landing-store-link disabled" aria-disabled="true">
+            <button className="landing-store-link beta" onClick={() => setShowBetaModal(true)}>
               <span className="landing-store-icon"><i className="fa-brands fa-google-play"></i></span>
               <div>
-                <div className="landing-store-label">Coming soon</div>
-                <div className="landing-store-name">Google Play</div>
+                <div className="landing-store-label">Join Beta</div>
+                <div className="landing-store-name">Google Play (Beta)</div>
               </div>
-            </a>
+            </button>
             <a className="landing-store-link disabled" aria-disabled="true">
               <span className="landing-store-icon"><i className="fa-brands fa-apple"></i></span>
               <div>
