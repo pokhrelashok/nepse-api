@@ -6,7 +6,8 @@ import {
   Banknote,
   LogOut,
   Megaphone,
-  Key
+  Key,
+  MessageSquareText
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -53,6 +54,11 @@ export function AdminSidebar({ className }: SidebarProps) {
       title: "API Keys",
       icon: Key,
       href: "/admin/api-keys",
+    },
+    {
+      title: "Feedback",
+      icon: MessageSquareText,
+      href: "/admin/feedback",
     },
   ]
 

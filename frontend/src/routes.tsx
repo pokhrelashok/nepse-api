@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, Outlet, redirect } from '@tanstack/react-
 import Landing from './pages/Landing'
 import Login from './pages/admin/Login'
 import Dashboard from './pages/admin/Dashboard'
+import FeedbackSubmit from './pages/FeedbackSubmit'
 
 export const rootRoute = createRootRoute({
   component: () => <Outlet />,
@@ -21,12 +22,19 @@ export const indexRoute = createRoute({
   component: Landing,
 })
 
+export const feedbackRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: 'feedback',
+  component: FeedbackSubmit,
+})
+
 import AdminLayout from './components/admin/AdminLayout'
 import CompaniesPage from './pages/admin/Companies'
 import PricesPage from './pages/admin/Prices'
 import IposPage from './pages/admin/Ipos'
 import DividendsPage from './pages/admin/Dividends'
 import ApiKeysPage from './pages/admin/ApiKeys'
+import FeedbackPage from './pages/admin/Feedback'
 
 
 // ... existing imports
@@ -104,9 +112,16 @@ export const adminApiKeysRoute = createRoute({
   component: ApiKeysPage,
 })
 
+export const adminFeedbackRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'feedback',
+  component: FeedbackPage,
+})
+
 
 export const routeTree = rootRoute.addChildren([
   indexRoute,
+  feedbackRoute,
   adminRoute.addChildren([
     adminIndexRoute,
     adminLoginRoute,
@@ -116,9 +131,10 @@ export const routeTree = rootRoute.addChildren([
       adminPricesRoute,
       adminIposRoute,
       adminDividendsRoute,
-      adminApiKeysRoute
-
-
+      adminApiKeysRoute,
+      adminFeedbackRoute,
     ])
   ]),
 ])
+
+

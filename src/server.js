@@ -70,6 +70,7 @@ app.use('/api', apiRoutes);
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/portfolios', require('./routes/portfolio'));
+app.use('/api/feedback', require('./routes/feedback'));
 
 
 // React Fallback
