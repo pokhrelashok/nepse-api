@@ -819,36 +819,20 @@
 }
 
 .landing-showcase-phone {
-  background: #111;
-  border-radius: 40px;
-  padding: 10px;
-  box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-  border: 4px solid #333;
+  border-radius: 30px; /* Matching the likely border radius of the image's internal frame */
+  box-shadow: 0 20px 50px rgba(0,0,0,0.15); /* Softer shadow */
   position: relative;
   overflow: hidden;
-  aspect-ratio: 9 / 19;
+  /* aspect-ratio: 9 / 19; removed specific aspect ratio to let image define it */
 }
 
-.landing-showcase-phone::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 120px;
-  height: 25px;
-  background: #111;
-  border-bottom-left-radius: 15px;
-  border-bottom-right-radius: 15px;
-  z-index: 10;
-}
+/* Removed the notch pseudo-element since frame is in image */
 
 .landing-showcase-image {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  border-radius: 32px;
+  height: auto;
   display: block;
+  /* border-radius: 32px; removed double border radius */
 }
 
 .landing-showcase-caption {
