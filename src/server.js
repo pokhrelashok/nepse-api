@@ -74,7 +74,7 @@ app.use('/api/portfolios', require('./routes/portfolio'));
 app.use('/api/feedback', require('./routes/feedback'));
 
 // All non-API routes serve the React app (SPA fallback)
-app.get('*', (req, res) => {
+app.use((req, res, next) => {
   if (req.path.startsWith('/api')) {
     return res.status(404).json(formatError('Not Found', 404));
   }
