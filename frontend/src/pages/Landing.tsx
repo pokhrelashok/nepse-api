@@ -349,11 +349,36 @@ export default function LandingPage() {
       </section>
 
       {/* App Showcase */}
-      <section id="app-showcase" style={{ padding: '5rem 2rem' }}>
+      <section id="app-showcase" style={{ padding: '5rem 2rem', overflow: 'hidden' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div className="landing-section-header">
             <h2>Experience the App</h2>
             <p>Clean, intuitive interface designed for simplicity</p>
+          </div>
+
+          <div className="landing-showcase-container">
+            {[
+              { img: 'Portfolio.webp', label: 'Portfolio Overview' },
+              { img: 'Profit.webp', label: 'Profit & Loss' },
+              { img: 'Analyze.webp', label: 'In-depth Analytics' },
+              { img: 'Alerts.webp', label: 'Smart Alerts' },
+              { img: 'Calendar.webp', label: 'Dividend Calendar' },
+              { img: 'Import.webp', label: 'Easy Import' },
+              { img: 'Backup.webp', label: 'Secure Backup' },
+              { img: 'Widget Screen.webp', label: 'Live Widgets' }
+            ].map((item, i) => (
+              <div key={i} className="landing-showcase-item">
+                <div className="landing-showcase-phone">
+                  <img
+                    src={`/screens/${item.img}`}
+                    alt={item.label}
+                    className="landing-showcase-image"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="landing-showcase-caption">{item.label}</div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
