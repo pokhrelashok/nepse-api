@@ -6,221 +6,17 @@
  * web interface - filling forms and clicking buttons like a real user.
  */
 
+const os = require('os');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 const puppeteer = require('puppeteer');
 const { pool, saveStockPriceHistory } = require('../src/database/database');
 const logger = require('../src/utils/logger');
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-const isTestMode = args.includes('--test');
-const limitArg = args.find(arg => arg.startsWith('--limit='));
-const testLimit = limitArg ? parseInt(limitArg.split('=')[1]) : 3;
+// ... (rest of file)
 
-// Date range for historical data (MM/DD/YYYY format)
-const START_DATE = '01/02/2025';
-const END_DATE = '01/02/2026';
-
-// Rate limiting
-const DELAY_BETWEEN_REQUESTS = 2000; // 2 seconds between requests
-
-/**
- * Sleep for specified milliseconds
- */
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-/**
- * Fetch all companies from database
- */
-async function getAllCompanies() {
-  const sql = 'SELECT security_id, symbol, company_name FROM company_details ORDER BY symbol';
-  const [rows] = await pool.execute(sql);
-  return rows;
-}
-
-/**
- * Fetch historical price data by intercepting the API response
- */
-async function fetchStockHistory(page, securityId, symbol) {
-  try {
-    logger.info(`  🔍 Searching for ${symbol}...`);
-
-    // Set up API response interception
-    let apiResponse = null;
-
-    page.on('response', async (response) => {
-      const url = response.url();
-      // Intercept the market history API call
-      if (url.includes('/api/nots/market/history/security/')) {
-        try {
-          const data = await response.json();
-          if (data && data.content && Array.isArray(data.content)) {
-            apiResponse = data.content;
-            logger.info(`  📡 Intercepted API response with ${data.content.length} records`);
-          }
-        } catch (e) {
-          // Ignore JSON parse errors
-        }
-      }
-    });
-
-    // Fill in the symbol search field
-    const symbolInput = await page.$('input.symbol-search');
-    if (!symbolInput) {
-      logger.error(`  ❌ Could not find symbol search input`);
-      return [];
-    }
-
-    await symbolInput.click({ clickCount: 3 }); // Select all existing text
-    await symbolInput.type(symbol, { delay: 100 });
-    await sleep(1000); // Wait for autocomplete
-
-    // Press Enter or click the first autocomplete result
-    await symbolInput.press('Enter');
-    await sleep(500);
-
-    // Fill in the date fields
-    const dateInputs = await page.$$('input[bsdatepicker]');
-    if (dateInputs.length >= 2) {
-      // From date
-      await dateInputs[0].click({ clickCount: 3 }); // Select all
-      await sleep(200);
-      await dateInputs[0].type(START_DATE, { delay: 50 });
-      await sleep(500);
-
-      // To date
-      await dateInputs[1].click({ clickCount: 3 }); // Select all
-      await sleep(200);
-      await dateInputs[1].type(END_DATE, { delay: 50 });
-      await sleep(500);
-    }
-
-    // Set items per page to 500
-    logger.info(`  📄 Setting items per page to 500...`);
-    const selectElement = await page.$('select');
-    if (selectElement) {
-      await selectElement.select('500');
-      await sleep(500);
-      logger.info(`  ✅ Items per page set to 500`);
-    } else {
-      logger.warn(`  ⚠️  Could not find items per page selector`);
-    }
-
-    // Click the Filter button
-    const filterButton = await page.$('button.box__filter--search');
-    if (!filterButton) {
-      logger.error(`  ❌ Could not find Filter button`);
-      return [];
-    }
-
-    logger.info(`  🔘 Clicking Filter button...`);
-    await filterButton.click();
-
-    // Wait for the API response
-    await sleep(3000);
-
-    if (!apiResponse || apiResponse.length === 0) {
-      logger.warn(`  ⚠️  No data received from API for ${symbol}`);
-      return [];
-    }
-
-    logger.info(`  ✅ Received ${apiResponse.length} records from API`);
-    return apiResponse;
-
-  } catch (error) {
-    logger.error(`  ❌ Error fetching ${symbol}: ${error.message}`);
-    return [];
-  }
-}
-
-/**
- * Parse date from table format to MySQL format (YYYY-MM-DD)
- * Table format could be: "12/20/2025", "2025-12-20", or other formats
- */
-function parseTableDate(dateStr) {
-  if (!dateStr) return null;
-
-  try {
-    // Try to parse MM/DD/YYYY format
-    const parts = dateStr.trim().split('/');
-    if (parts.length === 3) {
-      const month = parts[0].padStart(2, '0');
-      const day = parts[1].padStart(2, '0');
-      const year = parts[2];
-      return `${year}-${month}-${day}`;
-    }
-
-    // If already in YYYY-MM-DD format, return as is
-    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return dateStr;
-    }
-
-    // Try parsing as a Date object
-    const date = new Date(dateStr);
-    if (!isNaN(date.getTime())) {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    }
-
-    return null;
-  } catch (error) {
-    logger.error(`Error parsing date: ${dateStr} - ${error.message}`);
-    return null;
-  }
-}
-
-/**
- * Transform API response to database format
- */
-function transformPriceData(apiData, securityId, symbol) {
-  return apiData.map(record => ({
-    security_id: securityId,
-    symbol: symbol,
-    business_date: record.businessDate, // Already in YYYY-MM-DD format from API
-    high_price: parseFloat(record.highPrice) || null,
-    low_price: parseFloat(record.lowPrice) || null,
-    close_price: parseFloat(record.closePrice) || null,
-    total_trades: parseInt(record.totalTrades) || null,
-    total_traded_quantity: parseInt(record.totalTradedQuantity) || null,
-    total_traded_value: parseFloat(record.totalTradedValue) || null
-  }));
-}
-
-/**
- * Process a single company
- */
-async function processCompany(page, company, index, total) {
-  const { security_id, symbol, company_name } = company;
-
-  logger.info(`\n[${index + 1}/${total}] Processing ${symbol} (${company_name})`);
-
-  try {
-    const tableData = await fetchStockHistory(page, security_id, symbol);
-
-    if (tableData.length === 0) {
-      logger.warn(`  ⚠️  No historical data found for ${symbol}`);
-      return { symbol, success: true, count: 0 };
-    }
-
-    const transformedData = transformPriceData(tableData, security_id, symbol);
-    const savedCount = await saveStockPriceHistory(transformedData);
-
-    logger.info(`  💾 Saved ${savedCount} records for ${symbol}`);
-    return { symbol, success: true, count: savedCount };
-
-  } catch (error) {
-    logger.error(`  ❌ Failed to process ${symbol}: ${error.message}`);
-    return { symbol, success: false, error: error.message };
-  }
-}
-
-/**
- * Main execution function
- */
+// Main execution function
 async function main() {
   console.log('🚀 Stock Price History Scraper (UI Interaction)');
   console.log('================================================');
@@ -229,18 +25,61 @@ async function main() {
   console.log('');
 
   let browser;
+  let userDataDir = null;
 
   try {
     logger.info('Launching browser...');
-    browser = await puppeteer.launch({
+
+    // Create a unique temp directory for this session
+    const tmpDir = os.tmpdir();
+    userDataDir = fs.mkdtempSync(path.join(tmpDir, 'nepse-history-'));
+    logger.info(`📂 Created temp user data dir: ${userDataDir}`);
+
+    const launchOptions = {
       headless: true,
+      userDataDir: userDataDir,
+      pipe: true,
+      timeout: 60000,
+      ignoreHTTPSErrors: true,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
         '--disable-dev-shm-usage',
-        '--disable-gpu'
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-features=TranslateUI',
+        '--disable-ipc-flooding-protection',
+        '--no-first-run',
+        '--no-default-browser-check',
+        '--disable-web-security',
+        '--disable-features=VizDisplayCompositor',
+        '--disable-extensions',
+        '--disable-default-apps',
+        '--disable-sync',
+        '--disable-translate',
+        '--disable-background-networking',
+        '--disable-background-mode',
+        '--disable-http2',
+        '--aggressive-cache-discard',
+        '--disable-cache',
+        '--media-cache-size=0',
+        '--disk-cache-size=0',
+        '--ignore-certificate-errors'
       ]
-    });
+    };
+
+    // Use system Chrome in production
+    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+      logger.info(`🔧 Using Chrome executable: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+    } else {
+      logger.info('📦 Using bundled Chromium');
+    }
+
+    browser = await puppeteer.launch(launchOptions);
 
     const page = await browser.newPage();
 
@@ -331,6 +170,16 @@ async function main() {
       await browser.close();
     }
     await pool.end();
+
+    if (userDataDir) {
+      try {
+        logger.info(`🧹 Cleaning up temp dir: ${userDataDir}`);
+        fs.rmSync(userDataDir, { recursive: true, force: true });
+        logger.info('✅ Temp dir cleaned up');
+      } catch (err) {
+        logger.warn(`⚠️ Failed to clean up temp dir: ${err.message}`);
+      }
+    }
   }
 }
 
