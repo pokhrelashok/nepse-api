@@ -22,6 +22,12 @@ const testLimit = limitArg ? parseInt(limitArg.split('=')[1]) : 3;
 const START_DATE = '01/02/2025';
 const END_DATE = '01/02/2026';
 
+// Flags and Filters
+const symbolsArg = args.find(arg => arg.startsWith('--symbols='));
+const targetSymbols = symbolsArg ? symbolsArg.split('=')[1].split(',').map(s => s.trim().toUpperCase()) : null;
+const isMissingOnly = args.includes('--missing');
+const isAffectedOnly = args.includes('--affected');
+
 // Rate limiting
 const DELAY_BETWEEN_REQUESTS = 2000; // 2 seconds between requests
 
@@ -86,11 +92,38 @@ function findChromeExecutable() {
 }
 
 /**
- * Fetch all companies from database
+ * Fetch all companies from database with optional filters
  */
-async function getAllCompanies() {
-  const sql = 'SELECT security_id, symbol, company_name FROM company_details ORDER BY symbol';
-  const [rows] = await pool.execute(sql);
+async function getAllCompanies(options = {}) {
+  let sql = 'SELECT security_id, symbol, company_name FROM company_details';
+  const params = [];
+  const conditions = [];
+
+  if (options.targetSymbols && options.targetSymbols.length > 0) {
+    conditions.push(`symbol IN (${options.targetSymbols.map(() => '?').join(',')})`);
+    params.push(...options.targetSymbols);
+  }
+
+  if (options.missingOnly) {
+    conditions.push(`security_id NOT IN (SELECT DISTINCT security_id FROM stock_price_history)`);
+  }
+
+  if (options.affectedOnly) {
+    // Find symbols that are prefixes of other symbols (potentially mis-scraped before)
+    conditions.push(`EXISTS (
+      SELECT 1 FROM company_details cd2 
+      WHERE cd2.symbol LIKE CONCAT(company_details.symbol, '%') 
+      AND cd2.symbol != company_details.symbol
+    )`);
+  }
+
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+
+  sql += ' ORDER BY symbol';
+
+  const [rows] = await pool.execute(sql, params);
   return rows;
 }
 
@@ -131,8 +164,32 @@ async function fetchStockHistory(page, securityId, symbol) {
     await symbolInput.type(symbol, { delay: 100 });
     await sleep(1000); // Wait for autocomplete
 
-    // Press Enter or click the first autocomplete result
-    await symbolInput.press('Enter');
+    // Wait for and click the exact autocomplete result
+    logger.info(`  ⏳ Waiting for autocomplete results for ${symbol}...`);
+    try {
+      await page.waitForSelector('typeahead-container button.dropdown-item', { timeout: 3000 });
+      const items = await page.$$('typeahead-container button.dropdown-item');
+
+      let matched = false;
+      for (const item of items) {
+        const text = await page.evaluate(el => el.innerText, item);
+        const match = text.match(/^\((.*?)\)/);
+        if (match && match[1].trim() === symbol.trim()) {
+          logger.info(`  ✅ Found exact match: ${text.trim()}`);
+          await item.click();
+          matched = true;
+          break;
+        }
+      }
+
+      if (!matched) {
+        logger.warn(`  ⚠️  No exact match found in dropdown for ${symbol}, falling back to Enter...`);
+        await symbolInput.press('Enter');
+      }
+    } catch (e) {
+      logger.warn(`  ⚠️  Dropdown did not appear or timed out for ${symbol}, falling back to Enter...`);
+      await symbolInput.press('Enter');
+    }
     await sleep(500);
 
     // Fill in the date fields
@@ -361,7 +418,11 @@ async function main() {
 
     // Fetch all companies
     logger.info('Fetching companies from database...');
-    let companies = await getAllCompanies();
+    let companies = await getAllCompanies({
+      targetSymbols: targetSymbols,
+      missingOnly: isMissingOnly,
+      affectedOnly: isAffectedOnly
+    });
 
     if (isTestMode) {
       companies = companies.slice(0, testLimit);
