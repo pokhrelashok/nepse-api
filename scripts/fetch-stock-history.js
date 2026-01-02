@@ -109,11 +109,13 @@ async function getAllCompanies(options = {}) {
   }
 
   if (options.affectedOnly) {
-    // Find symbols that are prefixes of other symbols (potentially mis-scraped before)
+    // Find symbols that are prefixes of other symbols OR have other symbols as prefixes
+    // This ensures all symbols in a conflict group (e.g., JBLB, JBLBP) are re-scraped
     conditions.push(`EXISTS (
       SELECT 1 FROM company_details cd2 
-      WHERE cd2.symbol LIKE CONCAT(company_details.symbol, '%') 
-      AND cd2.symbol != company_details.symbol
+      WHERE cd2.symbol != company_details.symbol 
+      AND (cd2.symbol LIKE CONCAT(company_details.symbol, '%') 
+           OR company_details.symbol LIKE CONCAT(cd2.symbol, '%'))
     )`);
   }
 
@@ -317,6 +319,16 @@ async function processCompany(page, company, index, total) {
       return { symbol, success: true, count: 0 };
     }
 
+    if (isAffectedOnly) {
+      logger.info(`  🗑️  Clearing existing historical data for ${symbol}...`);
+      try {
+        await pool.execute('DELETE FROM stock_price_history WHERE security_id = ?', [security_id]);
+        logger.info(`  ✅ Cleared existing data for ${symbol}`);
+      } catch (e) {
+        logger.error(`  ❌ Failed to clear data for ${symbol}: ${e.message}`);
+      }
+    }
+
     const transformedData = transformPriceData(tableData, security_id, symbol);
     const savedCount = await saveStockPriceHistory(transformedData);
 
@@ -424,9 +436,11 @@ async function main() {
       affectedOnly: isAffectedOnly
     });
 
-    if (isTestMode) {
+    if (isTestMode && !isAffectedOnly) {
       companies = companies.slice(0, testLimit);
       logger.info(`Test mode: Processing only ${companies.length} companies`);
+    } else if (isAffectedOnly) {
+      logger.info(`Affected mode: Processing all ${companies.length} conflicted symbols`);
     }
 
     logger.info(`Found ${companies.length} companies to process\n`);
