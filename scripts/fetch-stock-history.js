@@ -33,6 +33,59 @@ function sleep(ms) {
 }
 
 /**
+ * Find Chrome/Chromium executable on the system
+ */
+function findChromeExecutable() {
+  const fs = require('fs');
+  const { execSync } = require('child_process');
+
+  // Common Chrome/Chromium paths on different systems
+  const possiblePaths = [
+    // Linux paths
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    '/snap/bin/chromium',
+    // macOS paths
+    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+    '/Applications/Chromium.app/Contents/MacOS/Chromium',
+    // Windows paths (if running under WSL or similar)
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  ];
+
+  // Check each path
+  for (const chromePath of possiblePaths) {
+    try {
+      if (fs.existsSync(chromePath)) {
+        logger.info(`✅ Found Chrome at: ${chromePath}`);
+        return chromePath;
+      }
+    } catch (e) {
+      // Continue to next path
+    }
+  }
+
+  // Try using 'which' command on Unix-like systems
+  try {
+    const whichChrome = execSync('which google-chrome-stable || which google-chrome || which chromium || which chromium-browser', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'ignore']
+    }).trim();
+
+    if (whichChrome && fs.existsSync(whichChrome)) {
+      logger.info(`✅ Found Chrome via 'which': ${whichChrome}`);
+      return whichChrome;
+    }
+  } catch (e) {
+    // 'which' command failed or not available
+  }
+
+  return null;
+}
+
+/**
  * Fetch all companies from database
  */
 async function getAllCompanies() {
@@ -273,12 +326,19 @@ async function main() {
       ]
     };
 
-    // Use system Chrome in production
+    // Use system Chrome in production - try multiple approaches
     if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-      logger.info(`🔧 Using Chrome executable: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+      logger.info(`🔧 Using Chrome from env var: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
       launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
     } else {
-      logger.info('📦 Using bundled Chromium');
+      // Try to find Chrome automatically
+      const systemChrome = findChromeExecutable();
+      if (systemChrome) {
+        logger.info(`🔧 Using system Chrome: ${systemChrome}`);
+        launchOptions.executablePath = systemChrome;
+      } else {
+        logger.info('📦 Using bundled Chromium');
+      }
     }
 
     browser = await puppeteer.launch(launchOptions);
