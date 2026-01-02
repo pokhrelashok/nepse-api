@@ -111,16 +111,16 @@ export default function FeedbackPage() {
 
   // Fetch feedback stats
   const { data: stats } = useQuery<FeedbackStats>({
-    queryKey: ['feedback-stats'],
+    queryKey: ['admin-feedback-stats'],
     queryFn: async () => {
-      const res = await api.get('/feedback/stats')
+      const res = await api.get('/admin/feedback/stats')
       return res.data?.data || { total: 0, pending: 0, in_review: 0, resolved: 0, closed: 0 }
     },
   })
 
   // Fetch feedbacks
   const { data, isLoading } = useQuery<Feedback[]>({
-    queryKey: ['feedbacks', page, filterStatus],
+    queryKey: ['admin-feedbacks', page, filterStatus],
     queryFn: async () => {
       const params = new URLSearchParams({
         limit: String(limit),
@@ -129,7 +129,7 @@ export default function FeedbackPage() {
       if (filterStatus !== 'all') {
         params.append('status', filterStatus)
       }
-      const res = await api.get(`/feedback?${params}`)
+      const res = await api.get(`/admin/feedback?${params}`)
       return res.data?.data || []
     },
   })
@@ -137,11 +137,11 @@ export default function FeedbackPage() {
   // Update status mutation
   const updateStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      return api.patch(`/feedback/${id}/status`, { status })
+      return api.patch(`/admin/feedback/${id}/status`, { status })
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feedbacks'] })
-      queryClient.invalidateQueries({ queryKey: ['feedback-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-feedbacks'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-feedback-stats'] })
       if (selectedFeedback) {
         setSelectedFeedback(null)
       }
@@ -151,11 +151,11 @@ export default function FeedbackPage() {
   // Delete mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return api.delete(`/feedback/${id}`)
+      return api.delete(`/admin/feedback/${id}`)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['feedbacks'] })
-      queryClient.invalidateQueries({ queryKey: ['feedback-stats'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-feedbacks'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-feedback-stats'] })
     },
   })
 

@@ -33,11 +33,10 @@ export default function IposPage() {
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['ipos', page],
+    queryKey: ['admin-ipos', page],
     queryFn: async () => {
-      const res = await api.get(`/ipos?limit=${limit}&offset=${page * limit}`)
-      // The API returns { data: [...], isSuccess: true } based on formatter
-      return res.data?.data || []
+      const res = await api.get(`/admin/ipos?limit=${limit}&offset=${page * limit}`)
+      return res.data?.data?.ipos || []
     },
   })
 
@@ -74,10 +73,10 @@ export default function IposPage() {
         maxUnits: newIpo.maxUnits ? parseInt(newIpo.maxUnits) : null,
         totalAmount: newIpo.totalAmount ? parseFloat(newIpo.totalAmount) : null,
       }
-      return api.post('/ipos', payload)
+      return api.post('/admin/ipos', payload)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ipos'] })
+      queryClient.invalidateQueries({ queryKey: ['admin-ipos'] })
       setIsOpen(false)
       form.reset()
     },

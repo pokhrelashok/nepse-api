@@ -20,29 +20,27 @@ export default function CompaniesPage() {
   const limit = 20
 
   const { data, isLoading } = useQuery({
-    queryKey: ['companies', page, search],
+    queryKey: ['admin-companies', page, search],
     queryFn: async () => {
-      // If we have search, we use search endpoint which doesn't support pagination heavily in backend yet perfectly, 
-      // but we will try standard endpoint if no search, or search endpoint if search exists.
-      // Actually the backend endpoint /api/companies supports limit/offset, but no search query param.
-      // /api/search?q=XYZ returns all results.
-
       if (search.length >= 2) {
+        // Use search endpoint for searching
         const res = await api.get(`/search?q=${search}`)
-        return { data: res.data?.data || [], total: res.data?.data?.length || 0, isSearch: true }
+        return { companies: res.data?.data || [], total: res.data?.data?.length || 0, isSearch: true }
       }
 
-      const res = await api.get(`/companies?limit=${limit}&offset=${page * limit}`)
-      // The API returns { data: [...], total: count } ideally, but looking at server.js:
-      // getAllCompanies returns just array. We might need to approximate total or just using simple pagination.
-      // Let's assume just array for now.
-      return { data: res.data?.data || [], total: 1000, isSearch: false } // Mock total for infinite scroll feel or simple next/prev
+      // Use admin endpoint for listing
+      const res = await api.get(`/admin/companies?limit=${limit}&offset=${page * limit}`)
+      return {
+        companies: res.data?.data?.companies || [],
+        total: res.data?.data?.pagination?.total || 0,
+        isSearch: false
+      }
     },
     placeholderData: (prev) => prev
   })
 
   // Safe access
-  const companies = data?.data || []
+  const companies = data?.companies || []
 
   return (
     <div className="space-y-6">
@@ -98,28 +96,26 @@ export default function CompaniesPage() {
         </Table>
       </div>
 
-      {/* Simple Pagination Control */}
-      {!data?.isSearch && (
-        <div className="flex items-center justify-end space-x-2 py-4">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-          >
-            Previous
-          </Button>
-          <div className="text-sm">Page {page + 1}</div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPage((p) => p + 1)}
-            disabled={companies.length < limit}
-          >
-            Next
-          </Button>
-        </div>
-      )}
+      {/* Pagination Control */}
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={page === 0}
+        >
+          Previous
+        </Button>
+        <div className="text-sm">Page {page + 1}</div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPage((p) => p + 1)}
+          disabled={companies.length < limit}
+        >
+          Next
+        </Button>
+      </div>
     </div>
   )
 }

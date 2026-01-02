@@ -228,13 +228,13 @@ exports.getMarketSummary = async (req, res) => {
 
     res.json(formatResponse({
       ...stats,
-      market_metrics: {
-        total_volume: totalVolume,
-        total_turnover: totalTurnover,
+      marketMetrics: {
+        totalVolume,
+        totalTurnover,
         gainers,
         losers,
         unchanged,
-        total_stocks: recentPrices.length
+        totalStocks: recentPrices.length
       },
       timestamp: new Date().toISOString()
     }));

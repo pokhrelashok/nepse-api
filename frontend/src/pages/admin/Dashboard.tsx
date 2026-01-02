@@ -6,9 +6,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Activity, ArrowUpRight, ArrowDownRight, Equal, Play } from "lucide-react"
+import { Activity, ArrowUpRight, ArrowDownRight, Equal, Clock, CheckCircle2, XCircle } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Badge } from "@/components/ui/badge"
 
 export default function Dashboard() {
   const { data, isLoading } = useQuery({
@@ -19,14 +19,14 @@ export default function Dashboard() {
     }
   })
 
-  const startScheduler = async () => {
-    try {
-      await api.post('/scheduler/start')
-      alert("Scheduler started successfully")
-    } catch (e) {
-      alert("Failed to start scheduler")
-    }
-  }
+  const { data: schedulerData, isLoading: schedulerLoading } = useQuery({
+    queryKey: ['scheduler-status'],
+    queryFn: async () => {
+      const res = await api.get('/admin/scheduler/status')
+      return res.data?.data || {}
+    },
+    refetchInterval: 10000 // Refresh every 10 seconds
+  })
 
   // Fallback data
   const stats = data?.marketMetrics || {
@@ -38,18 +38,21 @@ export default function Dashboard() {
     totalStocks: 0
   }
 
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Never'
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
   return (
     <div className="space-y-8">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-          <p className="text-muted-foreground">Market overview and scraper status.</p>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={startScheduler} className="bg-green-600 hover:bg-green-700">
-            <Play className="mr-2 h-4 w-4" /> Trigger Scraper
-          </Button>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <p className="text-muted-foreground">Market overview and scraper status.</p>
       </div>
 
       {/* Market Stats Cards */}
@@ -61,7 +64,9 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent>
             {isLoading ? <Skeleton className="h-7 w-[100px]" /> : (
-              <div className="text-2xl font-bold">Rs. {(stats.totalTurnover / 10000000).toFixed(2)}Cr</div>
+              <div className="text-2xl font-bold">
+                Rs. {((Number(stats.totalTurnover) || 0) / 10000000).toFixed(2)}Cr
+              </div>
             )}
             <p className="text-xs text-muted-foreground">Recent market activity</p>
           </CardContent>
@@ -104,30 +109,83 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* We could add a chart here in the future */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>System Status</CardTitle>
-          </CardHeader>
-          <CardContent>
+      {/* Scheduler Status */}
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Scheduler Status</CardTitle>
+          {schedulerLoading ? (
+            <Skeleton className="h-6 w-20" />
+          ) : (
+            <Badge variant={schedulerData?.is_running ? "default" : "secondary"}>
+              {schedulerData?.is_running ? "Running" : "Stopped"}
+            </Badge>
+          )}
+        </CardHeader>
+        <CardContent>
+          {schedulerLoading ? (
             <div className="space-y-2">
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-medium">Backend API</span>
-                <span className="text-green-600 font-bold">Online</span>
-              </div>
-              <div className="flex justify-between border-b pb-2">
-                <span className="font-medium">Database (MySQL)</span>
-                <span className="text-green-600 font-bold">Connected</span>
-              </div>
-              <div className="flex justify-between pb-2">
-                <span className="font-medium">Scraper Engine</span>
-                <span className="text-muted-foreground">Idle</span>
-              </div>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-16 w-full" />
+              ))}
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          ) : (
+            <div className="space-y-3">
+              {schedulerData?.stats && Object.entries(schedulerData.stats).map(([key, value]: [string, any]) => {
+                const isCurrentlyRunning = schedulerData?.currently_executing?.includes(key)
+                const hasRun = value.last_run !== null
+                const lastSuccess = value.last_success !== null
+
+                return (
+                  <div key={key} className="border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium capitalize">
+                          {key.replace(/_/g, ' ')}
+                        </span>
+                        {isCurrentlyRunning && (
+                          <Badge variant="outline" className="text-blue-600 border-blue-600">
+                            Running
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 text-sm">
+                        {lastSuccess ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                        ) : hasRun ? (
+                          <XCircle className="h-4 w-4 text-red-600" />
+                        ) : (
+                          <Clock className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div>
+                        <span className="font-medium">Last Run:</span>{' '}
+                        {formatDate(value.last_run)}
+                      </div>
+                      <div>
+                        <span className="font-medium">Last Success:</span>{' '}
+                        {formatDate(value.last_success)}
+                      </div>
+                      <div>
+                        <span className="font-medium">Success:</span> {value.success_count}
+                      </div>
+                      <div>
+                        <span className="font-medium">Failed:</span> {value.fail_count}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+              {(!schedulerData?.stats || Object.keys(schedulerData.stats).length === 0) && (
+                <div className="text-center text-muted-foreground py-8">
+                  No scheduler data available
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
