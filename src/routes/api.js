@@ -42,6 +42,7 @@ router.get('/scheduler/status', schedulerController.getSchedulerStatus);
 router.get('/search', companyController.searchCompanies);
 router.get('/scripts', companyController.getAllCompanies);
 router.get('/scripts/:symbol', companyController.getCompanyDetails);
+router.get('/history/:symbol', companyController.getCompanyHistory);
 
 // Market Updates
 router.post('/updates', marketController.getUpdates);

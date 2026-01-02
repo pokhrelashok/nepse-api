@@ -636,6 +636,25 @@ async function getAnnouncedDividends(limit = 100, offset = 0, startDate = null, 
   return rows;
 }
 
+async function getStockHistory(symbol, startDate) {
+  const sql = `
+    SELECT 
+      business_date,
+      high_price,
+      low_price,
+      close_price,
+      total_trades,
+      total_traded_quantity,
+      total_traded_value
+    FROM stock_price_history
+    WHERE symbol = ? AND business_date >= ?
+    ORDER BY business_date ASC
+  `;
+
+  const [rows] = await pool.execute(sql, [symbol, startDate]);
+  return rows;
+}
+
 async function getRecentBonusForSymbols(symbols) {
   if (!symbols || symbols.length === 0) return {};
 
@@ -793,6 +812,7 @@ module.exports = {
   insertAnnouncedDividends,
   getAnnouncedDividends,
   getRecentBonusForSymbols,
+  getStockHistory,
   findPublishedDate,
   // Price Alerts
   createPriceAlert,

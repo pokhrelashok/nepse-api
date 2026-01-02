@@ -6,9 +6,39 @@ const {
   getTopCompaniesByMarketCap,
   getIpos,
   insertIpo,
-  getAnnouncedDividends
+  getAnnouncedDividends,
+  getStockHistory
 } = require('../database/queries');
 const { formatResponse, formatError } = require('../utils/formatter');
+
+// Helper to calculate start date based on range
+const getStartDateFromRange = (range) => {
+  const now = new Date();
+  const date = new Date(now); // Clone date
+
+  switch (range) {
+    case '1W':
+      date.setDate(now.getDate() - 7);
+      break;
+    case '1M':
+      date.setMonth(now.getMonth() - 1);
+      break;
+    case '3M':
+      date.setMonth(now.getMonth() - 3);
+      break;
+    case '6M':
+      date.setMonth(now.getMonth() - 6);
+      break;
+    case '1Y':
+      date.setFullYear(now.getFullYear() - 1);
+      break;
+    default:
+      // Default to 1 year if invalid or missing
+      date.setFullYear(now.getFullYear() - 1);
+  }
+
+  return date.toISOString().split('T')[0];
+};
 
 exports.searchCompanies = async (req, res) => {
   try {
@@ -153,6 +183,34 @@ exports.getDividends = async (req, res) => {
     res.json(formatResponse(dividends));
   } catch (e) {
     console.error('API Announced Dividends Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+};
+
+exports.getCompanyHistory = async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const range = req.query.range || '1Y';
+
+    // Validate range strictly if needed, but the helper defaults to 1Y
+    const validRanges = ['1W', '1M', '3M', '6M', '1Y'];
+    if (!validRanges.includes(range)) {
+      return res.status(400).json(formatError(`Invalid range. Valid ranges are: ${validRanges.join(', ')}`));
+    }
+
+    const startDate = getStartDateFromRange(range);
+    const history = await getStockHistory(symbol, startDate);
+
+    if (!history || history.length === 0) {
+      // Just return empty list instead of 404, or maybe 404 if symbol invalid? 
+      // But query doesn't check symbol existence first. 
+      // Let's return empty array with success.
+      return res.json(formatResponse([]));
+    }
+
+    res.json(formatResponse(history));
+  } catch (e) {
+    console.error('API History Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
   }
 };

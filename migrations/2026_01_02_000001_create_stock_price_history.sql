@@ -1,18 +1,18 @@
--- Migration to update stock_prices table for historical data support
--- This removes the unique constraint on symbol and adds a composite unique key
--- Also adds total_trades column from API
-
--- Drop the unique constraint on symbol
-ALTER TABLE stock_prices DROP INDEX unique_symbol;
-
--- Add total_trades column if it doesn't exist
-ALTER TABLE stock_prices 
-ADD COLUMN IF NOT EXISTS total_trades INT NULL AFTER close_price;
-
--- Add composite unique key on (security_id, business_date)
-ALTER TABLE stock_prices 
-ADD UNIQUE KEY unique_security_date (security_id, business_date);
-
--- Add index on business_date for efficient queries
-ALTER TABLE stock_prices 
-ADD INDEX IF NOT EXISTS idx_business_date (business_date);
+-- Create stock_price_history table
+CREATE TABLE IF NOT EXISTS stock_price_history (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  security_id INT,
+  symbol VARCHAR(20) NOT NULL,
+  business_date DATE NOT NULL,
+  high_price DECIMAL(10, 2),
+  low_price DECIMAL(10, 2),
+  close_price DECIMAL(10, 2),
+  total_trades INT,
+  total_traded_quantity INT,
+  total_traded_value DECIMAL(15, 2),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_symbol_date (symbol, business_date),
+  INDEX idx_date (business_date),
+  INDEX idx_security (security_id)
+);
