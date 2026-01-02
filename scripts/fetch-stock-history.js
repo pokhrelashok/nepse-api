@@ -167,24 +167,39 @@ async function fetchStockHistory(page, securityId, symbol) {
     await sleep(1000); // Wait for autocomplete
 
     // Wait for and click the exact autocomplete result
-    logger.info(`  ⏳ Waiting for autocomplete results for ${symbol}...`);
+    logger.info(`  ⏳ Waiting for dropdown for ${symbol}...`);
     try {
-      await page.waitForSelector('typeahead-container button.dropdown-item', { timeout: 3000 });
-      const items = await page.$$('typeahead-container button.dropdown-item');
+      // Use a broader selector and longer timeout
+      await page.waitForSelector('.dropdown-item', { timeout: 5000 });
+      const items = await page.$$('.dropdown-item');
 
       let matched = false;
       for (const item of items) {
         const text = await page.evaluate(el => el.innerText, item);
-        const match = text.match(/^\((.*?)\)/);
+        const trimmedText = text.trim();
+        const match = trimmedText.match(/^\((.*?)\)/);
+
         if (match && match[1].trim() === symbol.trim()) {
-          logger.info(`  ✅ Found exact match: ${text.trim()}`);
-          await item.click();
+          logger.info(`  ✅ Found exact match: ${trimmedText}`);
+          // Use JS click for better stability in certain components
+          await page.evaluate(el => el.click(), item);
           matched = true;
           break;
         }
       }
 
-      if (!matched) {
+      if (matched) {
+        // Wait for input to be updated
+        await sleep(500);
+        const newValue = await page.evaluate(el => el.value, symbolInput);
+        logger.info(`  📝 Selected in UI: ${newValue}`);
+
+        // Final sanity check: does the selected value actually contain our symbol?
+        if (!newValue.includes(`(${symbol})`)) {
+          logger.warn(`  ⚠️  Selected value "${newValue}" does not match expected symbol "(${symbol})". Retrying with Enter...`);
+          await symbolInput.press('Enter');
+        }
+      } else {
         logger.warn(`  ⚠️  No exact match found in dropdown for ${symbol}, falling back to Enter...`);
         await symbolInput.press('Enter');
       }
