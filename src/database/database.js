@@ -298,11 +298,64 @@ async function saveFinancials(financials) {
   }
 }
 
+async function saveStockPriceHistory(historyData) {
+  if (!historyData || historyData.length === 0) return Promise.resolve(0);
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const sql = `
+      INSERT INTO stock_price_history (
+        security_id, symbol, business_date, high_price, 
+        low_price, close_price, total_trades, total_traded_quantity, 
+        total_traded_value
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        symbol = VALUES(symbol),
+        high_price = VALUES(high_price),
+        low_price = VALUES(low_price),
+        close_price = VALUES(close_price),
+        total_trades = VALUES(total_trades),
+        total_traded_quantity = VALUES(total_traded_quantity),
+        total_traded_value = VALUES(total_traded_value),
+        updated_at = CURRENT_TIMESTAMP
+    `;
+
+    let insertedCount = 0;
+    for (const record of historyData) {
+      await connection.execute(sql, [
+        record.security_id || null,
+        record.symbol || null,
+        record.business_date || null,
+        record.high_price ?? null,
+        record.low_price ?? null,
+        record.close_price ?? null,
+        record.total_trades ?? null,
+        record.total_traded_quantity ?? null,
+        record.total_traded_value ?? null
+      ]);
+      insertedCount++;
+    }
+
+    await connection.commit();
+    logger.info(`Saved ${insertedCount} historical price records.`);
+    return insertedCount;
+  } catch (err) {
+    await connection.rollback();
+    logger.error('Error saving stock price history:', err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
 // Export pool for queries
 module.exports = {
   pool,
   savePrices,
   saveCompanyDetails,
   saveDividends,
-  saveFinancials
+  saveFinancials,
+  saveStockPriceHistory
 };

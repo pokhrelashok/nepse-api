@@ -20,7 +20,8 @@ class Scheduler {
       price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
       close_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
       company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
-      cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 }
+      cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
+      price_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0 }
     };
 
   }
@@ -125,13 +126,23 @@ class Scheduler {
     cleanupJob.start();
     notificationJob.start();
 
+    // Daily Price Archive (at 3:05 PM, a few minutes after market closes)
+    const archiveJob = cron.schedule('5 15 * * 0-4', async () => {
+      await this.archiveDailyPrices();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('price_archive', archiveJob);
+    archiveJob.start();
+
     indexJob.start();
     priceJob.start();
     closeJob.start();
     companyDetailsJob.start();
 
     this.isRunning = true;
-    logger.info('Scheduler started (index every 20s during hours, prices every 2 min, company details at 11:03)');
+    logger.info('Scheduler started (index every 20s during hours, prices every 2 min, archive at 3:05 PM)');
   }
 
   async updateMarketIndex() {
@@ -355,6 +366,31 @@ class Scheduler {
       this.stats[jobKey].fail_count++;
     } finally {
 
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async archiveDailyPrices() {
+    const jobKey = 'price_archive';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.stats[jobKey].last_run = new Date().toISOString();
+
+    logger.info('📦 Starting daily price archive...');
+
+    try {
+      const { archiveTodaysPrices } = require('./schedulers/archiveDailyPrices');
+      const result = await archiveTodaysPrices();
+
+      logger.info(`✅ Archived ${result.recordsArchived} stock prices for ${result.date}`);
+
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
+    } catch (error) {
+      logger.error('Daily price archive failed:', error);
+      this.stats[jobKey].fail_count++;
+    } finally {
       this.isJobRunning.set(jobKey, false);
     }
   }

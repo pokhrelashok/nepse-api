@@ -1,0 +1,337 @@
+#!/usr/bin/env node
+
+/**
+ * Stock Price History Scraper (UI Interaction)
+ * Fetches historical stock price data by interacting with the Nepal Stock Exchange
+ * web interface - filling forms and clicking buttons like a real user.
+ */
+
+require('dotenv').config();
+const puppeteer = require('puppeteer');
+const { pool, saveStockPriceHistory } = require('../src/database/database');
+const logger = require('../src/utils/logger');
+
+// Parse command line arguments
+const args = process.argv.slice(2);
+const isTestMode = args.includes('--test');
+const limitArg = args.find(arg => arg.startsWith('--limit='));
+const testLimit = limitArg ? parseInt(limitArg.split('=')[1]) : 3;
+
+// Date range for historical data (MM/DD/YYYY format)
+const START_DATE = '01/02/2025';
+const END_DATE = '01/02/2026';
+
+// Rate limiting
+const DELAY_BETWEEN_REQUESTS = 2000; // 2 seconds between requests
+
+/**
+ * Sleep for specified milliseconds
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Fetch all companies from database
+ */
+async function getAllCompanies() {
+  const sql = 'SELECT security_id, symbol, company_name FROM company_details ORDER BY symbol';
+  const [rows] = await pool.execute(sql);
+  return rows;
+}
+
+/**
+ * Fetch historical price data by intercepting the API response
+ */
+async function fetchStockHistory(page, securityId, symbol) {
+  try {
+    logger.info(`  🔍 Searching for ${symbol}...`);
+
+    // Set up API response interception
+    let apiResponse = null;
+
+    page.on('response', async (response) => {
+      const url = response.url();
+      // Intercept the market history API call
+      if (url.includes('/api/nots/market/history/security/')) {
+        try {
+          const data = await response.json();
+          if (data && data.content && Array.isArray(data.content)) {
+            apiResponse = data.content;
+            logger.info(`  📡 Intercepted API response with ${data.content.length} records`);
+          }
+        } catch (e) {
+          // Ignore JSON parse errors
+        }
+      }
+    });
+
+    // Fill in the symbol search field
+    const symbolInput = await page.$('input.symbol-search');
+    if (!symbolInput) {
+      logger.error(`  ❌ Could not find symbol search input`);
+      return [];
+    }
+
+    await symbolInput.click({ clickCount: 3 }); // Select all existing text
+    await symbolInput.type(symbol, { delay: 100 });
+    await sleep(1000); // Wait for autocomplete
+
+    // Press Enter or click the first autocomplete result
+    await symbolInput.press('Enter');
+    await sleep(500);
+
+    // Fill in the date fields
+    const dateInputs = await page.$$('input[bsdatepicker]');
+    if (dateInputs.length >= 2) {
+      // From date
+      await dateInputs[0].click({ clickCount: 3 }); // Select all
+      await sleep(200);
+      await dateInputs[0].type(START_DATE, { delay: 50 });
+      await sleep(500);
+
+      // To date
+      await dateInputs[1].click({ clickCount: 3 }); // Select all
+      await sleep(200);
+      await dateInputs[1].type(END_DATE, { delay: 50 });
+      await sleep(500);
+    }
+
+    // Set items per page to 500
+    logger.info(`  📄 Setting items per page to 500...`);
+    const selectElement = await page.$('select');
+    if (selectElement) {
+      await selectElement.select('500');
+      await sleep(500);
+      logger.info(`  ✅ Items per page set to 500`);
+    } else {
+      logger.warn(`  ⚠️  Could not find items per page selector`);
+    }
+
+    // Click the Filter button
+    const filterButton = await page.$('button.box__filter--search');
+    if (!filterButton) {
+      logger.error(`  ❌ Could not find Filter button`);
+      return [];
+    }
+
+    logger.info(`  🔘 Clicking Filter button...`);
+    await filterButton.click();
+
+    // Wait for the API response
+    await sleep(3000);
+
+    if (!apiResponse || apiResponse.length === 0) {
+      logger.warn(`  ⚠️  No data received from API for ${symbol}`);
+      return [];
+    }
+
+    logger.info(`  ✅ Received ${apiResponse.length} records from API`);
+    return apiResponse;
+
+  } catch (error) {
+    logger.error(`  ❌ Error fetching ${symbol}: ${error.message}`);
+    return [];
+  }
+}
+
+/**
+ * Parse date from table format to MySQL format (YYYY-MM-DD)
+ * Table format could be: "12/20/2025", "2025-12-20", or other formats
+ */
+function parseTableDate(dateStr) {
+  if (!dateStr) return null;
+
+  try {
+    // Try to parse MM/DD/YYYY format
+    const parts = dateStr.trim().split('/');
+    if (parts.length === 3) {
+      const month = parts[0].padStart(2, '0');
+      const day = parts[1].padStart(2, '0');
+      const year = parts[2];
+      return `${year}-${month}-${day}`;
+    }
+
+    // If already in YYYY-MM-DD format, return as is
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      return dateStr;
+    }
+
+    // Try parsing as a Date object
+    const date = new Date(dateStr);
+    if (!isNaN(date.getTime())) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    return null;
+  } catch (error) {
+    logger.error(`Error parsing date: ${dateStr} - ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Transform API response to database format
+ */
+function transformPriceData(apiData, securityId, symbol) {
+  return apiData.map(record => ({
+    security_id: securityId,
+    symbol: symbol,
+    business_date: record.businessDate, // Already in YYYY-MM-DD format from API
+    high_price: parseFloat(record.highPrice) || null,
+    low_price: parseFloat(record.lowPrice) || null,
+    close_price: parseFloat(record.closePrice) || null,
+    total_trades: parseInt(record.totalTrades) || null,
+    total_traded_quantity: parseInt(record.totalTradedQuantity) || null,
+    total_traded_value: parseFloat(record.totalTradedValue) || null
+  }));
+}
+
+/**
+ * Process a single company
+ */
+async function processCompany(page, company, index, total) {
+  const { security_id, symbol, company_name } = company;
+
+  logger.info(`\n[${index + 1}/${total}] Processing ${symbol} (${company_name})`);
+
+  try {
+    const tableData = await fetchStockHistory(page, security_id, symbol);
+
+    if (tableData.length === 0) {
+      logger.warn(`  ⚠️  No historical data found for ${symbol}`);
+      return { symbol, success: true, count: 0 };
+    }
+
+    const transformedData = transformPriceData(tableData, security_id, symbol);
+    const savedCount = await saveStockPriceHistory(transformedData);
+
+    logger.info(`  💾 Saved ${savedCount} records for ${symbol}`);
+    return { symbol, success: true, count: savedCount };
+
+  } catch (error) {
+    logger.error(`  ❌ Failed to process ${symbol}: ${error.message}`);
+    return { symbol, success: false, error: error.message };
+  }
+}
+
+/**
+ * Main execution function
+ */
+async function main() {
+  console.log('🚀 Stock Price History Scraper (UI Interaction)');
+  console.log('================================================');
+  console.log(`Date Range: ${START_DATE} to ${END_DATE}`);
+  console.log(`Test Mode: ${isTestMode ? 'YES (limit: ' + testLimit + ')' : 'NO'}`);
+  console.log('');
+
+  let browser;
+
+  try {
+    logger.info('Launching browser...');
+    browser = await puppeteer.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu'
+      ]
+    });
+
+    const page = await browser.newPage();
+
+    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+
+    logger.info('Navigating to Stock Trading History page...');
+
+    // Go directly to the stock trading history page
+    await page.goto('https://www.nepalstock.com/stock-trading', {
+      waitUntil: 'networkidle0',
+      timeout: 30000
+    });
+
+    logger.info('Page loaded. Waiting for UI elements...');
+    await sleep(3000);
+
+    // Fetch all companies
+    logger.info('Fetching companies from database...');
+    let companies = await getAllCompanies();
+
+    if (isTestMode) {
+      companies = companies.slice(0, testLimit);
+      logger.info(`Test mode: Processing only ${companies.length} companies`);
+    }
+
+    logger.info(`Found ${companies.length} companies to process\n`);
+
+    const results = [];
+    const totalCompanies = companies.length;
+
+    for (let i = 0; i < companies.length; i++) {
+      const company = companies[i];
+      const result = await processCompany(page, company, i, totalCompanies);
+      results.push(result);
+
+      // Reset the form for the next company
+      const resetButton = await page.$('button.box__filter--reset');
+      if (resetButton) {
+        await resetButton.click();
+        await sleep(1000);
+      }
+
+      if (i < companies.length - 1) {
+        await sleep(DELAY_BETWEEN_REQUESTS);
+      }
+
+      if ((i + 1) % 10 === 0) {
+        const successful = results.filter(r => r.success).length;
+        const totalRecords = results.reduce((sum, r) => sum + (r.count || 0), 0);
+        console.log('');
+        logger.info(`Progress: ${i + 1}/${totalCompanies} companies | ${successful} successful | ${totalRecords} total records`);
+        console.log('');
+      }
+    }
+
+    console.log('');
+    console.log('================================================');
+    console.log('📊 Summary');
+    console.log('================================================');
+
+    const successful = results.filter(r => r.success);
+    const failed = results.filter(r => !r.success);
+    const totalRecords = results.reduce((sum, r) => sum + (r.count || 0), 0);
+
+    console.log(`Total Companies: ${totalCompanies}`);
+    console.log(`Successful: ${successful.length}`);
+    console.log(`Failed: ${failed.length}`);
+    console.log(`Total Records Saved: ${totalRecords}`);
+
+    if (failed.length > 0) {
+      console.log('');
+      console.log('Failed Companies:');
+      failed.forEach(f => {
+        console.log(`  - ${f.symbol}: ${f.error}`);
+      });
+    }
+
+    console.log('');
+    logger.info('✅ Stock price history scraper completed!');
+
+  } catch (error) {
+    logger.error('Fatal error:', error);
+    console.error(error.stack);
+    process.exit(1);
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+    await pool.end();
+  }
+}
+
+main();
