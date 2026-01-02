@@ -6,7 +6,8 @@
  * web interface - filling forms and clicking buttons like a real user.
  */
 
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const puppeteer = require('puppeteer');
 const { pool, saveStockPriceHistory } = require('../src/database/database');
 const logger = require('../src/utils/logger');
