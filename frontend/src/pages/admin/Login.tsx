@@ -36,8 +36,10 @@ export default function Login() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       const res = await api.post("/admin/login", values)
-      if (res.data.token) {
-        localStorage.setItem("admin_token", res.data.token)
+      // API returns { success: true, data: { token: "..." } }
+      const token = res.data.data?.token || res.data.token
+      if (token) {
+        localStorage.setItem("admin_token", token)
         navigate({ to: "/admin/dashboard" })
       }
     } catch (err) {
