@@ -2,7 +2,7 @@
 module.exports = {
   apps: [
     {
-      name: 'nepse-api-bun',
+      name: 'nepse-api',
       script: 'src/server.js',
       interpreter: '/usr/local/bin/bun', // Use Bun runtime
       instances: 1,

@@ -60,7 +60,7 @@ This script will automatically:
 - **nepse-pm2** - Systemd service for PM2
 - **nginx** - Web server
 - **PM2 processes:**
-  - `nepse-api-bun` - Main API server (port 3000)
+  - `nepse-api` - Main API server (port 3000)
   - `nepse-scheduler` - Background data updates (auto-started)
 
 ## 🔧 Post-Deployment Setup
