@@ -236,6 +236,12 @@ class NotificationService {
 
     const message = {
       notification: { title, body },
+      android: {
+        notification: {
+          icon: 'ic_notification',
+          color: '#1976D2'
+        }
+      },
       data: {
         type: 'ipo',
         route: 'ipo_calendar',
@@ -275,6 +281,12 @@ class NotificationService {
 
     const message = {
       notification: { title, body },
+      android: {
+        notification: {
+          icon: 'ic_notification',
+          color: '#1976D2'
+        }
+      },
       data: {
         type: 'ipo_closing',
         route: 'ipo_calendar',
@@ -349,6 +361,12 @@ class NotificationService {
 
     const message = {
       notification: { title, body },
+      android: {
+        notification: {
+          icon: 'ic_notification',
+          color: '#1976D2'
+        }
+      },
       data: {
         type: 'dividend',
         route: 'bonus_calendar',
@@ -438,6 +456,12 @@ class NotificationService {
 
     const message = {
       notification: { title, body },
+      android: {
+        notification: {
+          icon: 'ic_notification',
+          color: '#1976D2'
+        }
+      },
       data: {
         type: 'right_share',
         route: 'bonus_calendar',
@@ -502,6 +526,12 @@ class NotificationService {
 
     const message = {
       notification: { title, body },
+      android: {
+        notification: {
+          icon: 'ic_notification',
+          color: '#1976D2'
+        }
+      },
       data: {
         type: 'price_alert',
         symbol: alert.symbol,
