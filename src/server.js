@@ -82,16 +82,44 @@ app.use((req, res, next) => {
 });
 
 // Only listen if run directly, not when imported for tests
-if (require.main === module) {
-  app.listen(PORT, '0.0.0.0', async () => {
-    logger.info(`API running at http://localhost:${PORT}`);
+// In Bun/PM2 environments, require.main might behave differently, so we check process.mainModule as well
+const isMainModule = require.main === module || (typeof process !== 'undefined' && process.mainModule === module);
+
+if (isMainModule || process.env.PM2_HOME) {
+  const server = app.listen(PORT, '0.0.0.0', async () => {
+    const addr = server.address();
+    const bind = typeof addr === 'string' ? `pipe ${addr}` : `port ${addr.port}`;
+    logger.info(`API running and listening on ${bind}`);
 
     // Auto-start the scheduler
     try {
-      await scheduler.startPriceUpdateSchedule();
-      logger.info('Scheduler auto-started on server boot');
+      if (scheduler && typeof scheduler.startPriceUpdateSchedule === 'function') {
+        await scheduler.startPriceUpdateSchedule();
+        logger.info('Scheduler auto-started on server boot');
+      }
     } catch (error) {
       logger.error('Failed to auto-start scheduler:', error);
+    }
+  });
+
+  server.on('error', (error) => {
+    if (error.syscall !== 'listen') {
+      throw error;
+    }
+
+    const bind = typeof PORT === 'string' ? 'Pipe ' + PORT : 'Port ' + PORT;
+
+    switch (error.code) {
+      case 'EACCES':
+        logger.error(`${bind} requires elevated privileges`);
+        process.exit(1);
+        break;
+      case 'EADDRINUSE':
+        logger.error(`${bind} is already in use`);
+        process.exit(1);
+        break;
+      default:
+        throw error;
     }
   });
 }

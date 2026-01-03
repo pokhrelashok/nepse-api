@@ -4,7 +4,7 @@ module.exports = {
     {
       name: 'nepse-api',
       script: 'src/server.js',
-      interpreter: 'bun', // Rely on PATH since user installed it globally
+      interpreter: '/usr/local/bin/bun', // Fixed absolute path for PM2/Systemd compatibility
       cwd: '/var/www/nepse-api', // Explicit CWD
       instances: 1,
       exec_mode: 'fork',
