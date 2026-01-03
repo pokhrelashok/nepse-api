@@ -4,7 +4,8 @@ module.exports = {
     {
       name: 'nepse-api',
       script: 'src/server.js',
-      interpreter: '/usr/local/bin/bun', // Use Bun runtime
+      interpreter: 'bun', // Rely on PATH since user installed it globally
+      cwd: '/var/www/nepse-api', // Explicit CWD
       instances: 1,
       exec_mode: 'fork',
       env_file: '.env',
