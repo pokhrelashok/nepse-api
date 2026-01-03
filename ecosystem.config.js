@@ -7,30 +7,12 @@ module.exports = {
       interpreter: '/usr/local/bin/bun', // Use Bun runtime
       instances: 1,
       exec_mode: 'fork',
+      env_file: '.env',
       env: {
-        NODE_ENV: 'production',
-        PORT: 3000,
-        DB_HOST: process.env.DB_HOST || 'localhost',
-        DB_PORT: process.env.DB_PORT || 3306,
-        DB_USER: process.env.DB_USER || 'nepse',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'nepse_password',
-        DB_NAME: process.env.DB_NAME || 'nepse_db',
-        DB_POOL_SIZE: process.env.DB_POOL_SIZE || 10,
         PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true',
         PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable'
       },
-      env_production: {
-        NODE_ENV: 'production',
-        PORT: 3000,
-        DB_HOST: process.env.DB_HOST || 'localhost',
-        DB_PORT: process.env.DB_PORT || 3306,
-        DB_USER: process.env.DB_USER || 'nepse',
-        DB_PASSWORD: process.env.DB_PASSWORD || 'nepse_password',
-        DB_NAME: process.env.DB_NAME || 'nepse_db',
-        DB_POOL_SIZE: process.env.DB_POOL_SIZE || 10,
-        PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true',
-        PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable'
-      },
+
       error_file: './logs/api-err.log',
       out_file: './logs/api-out.log',
       log_file: './logs/api-combined.log',
