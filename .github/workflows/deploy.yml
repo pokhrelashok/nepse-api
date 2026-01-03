@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -43,6 +44,7 @@ jobs:
             fi
 
             # Refresh the update script from the repository
+            # deploy/scripts/update-app.sh is now the Bun-native script
             if [ -f deploy/scripts/update-app.sh ]; then
               cp deploy/scripts/update-app.sh ./update.sh
               sed -i "s|APP_DIR_PLACEHOLDER|$APP_DIR|g" ./update.sh
@@ -50,15 +52,24 @@ jobs:
             fi
 
             if [ -x ./update.sh ]; then
+              echo "🔥 Deploying with Bun..."
               ./update.sh
             else
-              echo "update.sh missing; running inline update"
-              # Install all dependencies (including devDeps for build)
-              npm install
-              # Run migrations
-              npm run migrate
-              # Build the React Frontend
-              cd frontend && npm install && npm run build && cd ..
-              # Restart the application
+              echo "update.sh missing; running inline Bun update"
+              # Fallback Bun deployment
+              # Ensure variables are loaded for DB/etc if needed during build?
+              # usually bun install doesn't need them. migrate might.
+              
+              # Assuming Bun is in path or using full path
+              BUN_BIN="/usr/local/bin/bun"
+              $BUN_BIN install
+              $BUN_BIN run bun:migrate
+              
+              cd frontend 
+              $BUN_BIN install 
+              $BUN_BIN run build 
+              cd ..
+              
+              # Restart PM2
               pm2 restart ecosystem.config.js || pm2 start ecosystem.config.js
             fi

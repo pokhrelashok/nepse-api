@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   backend:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: nepse-backend
     ports:
       - "3000:3000"
@@ -25,7 +27,7 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
-    command: npm run dev
+    command: bun run bun:dev
     restart: unless-stopped
     networks:
       - nepse-network

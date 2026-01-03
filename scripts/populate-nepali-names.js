@@ -14,7 +14,7 @@
  *   --table=NAME    Only process specific table (company_details, ipos, announced_dividends)
  */
 
-require('dotenv').config();
+
 
 const { pool } = require('../src/database/database');
 const { translateToNepali, getCacheSize, clearCache } = require('../src/services/translation-service');

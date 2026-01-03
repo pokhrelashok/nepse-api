@@ -1,6 +1,8 @@
 # NEPSE Portfolio API
 
-A comprehensive Node.js API for scraping and serving Nepal Stock Exchange (NEPSE) data, including real-time stock prices, company details, logos, and market analytics.
+A comprehensive API for scraping and serving Nepal Stock Exchange (NEPSE) data, including real-time stock prices, company details, logos, and market analytics.
+
+**Now supports both Node.js and Bun runtimes for improved performance!**
 
 ## Features
 
@@ -32,6 +34,8 @@ The application has been designed with a clean separation of concerns:
 
 ## Quick Start
 
+### With Node.js
+
 ```bash
 # Install dependencies
 npm install
@@ -46,11 +50,32 @@ npm run scraper
 npm test
 ```
 
+### With Bun (Recommended for 20-40x faster installs)
+
+```bash
+# Install Bun
+curl -fsSL https://bun.sh/install | bash
+
+# Install dependencies (much faster!)
+bun install
+
+# Start the API server
+bun run bun:start
+
+# Run scraper manually
+bun run bun:scraper
+
+# Run tests
+bun run bun:test
+```
+
 ## API Specification
 
 Detailed information about all available API endpoints, including request/response examples, can be found in the [api-spec](./api-spec) directory. We use [Bruno](https://usebruno.com) for API exploration.
 
 ## Scripts
+
+### Node.js Scripts
 
 ```bash
 # Development
@@ -67,6 +92,25 @@ npm run test:api         # Test API endpoints
 
 # Maintenance
 npm run clean           # Remove database and temp files
+```
+
+### Bun Scripts (Faster Alternative)
+
+```bash
+# Development
+bun run bun:dev          # Start server with hot reload
+bun run bun:scheduler    # Start automated scraper
+
+# Data Collection
+bun run bun:scraper      # Scrape today's prices
+bun run bun:scraper:companies  # Scrape company details
+
+# Testing
+bun run bun:test:scraper # Test scraper functionality
+bun run bun:test:api     # Test API endpoints
+
+# Database
+bun run bun:migrate      # Run database migrations
 ```
 
 ## Project Structure
@@ -95,9 +139,17 @@ README.md
 
 ## Requirements
 
-- Node.js >= 16.0.0
+- **Runtime**: Node.js >= 16.0.0 OR Bun >= 1.0.0
 - MySQL 8.0+
 - Chrome/Chromium (for Puppeteer)
+
+### Why Bun?
+
+- **20-40x faster** package installation
+- **35-50% less** memory usage
+- **2-3x faster** startup time
+- Built-in TypeScript support
+- Drop-in replacement for Node.js
 
 ## Docker Development
 

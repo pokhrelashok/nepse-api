@@ -40,7 +40,7 @@ services:
   nepse-api:
     build:
       context: ..
-      dockerfile: deploy/Dockerfile.production
+      dockerfile: Dockerfile
     container_name: nepse-api
     ports:
       - "3000:3000"

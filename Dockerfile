@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM oven/bun:1.3.5-alpine
 
 # Install Chromium and dependencies for Puppeteer
 RUN apk add --no-cache \
@@ -8,27 +8,25 @@ RUN apk add --no-cache \
       harfbuzz \
       ca-certificates \
       ttf-freefont \
-      nodejs \
-      yarn \
       curl
 
-# Tell Puppeteer to skip installing Chrome v. download and use the installed package
+# Tell Puppeteer to skip installing Chrome and use the installed package
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
     PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
 
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json bun.lockb* ./
 
-# Install all dependencies (including dev for testing)
-RUN npm install
+# Install dependencies with Bun
+RUN bun install --frozen-lockfile
 
 # Copy source code
 COPY . .
 
 # Build frontend
-RUN cd frontend && npm install && npm run build
+RUN cd frontend && bun install && bun run build
 
 # Create logs directory
 RUN mkdir -p logs public/images
@@ -37,4 +35,4 @@ RUN mkdir -p logs public/images
 EXPOSE 3000
 
 # Default command (can be overridden in docker-compose)
-CMD ["npm", "start"]
+CMD ["bun", "run", "start"]

@@ -39,15 +39,31 @@ apt install -y curl wget git nginx mysql-server certbot python3-certbot-nginx uf
 echo "📦 Installing Chrome dependencies for Puppeteer..."
 apt install -y ca-certificates fonts-liberation libatk-bridge2.0-0 libatk1.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libgtk-3-0 libasound2-dev xdg-utils
 
-echo "📦 Checking Node.js..."
+echo "📦 Checking Bun..."
+if command -v bun >/dev/null 2>&1; then
+    echo "✅ Bun already present"
+else
+    echo "⬇️ Installing Bun globally..."
+    curl -fsSL https://bun.sh/install | bash
+    # Move to global bin for all users
+    mv /root/.bun/bin/bun /usr/local/bin/bun
+    chmod +x /usr/local/bin/bun
+    rm -rf /root/.bun
+    echo "✅ Bun installed to /usr/local/bin/bun"
+fi
+
+# Ensure /usr/local/bin is in PATH (usually is)
+export PATH="/usr/local/bin:$PATH"
+
+echo "📦 Checking Node.js (required for PM2)..."
 if command -v node >/dev/null 2>&1 && node -v | grep -q '^v20\.'; then
     echo "✅ Node.js already present"
 else
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
     apt install -y nodejs build-essential
 fi
+bun --version
 node --version
-npm --version
 
 # Install Google Chrome for Puppeteer
 echo "📦 Checking Google Chrome..."
@@ -140,8 +156,11 @@ chown $APP_USER:$APP_USER $APP_DIR
 echo "📋 Copying application files..."
 rsync -av --exclude='deploy/' --exclude='.git/' --exclude='node_modules/' --exclude='*.log' --exclude='.DS_Store' --exclude='*.db' . $APP_DIR/
 # Remove any existing symlink and copy ecosystem config directly
-rm -f $APP_DIR/ecosystem.config.js
-cp $DEPLOY_DIR/ecosystem.config.js $APP_DIR/
+# Note: Root ecosystem.config.js is already copied via rsync (deploy/ is excluded, but root files are included)
+# Ensure we use the root config, not any legacy deploy/ version
+if [ -f $DEPLOY_DIR/ecosystem.config.js ]; then
+    echo "⚠️ Warning: Found legacy deploy/ecosystem.config.js, ignoring in favor of root config."
+fi
 
 if [ "$SKIP_CHROME_INSTALL" = "true" ]; then
     echo "🔧 Configuring for Puppeteer's bundled Chromium..."
@@ -157,27 +176,26 @@ cd "$APP_DIR"
 if [ -d node_modules ]; then
     echo "Dependencies already installed, skipping"
 else
-    if [ -f package-lock.json ]; then
-        echo "ℹ️ Attempting npm ci..."
-        if npm ci --omit=dev; then
-            echo "✅ Dependencies installed with npm ci"
-        else
-            echo "⚠️ npm ci failed (lockfile may be out of sync), falling back to npm install"
-            rm -rf node_modules package-lock.json
-            npm install --omit=dev
-        fi
-    else
-        echo "ℹ️ package-lock.json not found, using npm install --omit=dev"
-        npm install --omit=dev
-    fi
-    fi
+echo "📦 Installing Dependencies with Bun..."
+sudo -u $APP_USER bash << DEPS_EOF
+set -e
+cd "$APP_DIR"
+export PATH="/root/.bun/bin:\$PATH"
+if [ -d node_modules ]; then
+    echo "Dependencies already installed, skipping (run 'bun install' manually to force)"
+else
+# Always try to install with Bun
+    /usr/local/bin/bun install --frozen-lockfile || /usr/local/bin/bun install
+fi
 fi
 
 echo "📦 Building Frontend..."
 cd frontend
 # Always install/update dependencies to ensure build works with latest changes
-npm install
-npm run build
+cd frontend
+# Install and build frontend with Bun
+/usr/local/bin/bun install
+/usr/local/bin/bun run build
 cd ..
 mkdir -p logs public/storage/images/logos
 DEPS_EOF
@@ -278,7 +296,8 @@ sudo -u $APP_USER bash << DB_INIT_EOF
 set -e
 cd "$APP_DIR"
 source .env
-node -e "require('./src/database/database.js'); setTimeout(() => process.exit(0), 3000);"
+# Use Bun to init database
+/usr/local/bin/bun -e "require('./src/database/database.js'); setTimeout(() => process.exit(0), 3000);"
 DB_INIT_EOF
 echo "✅ Database schema initialized"
 

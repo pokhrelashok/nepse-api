@@ -20,6 +20,21 @@
     "test:api": "node tests/api.test.js",
     "test:portfolio": "npx jest tests/portfolio_full_crud.test.js",
     "test:unit": "npx jest",
+    "bun:start": "bun src/server.js",
+    "bun:dev": "bun --watch src/server.js",
+    "bun:scheduler": "bun src/index.js schedule",
+    "bun:scraper": "bun src/index.js prices",
+    "bun:scraper:companies": "bun src/index.js companies",
+    "bun:scraper:details": "bun src/index.js companies",
+    "bun:scraper:ipo": "bun src/index.js ipos",
+    "bun:notifications": "bun src/index.js notifications",
+    "bun:test": "bun run test:scraper && bun run test:api && bun run test:portfolio",
+    "bun:test:scraper": "bun tests/scraper.test.js",
+    "bun:test:api": "bun tests/api.test.js",
+    "bun:test:portfolio": "bun test tests/portfolio_full_crud.test.js",
+    "bun:migrate": "bun src/database/migrate.js",
+    "bun:migrate:status": "bun src/database/migrate.js status",
+    "bun:migrate:dry-run": "bun src/database/migrate.js dry-run",
     "clean": "rm -rf logs/*.log public/images/*",
     "build": "cd frontend && npm install && npm run build",
     "lint": "echo 'Linting not configured'",
@@ -55,7 +70,6 @@
     "body-parser": "^2.2.1",
     "commander": "^13.1.0",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "firebase-admin": "^13.6.0",
     "jsonwebtoken": "^9.0.3",
@@ -73,6 +87,10 @@
     "supertest": "^7.1.4"
   },
   "engines": {
-    "node": ">=16.0.0"
-  }
+    "node": ">=16.0.0",
+    "bun": ">=1.0.0"
+  },
+  "trustedDependencies": [
+    "sharp"
+  ]
 }

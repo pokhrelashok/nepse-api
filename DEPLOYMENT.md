@@ -34,8 +34,9 @@ This script will automatically:
 
 ### System Components
 
-- **Node.js 18.x** - JavaScript runtime
-- **PM2** - Process manager for Node.js apps
+- **Bun** - JavaScript runtime (replaces Node.js)
+- **Node.js 20.x** - Installed for PM2/System compatibility
+- **PM2** - Process manager
 - **Nginx** - Web server and reverse proxy
 - **MySQL 8.0** - Database engine
 - **UFW** - Firewall
@@ -59,8 +60,8 @@ This script will automatically:
 - **nepse-pm2** - Systemd service for PM2
 - **nginx** - Web server
 - **PM2 processes:**
-  - `nepse-api` - Main API server (port 3000)
-  - `nepse-scheduler` - Background data updates
+  - `nepse-api-bun` - Main API server (port 3000)
+  - `nepse-scheduler` - Background data updates (auto-started)
 
 ## 🔧 Post-Deployment Setup
 
@@ -122,10 +123,11 @@ sudo -u nepse /var/www/nepse-api/update.sh
 
 ```bash
 # Update stock prices
-sudo -u nepse node /var/www/nepse-api/src/index.js prices --save
+# Update stock prices
+sudo -u nepse /root/.bun/bin/bun /var/www/nepse-api/src/index.js prices --save
 
 # Update company details for new companies
-sudo -u nepse node /var/www/nepse-api/src/index.js companies --missing --save
+sudo -u nepse /root/.bun/bin/bun /var/www/nepse-api/src/index.js companies --missing --save
 
 # Full data refresh
 sudo -u nepse /var/www/nepse-api/populate-data.sh
@@ -138,6 +140,7 @@ sudo -u nepse /var/www/nepse-api/populate-data.sh
 mysqldump -u nepse -p nepse_db > /var/www/nepse-api/backup_$(date +%Y%m%d_%H%M%S).sql
 
 # Check database stats
+/root/.bun/bin/bun src/database/scripts/check-stats.js # or mysql query
 mysql -u nepse -p nepse_db -e "SELECT COUNT(*) FROM stock_prices;"
 
 # Database shell access
@@ -219,7 +222,57 @@ Monitors:
 - File permission restrictions
 - Environment variable protection
 
+## 🔥 Bun Runtime (Recommended)
+
+For improved performance, you can run the application with Bun instead of Node.js:
+
+### Installing Bun on Ubuntu
+
+```bash
+# Install Bun
+curl -fsSL https://bun.sh/install | bash
+
+# Add to PATH (if not already added)
+echo 'export PATH="$HOME/.bun/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
+
+# Verify installation
+bun --version
+```
+
+### Running with Bun
+
+```bash
+# Install dependencies (20-40x faster than npm!)
+cd /var/www/nepse-api
+bun install
+
+# Start the API server
+bun run bun:start
+
+# Or with PM2
+pm2 start ecosystem.config.js --interpreter ~/.bun/bin/bun
+```
+
+### Performance Benefits
+
+- **Package Installation**: 1-2 seconds vs 30-60 seconds with npm
+- **Memory Usage**: 35-50% less than Node.js
+- **Startup Time**: 2-3x faster
+- **API Response**: Similar or better performance
+
+### Docker with Bun (Default)
+
+```bash
+# Build Bun-based Docker image
+docker-compose build backend
+
+# Run Bun backend on port 3000
+docker-compose up -d backend
+```
+
 ## 🐳 Docker Alternative
+
 
 If you prefer Docker deployment:
 

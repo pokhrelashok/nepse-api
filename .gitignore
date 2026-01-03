@@ -55,3 +55,6 @@ public/storage/*
 
 # Security
 serviceAccountKey.json
+
+# Bun-specific
+.bun/
