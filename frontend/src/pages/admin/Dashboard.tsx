@@ -132,8 +132,6 @@ export default function Dashboard() {
             <div className="space-y-3">
               {schedulerData?.stats && Object.entries(schedulerData.stats).map(([key, value]: [string, any]) => {
                 const isCurrentlyRunning = schedulerData?.currently_executing?.includes(key)
-                const hasRun = value.last_run !== null
-                const lastSuccess = value.last_success !== null
 
                 return (
                   <div key={key} className="border rounded-lg p-3 space-y-2">
@@ -142,22 +140,39 @@ export default function Dashboard() {
                         <span className="font-medium capitalize">
                           {key.replace(/_/g, ' ')}
                         </span>
-                        {isCurrentlyRunning && (
-                          <Badge variant="outline" className="text-blue-600 border-blue-600">
-                            Running
-                          </Badge>
-                        )}
+                        {/* Status Badge */}
+                        <Badge
+                          variant={
+                            value.status === 'SUCCESS' ? 'default' :
+                              value.status === 'FAILED' ? 'destructive' :
+                                value.status === 'RUNNING' ? 'outline' : 'secondary'
+                          }
+                          className={value.status === 'SUCCESS' ? 'bg-green-600 hover:bg-green-700' : ''}
+                        >
+                          {value.status || 'IDLE'}
+                        </Badge>
                       </div>
                       <div className="flex items-center gap-2 text-sm">
-                        {lastSuccess ? (
+                        {isCurrentlyRunning && (
+                          <span className="animate-pulse text-blue-600 text-xs font-bold uppercase">Executing...</span>
+                        )}
+                        {value.status === 'SUCCESS' ? (
                           <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        ) : hasRun ? (
+                        ) : value.status === 'FAILED' ? (
                           <XCircle className="h-4 w-4 text-red-600" />
                         ) : (
                           <Clock className="h-4 w-4 text-muted-foreground" />
                         )}
                       </div>
                     </div>
+
+                    {/* Log Message */}
+                    {value.message && (
+                      <div className="text-xs bg-muted/50 p-2 rounded-md font-mono text-muted-foreground truncate" title={value.message}>
+                        &gt; {value.message}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
                       <div>
                         <span className="font-medium">Last Run:</span>{' '}

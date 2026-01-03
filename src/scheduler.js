@@ -4,7 +4,7 @@ const os = require('os');
 const path = require('path');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
-const { insertTodayPrices, saveMarketIndex, saveMarketSummary, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials } = require('./database/queries');
+const { insertTodayPrices, saveMarketIndex, saveMarketSummary, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials, saveSchedulerStatus, getSchedulerStatus } = require('./database/queries');
 const { formatPricesForDatabase } = require('./utils/formatter');
 const logger = require('./utils/logger');
 
@@ -16,24 +16,80 @@ class Scheduler {
     this.isMarketOpen = false; // Track market status for index updates
     this.isJobRunning = new Map(); // Track if a specific job is currently executing
     this.stats = {
-      index_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
-      price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
-      close_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
-      company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
-      cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0 },
-      price_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0 }
+      index_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      close_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      price_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      index_history_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null }
     };
 
   }
 
   // Get scheduler health/stats
-  getHealth() {
+  async getHealth() {
+    // Ensure stats are up to date from DB if needed, but we try to keep them in sync
+    // For extra safety, we could fetch from DB here, but let's rely on memory for speed + DB init
     return {
       is_running: this.isRunning,
       active_jobs: this.getActiveJobs(),
       currently_executing: Array.from(this.isJobRunning.entries()).filter(([, v]) => v).map(([k]) => k),
       stats: this.stats
     };
+  }
+
+  async loadStats() {
+    try {
+      const dbStats = await getSchedulerStatus();
+      if (dbStats && Object.keys(dbStats).length > 0) {
+        logger.info('Loading scheduler stats from database...');
+        // Merge DB stats into this.stats
+        // We only overwrite if DB has data
+        for (const [key, val] of Object.entries(dbStats)) {
+          if (this.stats[key]) {
+            this.stats[key] = { ...this.stats[key], ...val };
+          } else {
+            this.stats[key] = val;
+          }
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to load scheduler stats from DB:', error);
+    }
+  }
+
+  async updateStatus(jobKey, type, message = null) {
+    const timestamp = new Date().toISOString();
+    // Initialize if missing
+    if (!this.stats[jobKey]) {
+      this.stats[jobKey] = { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null };
+    }
+    const stat = this.stats[jobKey];
+
+    if (type === 'START') {
+      stat.last_run = timestamp;
+      stat.status = 'RUNNING';
+      if (message) stat.message = message;
+    } else if (type === 'SUCCESS') {
+      stat.last_success = timestamp;
+      stat.success_count++;
+      stat.status = 'SUCCESS';
+      // Only Keep success message if provided, otherwise keep "Running..." message or set to "Completed"
+      stat.message = message || 'Completed successfully';
+    } else if (type === 'FAIL') {
+      stat.fail_count++;
+      stat.status = 'FAILED';
+      stat.message = message || 'Failed';
+    }
+
+    // Fire and forget - don't await DB write
+    saveSchedulerStatus(jobKey, stat).catch(err => {
+      // Reducing log noise for DB errors on status updates
+      // console.error('Failed to save scheduler status:', err.message);
+    });
   }
 
 
@@ -44,6 +100,9 @@ class Scheduler {
     }
 
     logger.info('Starting price update scheduler...');
+
+    // Load persisted stats
+    await this.loadStats();
 
     // Market index updates every 20 seconds during market hours (10 AM - 3 PM)
     const indexJob = cron.schedule('*/20 * * * * *', async () => {
@@ -182,8 +241,7 @@ class Scheduler {
     }
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].last_run = new Date().toISOString();
-
+    this.updateStatus(jobKey, 'START', 'Updating market index...');
 
     try {
       // Scrape market index - this also captures market status from the same page load
@@ -196,13 +254,13 @@ class Scheduler {
 
       // Save index and status to database
       await saveMarketIndex(indexData, status);
-      console.log(`📈 Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`);
+      const msg = `Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`;
+      console.log(`📈 ${msg}`);
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      this.updateStatus(jobKey, 'SUCCESS', msg);
     } catch (error) {
       logger.error('Index update failed:', error);
-      this.stats[jobKey].fail_count++;
+      this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
 
       this.isJobRunning.set(jobKey, false);
@@ -220,8 +278,7 @@ class Scheduler {
     }
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].last_run = new Date().toISOString();
-
+    this.updateStatus(jobKey, 'START', `Starting ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update...`);
 
     logger.info(`Scheduled ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update started...`);
 
@@ -234,31 +291,37 @@ class Scheduler {
       await saveMarketSummary(summary);
       console.log(`📊 Market status: ${status}, Index: ${indexData.nepseIndex} (${indexData.indexChange})`);
 
+      let msg = `Market status: ${status}`;
+
       if (phase === 'DURING_HOURS' && isOpen) {
         console.log(`✅ Market is ${status}, updating prices...`);
         const prices = await this.scraper.scrapeTodayPrices();
         if (prices && prices.length > 0) {
           const formattedPrices = formatPricesForDatabase(prices);
           await insertTodayPrices(formattedPrices);
-          console.log(`✅ Updated ${prices.length} stock prices`);
+          const updateMsg = `Updated ${prices.length} stock prices`;
+          console.log(`✅ ${updateMsg}`);
+          msg = updateMsg;
 
           // Trigger price alerts check
           const NotificationService = require('./services/notification-service');
           await NotificationService.checkAndSendPriceAlerts();
         } else {
           console.log('⚠️ No price data received');
+          msg = 'No price data received';
         }
       } else if (phase === 'AFTER_CLOSE') {
-        console.log('🔒 Post-market close status update completed');
+        msg = 'Post-market close status update completed';
+        console.log(`🔒 ${msg}`);
       } else {
-        console.log('🔒 Market is closed, skipping price update');
+        msg = 'Market is closed, skipping price update';
+        console.log(`🔒 ${msg}`);
       }
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      this.updateStatus(jobKey, 'SUCCESS', msg);
     } catch (error) {
       logger.error('Scheduled update failed:', error);
-      this.stats[jobKey].fail_count++;
+      this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
 
       this.isJobRunning.set(jobKey, false);
@@ -276,7 +339,7 @@ class Scheduler {
     }
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].last_run = new Date().toISOString();
+    this.updateStatus(jobKey, 'START', `Starting company details update (fetchAll: ${fetchAll})...`);
 
 
     console.log(`🏢 Scheduled company details update started (fetchAll: ${fetchAll})...`);
@@ -293,7 +356,9 @@ class Scheduler {
       }
 
       if (!companiesToScrape || companiesToScrape.length === 0) {
-        console.log('✅ No companies found to update');
+        const msg = 'No companies found to update';
+        console.log(`✅ ${msg}`);
+        this.updateStatus(jobKey, 'SUCCESS', msg);
         return;
       }
 
@@ -307,13 +372,13 @@ class Scheduler {
         insertFinancials
       );
 
-      console.log(`✅ Scraped and saved details for ${details.length} companies`);
+      const msg = `Scraped and saved details for ${details.length} companies`;
+      console.log(`✅ ${msg}`);
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      this.updateStatus(jobKey, 'SUCCESS', msg);
     } catch (error) {
       logger.error('Company details update failed:', error);
-      this.stats[jobKey].fail_count++;
+      this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
 
       this.isJobRunning.set(jobKey, false);
@@ -325,8 +390,7 @@ class Scheduler {
     if (this.isJobRunning.get(jobKey)) return;
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey] = this.stats[jobKey] || { last_run: null, last_success: null, success_count: 0, fail_count: 0 };
-    this.stats[jobKey].last_run = new Date().toISOString();
+    this.updateStatus(jobKey, 'START', 'Starting IPO scrape...');
 
 
     logger.info('Starting scheduled IPO scrape...');
@@ -344,11 +408,10 @@ class Scheduler {
       // If user wants --all, they can run manual script.
       await scrapeIpos(false);
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      this.updateStatus(jobKey, 'SUCCESS', 'IPO scrape completed');
     } catch (error) {
       logger.error('Scheduled IPO scrape failed:', error);
-      this.stats[jobKey].fail_count++;
+      this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
 
       this.isJobRunning.set(jobKey, false);
@@ -360,8 +423,7 @@ class Scheduler {
     if (this.isJobRunning.get(jobKey)) return;
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey] = this.stats[jobKey] || { last_run: null, last_success: null, success_count: 0, fail_count: 0 };
-    this.stats[jobKey].last_run = new Date().toISOString();
+    this.updateStatus(jobKey, 'START', 'Starting Dividend scrape...');
 
 
     logger.info('Starting scheduled Announced Dividend scrape...');
@@ -369,11 +431,10 @@ class Scheduler {
     try {
       await scrapeDividends(false); // Default to incremental/page 1 if appropriate, maybe change to true if daily full check is needed
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      this.updateStatus(jobKey, 'SUCCESS', 'Dividend scrape completed');
     } catch (error) {
       logger.error('Scheduled Announced Dividend scrape failed:', error);
-      this.stats[jobKey].fail_count++;
+      this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
 
       this.isJobRunning.set(jobKey, false);
@@ -385,7 +446,7 @@ class Scheduler {
     if (this.isJobRunning.get(jobKey)) return;
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].last_run = new Date().toISOString();
+    await this.updateStatus(jobKey, 'START', 'Starting daily price archive...');
 
     logger.info('📦 Starting daily price archive...');
 
@@ -393,13 +454,13 @@ class Scheduler {
       const { archiveTodaysPrices } = require('./schedulers/archiveDailyPrices');
       const result = await archiveTodaysPrices();
 
-      logger.info(`✅ Archived ${result.recordsArchived} stock prices for ${result.date}`);
+      const msg = `Archived ${result.recordsArchived} stock prices for ${result.date}`;
+      logger.info(`✅ ${msg}`);
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      await this.updateStatus(jobKey, 'SUCCESS', msg);
     } catch (error) {
       logger.error('Daily price archive failed:', error);
-      this.stats[jobKey].fail_count++;
+      await this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
       this.isJobRunning.set(jobKey, false);
     }
@@ -410,8 +471,7 @@ class Scheduler {
     if (this.isJobRunning.get(jobKey)) return;
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey] = this.stats[jobKey] || { last_run: null, last_success: null, success_count: 0, fail_count: 0 };
-    this.stats[jobKey].last_run = new Date().toISOString();
+    this.updateStatus(jobKey, 'START', 'Starting market indices history scrape...');
 
     logger.info('📊 Starting nightly market indices history scrape...');
 
@@ -420,6 +480,7 @@ class Scheduler {
       const { saveMarketIndexHistory } = require('./database/queries');
 
       const data = await scrapeMarketIndicesHistory();
+      let count = 0;
 
       if (data && data.length > 0) {
         const indexNames = {
@@ -446,15 +507,14 @@ class Scheduler {
           percentage_change: parseFloat(record.percentageChange) || 0
         }));
 
-        const count = await saveMarketIndexHistory(formattedData);
+        count = await saveMarketIndexHistory(formattedData);
         logger.info(`✅ Successfully saved ${count} historical index records`);
       }
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      this.updateStatus(jobKey, 'SUCCESS', `Saved ${count} historical records`);
     } catch (error) {
       logger.error('Scheduled market indices history scrape failed:', error);
-      this.stats[jobKey].fail_count++;
+      this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
       this.isJobRunning.set(jobKey, false);
     }
@@ -465,7 +525,7 @@ class Scheduler {
     if (this.isJobRunning.get(jobKey)) return;
 
     this.isJobRunning.set(jobKey, true);
-    this.stats[jobKey].last_run = new Date().toISOString();
+    this.updateStatus(jobKey, 'START', 'Starting system cleanup...');
 
     logger.info('🧹 Starting scheduled system cleanup...');
 
@@ -498,8 +558,10 @@ class Scheduler {
         }
       }
 
+      let msg = '';
       if (deletedCount > 0) {
         logger.info(`✅ Cleaned up ${deletedCount} old temp directories (kept ${keptCount} recent ones)`);
+        msg += `Cleaned ${deletedCount} temp dirs. `;
       } else if (keptCount > 0) {
         logger.info(`ℹ️ No old temp directories to clean (found ${keptCount} active/recent ones)`);
       } else {
@@ -534,6 +596,7 @@ class Scheduler {
 
           if (csvDeletedCount > 0) {
             logger.info(`✅ Cleaned up ${csvDeletedCount} old CSV files from Downloads directory`);
+            msg += `Cleaned ${csvDeletedCount} CSV files.`;
           }
         }
       } catch (err) {
@@ -541,11 +604,10 @@ class Scheduler {
         logger.info('ℹ️ Downloads directory not accessible (expected on dev machines)');
       }
 
-      this.stats[jobKey].last_success = new Date().toISOString();
-      this.stats[jobKey].success_count++;
+      this.updateStatus(jobKey, 'SUCCESS', msg || 'Cleanup completed');
     } catch (error) {
       logger.error('System cleanup failed:', error);
-      this.stats[jobKey].fail_count++;
+      this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
       this.isJobRunning.set(jobKey, false);
     }

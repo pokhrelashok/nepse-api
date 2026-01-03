@@ -17,9 +17,9 @@ router.use('/dividends', require('./dividends'));
 router.use('/prices', require('./prices'));
 
 // Scheduler status endpoint
-router.get('/scheduler/status', authMiddleware, (req, res) => {
+router.get('/scheduler/status', authMiddleware, async (req, res) => {
   try {
-    const health = scheduler.getHealth();
+    const health = await scheduler.getHealth();
     res.json({
       success: true,
       data: health

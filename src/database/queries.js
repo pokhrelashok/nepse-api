@@ -4,6 +4,49 @@ const logger = require('../utils/logger');
 const { normalizeShareType, formatShareType } = require('../utils/share-type-utils');
 
 // Wrapper functions for database operations
+async function saveSchedulerStatus(jobName, statusData) {
+  const { last_run, last_success, success_count, fail_count, status, message } = statusData;
+  const sql = `
+    INSERT INTO scheduler_status (job_name, last_run, last_success, success_count, fail_count, status, message)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      last_run = COALESCE(VALUES(last_run), last_run),
+      last_success = COALESCE(VALUES(last_success), last_success),
+      success_count = VALUES(success_count),
+      fail_count = VALUES(fail_count),
+      status = VALUES(status),
+      message = VALUES(message)
+  `;
+  try {
+    const [result] = await pool.execute(sql, [jobName, last_run, last_success, success_count, fail_count, status, message]);
+    return result;
+  } catch (error) {
+    logger.error(`❌ Error saving scheduler status for ${jobName}:`, error);
+    // Don't throw, just log
+  }
+}
+
+async function getSchedulerStatus() {
+  try {
+    const [rows] = await pool.execute("SELECT * FROM scheduler_status");
+    const statusMap = {};
+    for (const row of rows) {
+      statusMap[row.job_name] = {
+        last_run: row.last_run,
+        last_success: row.last_success,
+        success_count: row.success_count,
+        fail_count: row.fail_count,
+        status: row.status,
+        message: row.message,
+        updated_at: row.updated_at
+      };
+    }
+    return statusMap;
+  } catch (error) {
+    logger.error('❌ Error getting scheduler status:', error);
+    return {};
+  }
+}
 async function insertTodayPrices(prices) {
   if (!prices || prices.length === 0) return;
 
@@ -1178,5 +1221,7 @@ module.exports = {
   deletePriceAlert,
   getActivePriceAlerts,
   markAlertTriggered,
-  updateAlertState
+  updateAlertState,
+  saveSchedulerStatus,
+  getSchedulerStatus
 };
