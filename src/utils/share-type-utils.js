@@ -11,10 +11,15 @@ function normalizeShareType(shareType) {
   if (!shareType) return null;
 
   // Trim and convert to lowercase
-  const normalized = shareType.trim().toLowerCase();
-
   // Replace spaces with underscores
-  return normalized.replace(/\s+/g, '_');
+  const normalized = shareType.trim().toLowerCase().replace(/\s+/g, '_');
+
+  // Standardize to match frontend/user preference keys
+  if (normalized === 'ordinary_shares' || normalized === 'ordinary_share') return 'ordinary';
+  if (normalized === 'project_affected_locals' || normalized === 'locals') return 'local';
+  if (normalized === 'foreign_employment') return 'migrant_workers';
+
+  return normalized;
 }
 
 /**
