@@ -70,6 +70,10 @@ router.get('/market/indices/history', marketController.getMarketIndicesHistory);
 // Today Prices
 router.get('/today-prices', marketController.getTodayPrices);
 
+// Intraday Prices (for charting)
+router.get('/market/intraday', marketController.getIntradayPrices);
+
+
 // Price Alerts
 router.get('/alerts', verifyToken, alertController.getAlerts);
 router.post('/alerts', verifyToken, alertController.createAlert);

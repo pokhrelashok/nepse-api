@@ -9,25 +9,41 @@ async function insertTodayPrices(prices) {
 
   try {
     const pipeline = redis.pipeline();
-    const today = new Date();
-    const nepaliDate = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
+    const now = new Date();
+    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
     const todayStr = nepaliDate.toISOString().split('T')[0];
+    const timestamp = now.toISOString();
 
+    // Store intraday snapshot for each symbol
     for (const p of prices) {
       const symbol = p.symbol;
       const data = JSON.stringify({
         ...p,
-        last_updated: new Date().toISOString()
+        last_updated: timestamp
       });
+
+      // Update current live price
       pipeline.hset('live:stock_prices', symbol, data);
+
+      // Append to intraday history (sorted set with timestamp as score)
+      const intradayKey = `intraday:${todayStr}:${symbol}`;
+      const timestampScore = now.getTime(); // Unix timestamp in milliseconds
+      pipeline.zadd(intradayKey, timestampScore, data);
+
+      // Set expiry for intraday data (expire at end of next day)
+      const tomorrow = new Date(nepaliDate);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(23, 59, 59, 999);
+      const ttlSeconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
+      pipeline.expire(intradayKey, ttlSeconds);
     }
 
-    // Also store by date for cold cache if needed or history reference
-    pipeline.hset('live:metadata', 'last_price_update', new Date().toISOString());
+    // Update metadata
+    pipeline.hset('live:metadata', 'last_price_update', timestamp);
     pipeline.hset('live:metadata', 'last_price_date', todayStr);
 
     await pipeline.exec();
-    logger.info(`🚀 Saved ${prices.length} stock prices to Redis`);
+    logger.info(`🚀 Saved ${prices.length} stock prices to Redis (live + intraday snapshots)`);
 
     // Maintain MySQL for now as per user request
     return savePrices(prices);
@@ -254,6 +270,119 @@ async function getLatestPrices(symbols, options = {}) {
   return [];
 }
 
+async function getIntradayData(symbol = null) {
+  try {
+    const now = new Date();
+    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
+    const todayStr = nepaliDate.toISOString().split('T')[0];
+    const keyPrefix = process.env.REDIS_PREFIX || 'nepse:';
+
+    if (symbol) {
+      // Get intraday data for a specific symbol
+      const intradayKey = `intraday:${todayStr}:${symbol}`;
+      const snapshots = await redis.zrange(intradayKey, 0, -1, 'WITHSCORES');
+
+      if (!snapshots || snapshots.length === 0) {
+        return [];
+      }
+
+      // Parse snapshots (Redis returns [value1, score1, value2, score2, ...])
+      const result = [];
+      for (let i = 0; i < snapshots.length; i += 2) {
+        const data = JSON.parse(snapshots[i]);
+        const timestamp = parseInt(snapshots[i + 1]);
+        result.push({
+          ...data,
+          timestamp: new Date(timestamp).toISOString()
+        });
+      }
+      return result;
+    } else {
+      // Get all symbols that have intraday data today
+      // Use SCAN instead of KEYS for better performance
+      // Note: SCAN returns keys WITH the prefix, so we need to include it in the pattern
+      const pattern = `${keyPrefix}intraday:${todayStr}:*`;
+      const keys = [];
+      let cursor = '0';
+
+      do {
+        const [newCursor, foundKeys] = await redis.scan(
+          cursor,
+          'MATCH',
+          pattern,
+          'COUNT',
+          100
+        );
+        cursor = newCursor;
+        keys.push(...foundKeys);
+      } while (cursor !== '0');
+
+      if (!keys || keys.length === 0) {
+        return {};
+      }
+
+      // Get data for all symbols
+      const result = {};
+      for (const key of keys) {
+        // Strip the prefix before extracting symbol
+        const keyWithoutPrefix = key.replace(keyPrefix, '');
+        const symbol = keyWithoutPrefix.split(':')[2]; // Extract symbol from key
+
+        // Use the key without prefix for Redis operations (ioredis adds it automatically)
+        const snapshots = await redis.zrange(keyWithoutPrefix, 0, -1, 'WITHSCORES');
+
+        const symbolData = [];
+        for (let i = 0; i < snapshots.length; i += 2) {
+          const data = JSON.parse(snapshots[i]);
+          const timestamp = parseInt(snapshots[i + 1]);
+          symbolData.push({
+            ...data,
+            timestamp: new Date(timestamp).toISOString()
+          });
+        }
+        result[symbol] = symbolData;
+      }
+      return result;
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getIntradayData:', error);
+    return symbol ? [] : {};
+  }
+}
+
+async function getIntradayMarketIndex(date = null) {
+  try {
+    const now = new Date();
+    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
+    const todayStr = nepaliDate.toISOString().split('T')[0];
+    const targetDate = date || todayStr;
+
+    // Get intraday market index snapshots for the specified date
+    const intradayKey = `intraday:market_index:${targetDate}`;
+    const snapshots = await redis.zrange(intradayKey, 0, -1, 'WITHSCORES');
+
+    if (!snapshots || snapshots.length === 0) {
+      return [];
+    }
+
+    // Parse snapshots and return only essential data
+    const result = [];
+    for (let i = 0; i < snapshots.length; i += 2) {
+      const data = JSON.parse(snapshots[i]);
+      result.push({
+        nepse_index: data.nepseIndex,
+        market_status_time: data.marketStatusTime
+      });
+    }
+    return result;
+  } catch (error) {
+    logger.error('❌ Redis error in getIntradayMarketIndex:', error);
+    return [];
+  }
+}
+
+
+
 async function getAllCompanies() {
   const sql = `
     SELECT 
@@ -347,11 +476,15 @@ async function saveMarketSummary(summary) {
 
   // 1. Save to Redis (Primary Live Store)
   try {
+    const now = new Date();
+    const timestamp = now.toISOString();
+    const timestampScore = now.getTime();
+
     const statusData = {
       status,
       is_open: isOpen ? '1' : '0',
       trading_date: tradingDate,
-      last_updated: new Date().toISOString()
+      last_updated: timestamp
     };
 
     const indexDataToSave = {
@@ -365,20 +498,40 @@ async function saveMarketSummary(summary) {
       unchanged: (indexData.unchanged || 0).toString(),
       status_date: (indexData.marketStatusDate || '').toString(),
       status_time: (indexData.marketStatusTime || '').toString(),
-      last_updated: new Date().toISOString()
+      last_updated: timestamp
     };
 
     const pipeline = redis.pipeline();
     pipeline.hset('live:market_status', statusData);
     pipeline.hset('live:market_index', indexDataToSave);
+
+    // Store intraday market index snapshot
+    const intradayKey = `intraday:market_index:${tradingDate}`;
+    const snapshotData = JSON.stringify({
+      ...indexData,
+      status,
+      isOpen,
+      timestamp
+    });
+    pipeline.zadd(intradayKey, timestampScore, snapshotData);
+
+    // Set expiry for intraday data (expire at end of next day)
+    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
+    const tomorrow = new Date(nepaliDate);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(23, 59, 59, 999);
+    const ttlSeconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
+    pipeline.expire(intradayKey, ttlSeconds);
+
     await pipeline.exec();
-    logger.info(`🚀 Market summary saved to Redis for ${tradingDate}`);
+    logger.info(`🚀 Market summary saved to Redis for ${tradingDate} (live + intraday snapshot)`);
   } catch (error) {
     logger.error('❌ Redis error in saveMarketSummary:', error);
   }
 
   // 2. Save to MySQL (Legacy/Backup for now)
   const sql = `
+
     INSERT INTO market_index (
       trading_date, market_status_date, market_status_time, 
       nepse_index, index_change, index_percentage_change, 
@@ -991,6 +1144,8 @@ module.exports = {
   searchStocks,
   getScriptDetails,
   getLatestPrices,
+  getIntradayData,
+  getIntradayMarketIndex,
   getAllCompanies,
   getCompaniesBySector,
   getTopCompaniesByMarketCap,

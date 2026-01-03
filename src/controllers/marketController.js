@@ -350,3 +350,23 @@ exports.getMarketIndicesHistory = async (req, res) => {
     res.status(500).json(formatError("Internal Server Error"));
   }
 };
+
+exports.getIntradayPrices = async (req, res) => {
+  try {
+    const { getIntradayMarketIndex } = require('../database/queries');
+    const date = req.query.date || null; // Optional date parameter
+
+    const snapshots = await getIntradayMarketIndex(date);
+
+    res.json(formatResponse({
+      date: date || new Date().toISOString().split('T')[0],
+      snapshots,
+      count: snapshots.length
+    }));
+  } catch (e) {
+    logger.error('API Intraday Prices Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+};
+
+
