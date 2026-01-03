@@ -109,13 +109,25 @@ async function getAllCompanies(options = {}) {
   }
 
   if (options.affectedOnly) {
-    // Find symbols that are prefixes of other symbols OR have other symbols as prefixes
-    // This ensures all symbols in a conflict group (e.g., JBLB, JBLBP) are re-scraped
+    // Find symbols that could be confused in autocomplete:
+    // 1. Symbols that are prefixes of other symbols (e.g., JBLB vs JBLBP)
+    // 2. Companies with similar names that could match in search (e.g., SANIMA vs SNMAPO)
     conditions.push(`EXISTS (
       SELECT 1 FROM company_details cd2 
       WHERE cd2.symbol != company_details.symbol 
-      AND (cd2.symbol LIKE CONCAT(company_details.symbol, '%') 
-           OR company_details.symbol LIKE CONCAT(cd2.symbol, '%'))
+      AND (
+        cd2.symbol LIKE CONCAT(company_details.symbol, '%') 
+        OR company_details.symbol LIKE CONCAT(cd2.symbol, '%')
+        OR (
+          -- Check if company names share significant common words
+          LENGTH(company_details.company_name) > 10 
+          AND LENGTH(cd2.company_name) > 10
+          AND (
+            cd2.company_name LIKE CONCAT('%', SUBSTRING_INDEX(company_details.company_name, ' ', 2), '%')
+            OR company_details.company_name LIKE CONCAT('%', SUBSTRING_INDEX(cd2.company_name, ' ', 2), '%')
+          )
+        )
+      )
     )`);
   }
 
