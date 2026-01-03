@@ -83,7 +83,7 @@ app.use((req, res, next) => {
 
 // Only listen if run directly, not when imported for tests
 if (require.main === module) {
-  app.listen(PORT, async () => {
+  app.listen(PORT, '0.0.0.0', async () => {
     logger.info(`API running at http://localhost:${PORT}`);
 
     // Auto-start the scheduler
