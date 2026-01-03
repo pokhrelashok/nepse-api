@@ -26,6 +26,7 @@ class NotificationService {
 
     try {
       await this.processNewIpos();
+      await this.processIpoClosingReminders();
       await this.processNewDividends();
       await this.processNewRightShares();
       logger.info('✅ Daily notification check completed and sent.');
@@ -151,6 +152,52 @@ class NotificationService {
   }
 
   /**
+   * Find IPOs closing TODAY and broadcast to subscribed users
+   */
+  static async processIpoClosingReminders() {
+    try {
+      // 1. Find IPOs closing today
+      const [closingIpos] = await pool.execute(`
+        SELECT * FROM ipos 
+        WHERE closing_date = CURDATE()
+      `);
+
+      if (closingIpos.length === 0) {
+        logger.info('No IPOs closing today.');
+        return;
+      }
+
+      logger.info(`Found ${closingIpos.length} IPOs closing today. Preparing reminders...`);
+
+      // 2. For each IPO, find users who want notifications for that specific type
+      for (const ipo of closingIpos) {
+        // Reuse logic to filter users by share type preferences
+        const { normalizeShareType } = require('../utils/share-type-utils');
+        const normalizedType = normalizeShareType(ipo.share_type);
+
+        const [rows] = await pool.execute(`
+          SELECT DISTINCT nt.fcm_token 
+          FROM notification_tokens nt 
+          JOIN users u ON u.id = nt.user_id 
+          WHERE u.notify_ipos = TRUE
+          AND JSON_CONTAINS(u.ipo_notification_types, JSON_QUOTE(?))
+        `, [normalizedType]);
+
+        const tokens = rows.map(r => r.fcm_token);
+        if (tokens.length === 0) {
+          logger.info(`No users subscribed to ${normalizedType} IPO notifications (closing reminder).`);
+          continue;
+        }
+
+        await this.sendIpoClosingNotification(ipo, tokens);
+      }
+
+    } catch (error) {
+      logger.error('Error processing IPO closing reminders:', error);
+    }
+  }
+
+  /**
    * Find dividends updated/created in the last 24 hours and notify holders
    */
   static async processNewDividends() {
@@ -216,6 +263,42 @@ class NotificationService {
       }
     } catch (error) {
       logger.error(`Failed to send IPO notification for ${ipo.symbol}:`, error);
+    }
+  }
+
+  /**
+   * Send broadcast notification for an IPO Closing Reminder
+   */
+  static async sendIpoClosingNotification(ipo, tokens) {
+    const title = `⚠️ IPO Closing Today: ${ipo.company_name}`;
+    const body = `${ipo.share_type} for ${ipo.company_name} closes today! Apply via Meroshare before banking hours.`;
+
+    const message = {
+      notification: { title, body },
+      data: {
+        type: 'ipo_closing',
+        route: 'ipo_calendar',
+        symbol: ipo.symbol || '',
+        id: ipo.id.toString()
+      },
+      tokens: tokens
+    };
+
+    try {
+      const BATCH_SIZE = 500;
+      for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+        const batchTokens = tokens.slice(i, i + BATCH_SIZE);
+        const batchMessage = { ...message, tokens: batchTokens };
+
+        const response = await admin.messaging().sendEachForMulticast(batchMessage);
+        logger.info(`Sent IPO Closing reminder for ${ipo.symbol} to ${response.successCount} devices.`);
+
+        if (response.failureCount > 0) {
+          this.handleFailedTokens(response.responses, batchTokens);
+        }
+      }
+    } catch (error) {
+      logger.error(`Failed to send IPO Closing reminder for ${ipo.symbol}:`, error);
     }
   }
 
