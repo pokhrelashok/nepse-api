@@ -1,5 +1,6 @@
 const formatResponse = (data, message = 'Success') => {
   return {
+    success: true,
     status: 'success',
     message: message,
     data: data
@@ -8,6 +9,7 @@ const formatResponse = (data, message = 'Success') => {
 
 const formatError = (message = 'Error', statusCode = 500) => {
   return {
+    success: false,
     status: 'error',
     message: message,
     code: statusCode

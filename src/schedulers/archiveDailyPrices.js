@@ -18,9 +18,20 @@ async function archiveTodaysPrices() {
     const nepaliDate = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
     const todayStr = nepaliDate.toISOString().split('T')[0];
 
-    logger.info(`📦 Archiving stock prices for ${todayStr}...`);
+    logger.info(`📦 Archiving stock prices for ${todayStr} from Redis...`);
 
-    // Copy data from stock_prices to stock_price_history
+    // 1. Get data from Redis
+    const { default: redis } = require('../config/redis');
+    const livePricesMap = await redis.hgetall('live:stock_prices');
+
+    if (!livePricesMap || Object.keys(livePricesMap).length === 0) {
+      logger.warn('⚠️ No stock prices found in Redis to archive');
+      return { success: false, reason: 'NO_REDIS_DATA' };
+    }
+
+    const prices = Object.values(livePricesMap).map(p => JSON.parse(p));
+
+    // 2. Insert into MySQL history table
     const sql = `
       INSERT INTO stock_price_history (
         security_id,
@@ -32,19 +43,7 @@ async function archiveTodaysPrices() {
         total_trades,
         total_traded_quantity,
         total_traded_value
-      )
-      SELECT 
-        security_id,
-        symbol,
-        business_date,
-        high_price,
-        low_price,
-        close_price,
-        0 as total_trades,
-        total_traded_quantity,
-        total_traded_value
-      FROM stock_prices
-      WHERE security_id > 0
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON DUPLICATE KEY UPDATE
         high_price = VALUES(high_price),
         low_price = VALUES(low_price),
@@ -54,21 +53,30 @@ async function archiveTodaysPrices() {
         updated_at = CURRENT_TIMESTAMP
     `;
 
-    const [result] = await connection.execute(sql);
+    let archivedCount = 0;
+    for (const p of prices) {
+      await connection.execute(sql, [
+        p.security_id || 0,
+        p.symbol,
+        p.business_date || todayStr,
+        p.high_price || 0,
+        p.low_price || 0,
+        p.close_price || 0,
+        0, // total_trades not always available in live data
+        p.total_traded_quantity || 0,
+        p.total_traded_value || 0
+      ]);
+      archivedCount++;
+    }
 
     await connection.commit();
 
-    const affectedRows = result.affectedRows;
-    const insertedRows = Math.floor(affectedRows / 2); // Approximate new inserts
-
-    logger.info(`✅ Successfully archived ${insertedRows} stock prices to history`);
-    logger.info(`   Total affected rows: ${affectedRows}`);
+    logger.info(`✅ Successfully archived ${archivedCount} stock prices to history`);
 
     return {
       success: true,
       date: todayStr,
-      recordsArchived: insertedRows,
-      totalAffected: affectedRows
+      recordsArchived: archivedCount
     };
 
   } catch (error) {

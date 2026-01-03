@@ -1,10 +1,40 @@
-const { pool, savePrices, saveCompanyDetails, saveDividends, saveFinancials } = require('./database');
+const { pool, savePrices, saveCompanyDetails, saveDividends, saveFinancials, saveMarketIndexHistory, saveStockPriceHistory } = require('./database');
+const redis = require('../config/redis');
 const logger = require('../utils/logger');
 const { normalizeShareType, formatShareType } = require('../utils/share-type-utils');
 
 // Wrapper functions for database operations
-function insertTodayPrices(prices) {
-  return savePrices(prices);
+async function insertTodayPrices(prices) {
+  if (!prices || prices.length === 0) return;
+
+  try {
+    const pipeline = redis.pipeline();
+    const today = new Date();
+    const nepaliDate = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
+    const todayStr = nepaliDate.toISOString().split('T')[0];
+
+    for (const p of prices) {
+      const symbol = p.symbol;
+      const data = JSON.stringify({
+        ...p,
+        last_updated: new Date().toISOString()
+      });
+      pipeline.hset('live:stock_prices', symbol, data);
+    }
+
+    // Also store by date for cold cache if needed or history reference
+    pipeline.hset('live:metadata', 'last_price_update', new Date().toISOString());
+    pipeline.hset('live:metadata', 'last_price_date', todayStr);
+
+    await pipeline.exec();
+    logger.info(`🚀 Saved ${prices.length} stock prices to Redis`);
+
+    // Maintain MySQL for now as per user request
+    return savePrices(prices);
+  } catch (error) {
+    logger.error('❌ Redis error in insertTodayPrices:', error);
+    return savePrices(prices); // Fallback to MySQL
+  }
 }
 
 function insertCompanyDetails(details) {
@@ -70,15 +100,11 @@ async function searchStocks(query) {
 }
 
 async function getScriptDetails(symbol) {
+  // 1. Get company details from MySQL (Static/Metadata)
   const sql = `
     SELECT 
-      cd.*,
-      sp.business_date,
-      sp.close_price AS ltp,
-      sp.\`change\` AS price_change,
-      sp.percentage_change
+      cd.*
     FROM company_details cd
-    LEFT JOIN stock_prices sp ON cd.symbol = sp.symbol
     WHERE cd.symbol = ?
   `;
 
@@ -88,16 +114,46 @@ async function getScriptDetails(symbol) {
     const details = rows[0];
     const securityId = details.security_id;
 
-    // Fetch dividends
+    // 2. Try to get live price from Redis
+    try {
+      const livePriceJson = await redis.hget('live:stock_prices', symbol);
+      if (livePriceJson) {
+        const livePrice = JSON.parse(livePriceJson);
+        details.business_date = livePrice.business_date;
+        details.ltp = livePrice.close_price;
+        details.price_change = livePrice.change;
+        details.percentage_change = livePrice.percentage_change;
+        details.high_price = livePrice.high_price;
+        details.low_price = livePrice.low_price;
+        details.total_traded_quantity = livePrice.total_traded_quantity;
+        details.total_traded_value = livePrice.total_traded_value;
+        details.source = 'REDIS_LIVE';
+      } else {
+        // Fallback to MySQL if not in Redis
+        const [priceRows] = await pool.execute(
+          "SELECT * FROM stock_prices WHERE symbol = ? ORDER BY business_date DESC LIMIT 1",
+          [symbol]
+        );
+        if (priceRows.length > 0) {
+          const sp = priceRows[0];
+          details.business_date = sp.business_date;
+          details.ltp = sp.close_price;
+          details.price_change = sp.change;
+          details.percentage_change = sp.percentage_change;
+          details.source = 'MYSQL_CACHE';
+        }
+      }
+    } catch (error) {
+      logger.error('❌ Redis error in getScriptDetails:', error);
+    }
+
+    // 3. Fetch dividends and financials independently
     const [dividends] = await pool.execute(
       "SELECT * FROM dividends WHERE security_id = ? ORDER BY fiscal_year DESC",
       [securityId]
     );
-    // Map published_date to book_close_date for backward compatibility if needed in UI, 
-    // or just let the API handle it. Usually, it's better to keep it consistent.
     details.dividends = dividends;
 
-    // Fetch financials
     const [financials] = await pool.execute(
       "SELECT * FROM company_financials WHERE security_id = ? ORDER BY fiscal_year DESC, quarter DESC",
       [securityId]
@@ -107,9 +163,9 @@ async function getScriptDetails(symbol) {
     return details;
   }
 
-  // Fallback to stock_prices if no company details found
+  // Fallback to stock_prices table if no company details found
   const [priceRows] = await pool.execute(
-    "SELECT * FROM stock_prices WHERE symbol = ?",
+    "SELECT * FROM stock_prices WHERE symbol = ? ORDER BY business_date DESC LIMIT 1",
     [symbol]
   );
   return priceRows.length > 0 ? priceRows[0] : null;
@@ -124,82 +180,78 @@ async function getLatestPrices(symbols, options = {}) {
     filter = null
   } = options;
 
-  // If symbols array is provided, use the original logic
-  if (symbols && Array.isArray(symbols) && symbols.length > 0) {
-    const placeholders = symbols.map(() => '?').join(',');
-    const sql = `
-      SELECT sp.*, cd.company_name, cd.nepali_company_name, cd.sector_name, cd.nepali_sector_name 
-      FROM stock_prices sp
-      LEFT JOIN company_details cd ON sp.symbol = cd.symbol
-      WHERE sp.symbol IN (${placeholders})
-      ORDER BY sp.symbol
-    `;
+  let allPrices = [];
+  let source = 'REDIS_LIVE';
 
-    const [rows] = await pool.execute(sql, symbols);
-    return rows;
+  try {
+    // 1. Try to get all prices from Redis
+    const redisPrices = await redis.hgetall('live:stock_prices');
+    if (redisPrices && Object.keys(redisPrices).length > 0) {
+      allPrices = Object.values(redisPrices).map(p => JSON.parse(p));
+
+      // If specific symbols requested, filter them
+      if (symbols && Array.isArray(symbols) && symbols.length > 0) {
+        allPrices = allPrices.filter(p => symbols.includes(p.symbol));
+      }
+    } else {
+      // 2. Fallback to MySQL if Redis is empty
+      source = 'MYSQL_CACHE';
+      let sql = `
+        SELECT sp.* FROM stock_prices sp
+        WHERE sp.business_date = (SELECT MAX(business_date) FROM stock_prices)
+      `;
+      if (symbols && Array.isArray(symbols) && symbols.length > 0) {
+        const placeholders = symbols.map(() => '?').join(',');
+        sql += ` AND sp.symbol IN (${placeholders})`;
+        const [rows] = await pool.execute(sql, symbols);
+        allPrices = rows;
+      } else {
+        const [rows] = await pool.execute(sql);
+        allPrices = rows;
+      }
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getLatestPrices:', error);
+    // Extreme fallback omitted for brevity, usually MySQL
   }
 
-  // Enhanced query for getting all latest prices with options
-  let sql = `
-    SELECT 
-      sp.*,
-      cd.company_name,
-      cd.nepali_company_name,
-      cd.sector_name,
-      cd.nepali_sector_name,
-      cd.market_capitalization as company_market_cap
-    FROM stock_prices sp
-    LEFT JOIN company_details cd ON sp.symbol = cd.symbol
-    WHERE sp.business_date = (
-      SELECT MAX(sp2.business_date) FROM stock_prices sp2 WHERE sp2.symbol = sp.symbol
-    )
-  `;
-
-  // Add filter conditions
+  // 3. Apply filters (gainers/losers)
   if (filter === 'gainers') {
-    sql += ' AND sp.`change` > 0';
+    allPrices = allPrices.filter(p => p.change > 0);
   } else if (filter === 'losers') {
-    sql += ' AND sp.`change` < 0';
+    allPrices = allPrices.filter(p => p.change < 0);
   }
 
-  // Add sorting
-  const allowedSortColumns = ['symbol', 'close_price', 'change', 'percentage_change', 'volume', 'turnover', 'market_capitalization'];
-  let sortColumn = allowedSortColumns.includes(sortBy) ? sortBy : 'symbol';
-  const sortOrder = order.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+  // 4. Join with metadata (company details)
+  // To keep it efficient, we only fetch what we need for the current page if it's the full list
+  const pagedList = allPrices.slice(offset, offset + limit);
+  const pagedSymbols = pagedList.map(p => p.symbol);
 
-  // Map friendly names to DB columns
-  const columnMapping = {
-    'volume': 'total_traded_quantity',
-    'turnover': 'total_traded_value',
-    'change': '`change`' // Reserved word
-  };
+  if (pagedSymbols.length > 0) {
+    const placeholders = pagedSymbols.map(() => '?').join(',');
+    const [metadata] = await pool.execute(
+      `SELECT symbol, company_name, nepali_company_name, sector_name, nepali_sector_name, market_capitalization 
+       FROM company_details 
+       WHERE symbol IN (${placeholders})`,
+      pagedSymbols
+    );
 
-  // Get the actual column name (default to sp.columnName if not mapped)
-  const dbColumn = columnMapping[sortColumn] || sortColumn;
-
-  // Construct the order clause
-  // Note: sp. prefix is needed for unmapped columns that belong to stock_prices, 
-  // but mapped columns like `change` might not need it if they are already quoted or specific.
-  // Ideally, total_traded_quantity is in sp.
-
-  let orderClause;
-  if (sortColumn === 'market_capitalization') {
-    orderClause = 'cd.market_capitalization';
-  } else if (columnMapping[sortColumn]) {
-    // mapped columns
-    orderClause = sortColumn === 'change' ? 'sp.`change`' : `sp.${columnMapping[sortColumn]}`;
-  } else {
-    // direct columns
-    orderClause = `sp.${sortColumn}`;
+    // Merge
+    const metaMap = metadata.reduce((acc, curr) => ({ ...acc, [curr.symbol]: curr }), {});
+    return pagedList.map(p => ({
+      ...p,
+      ...metaMap[p.symbol],
+      source
+    })).sort((a, b) => {
+      const field = sortBy === 'change' ? 'change' : sortBy;
+      const valA = a[field];
+      const valB = b[field];
+      if (order.toUpperCase() === 'DESC') return valB > valA ? 1 : -1;
+      return valA > valB ? 1 : -1;
+    });
   }
 
-  sql += ` ORDER BY ${orderClause} ${sortOrder}`;
-
-  // Add pagination
-  sql += ` LIMIT ? OFFSET ?`;
-
-  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
-  return rows;
+  return [];
 }
 
 async function getAllCompanies() {
@@ -211,16 +263,31 @@ async function getAllCompanies() {
       cd.logo_url AS logo,
       cd.sector_name AS sector,
       cd.nepali_sector_name,
-      cd.status,
-      sp.percentage_change AS todays_change,
-      sp.\`change\` AS price_change
+      cd.status
     FROM company_details cd
-
-    LEFT JOIN stock_prices sp ON cd.symbol = sp.symbol
     ORDER BY cd.company_name
   `;
 
   const [rows] = await pool.execute(sql);
+
+  // Try to merge with live price changes from Redis
+  try {
+    const livePrices = await redis.hgetall('live:stock_prices');
+    if (livePrices) {
+      return rows.map(r => {
+        const live = livePrices[r.symbol] ? JSON.parse(livePrices[r.symbol]) : null;
+        return {
+          ...r,
+          todays_change: live ? live.percentage_change : 0,
+          price_change: live ? live.change : 0,
+          ltp: live ? live.close_price : null
+        };
+      });
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getAllCompanies:', error);
+  }
+
   return rows;
 }
 
@@ -278,6 +345,39 @@ async function saveMarketSummary(summary) {
     return nepaliDate.toISOString().split('T')[0];
   })();
 
+  // 1. Save to Redis (Primary Live Store)
+  try {
+    const statusData = {
+      status,
+      is_open: isOpen ? '1' : '0',
+      trading_date: tradingDate,
+      last_updated: new Date().toISOString()
+    };
+
+    const indexDataToSave = {
+      nepse_index: (indexData.nepseIndex || 0).toString(),
+      index_change: (indexData.indexChange || 0).toString(),
+      index_percentage_change: (indexData.indexPercentageChange || 0).toString(),
+      total_turnover: (indexData.totalTurnover || 0).toString(),
+      total_traded_shares: (indexData.totalTradedShares || 0).toString(),
+      advanced: (indexData.advanced || 0).toString(),
+      declined: (indexData.declined || 0).toString(),
+      unchanged: (indexData.unchanged || 0).toString(),
+      status_date: (indexData.marketStatusDate || '').toString(),
+      status_time: (indexData.marketStatusTime || '').toString(),
+      last_updated: new Date().toISOString()
+    };
+
+    const pipeline = redis.pipeline();
+    pipeline.hset('live:market_status', statusData);
+    pipeline.hset('live:market_index', indexDataToSave);
+    await pipeline.exec();
+    logger.info(`🚀 Market summary saved to Redis for ${tradingDate}`);
+  } catch (error) {
+    logger.error('❌ Redis error in saveMarketSummary:', error);
+  }
+
+  // 2. Save to MySQL (Legacy/Backup for now)
   const sql = `
     INSERT INTO market_index (
       trading_date, market_status_date, market_status_time, 
@@ -320,10 +420,10 @@ async function saveMarketSummary(summary) {
 
   try {
     const [result] = await pool.execute(sql, values);
-    logger.info(`💾 Market summary saved for ${tradingDate} (Status: ${status})`);
+    logger.info(`💾 Market summary saved to MySQL for ${tradingDate} (Status: ${status})`);
     return result.insertId;
   } catch (error) {
-    console.error('❌ Error saving market summary:', error.message);
+    console.error('❌ Error saving market summary to MySQL:', error.message);
     throw error;
   }
 }
@@ -348,6 +448,22 @@ async function saveMarketIndex(indexData, status = null) {
 }
 
 async function getCurrentMarketStatus() {
+  try {
+    // 1. Try Redis
+    const status = await redis.hgetall('live:market_status');
+    if (status && status.status) {
+      return {
+        status: status.status,
+        isOpen: status.is_open === '1',
+        tradingDate: status.trading_date,
+        lastUpdated: status.last_updated
+      };
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getCurrentMarketStatus:', error);
+  }
+
+  // 2. Fallback to MySQL
   const sql = `
     SELECT status, is_open, trading_date, last_updated 
     FROM market_index 
@@ -366,19 +482,44 @@ async function getCurrentMarketStatus() {
     }
     return { status: 'CLOSED', isOpen: false, tradingDate: null };
   } catch (error) {
-    console.error('❌ Error fetching market status:', error.message);
+    console.error('❌ Error fetching market status from MySQL:', error.message);
     return { status: 'CLOSED', isOpen: false, tradingDate: null };
   }
 }
 
 async function getMarketIndexData(tradingDate = null) {
   // Get today's date in Nepal timezone if not provided
-  const date = tradingDate || (() => {
-    const now = new Date();
-    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-    return nepaliDate.toISOString().split('T')[0];
-  })();
+  const now = new Date();
+  const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
+  const todayStr = nepaliDate.toISOString().split('T')[0];
+  const targetDate = tradingDate || todayStr;
 
+  // 1. If looking for today, try Redis
+  if (targetDate === todayStr) {
+    try {
+      const index = await redis.hgetall('live:market_index');
+      if (index && index.nepse_index) {
+        return {
+          nepse_index: parseFloat(index.nepse_index),
+          index_change: parseFloat(index.index_change),
+          index_percentage_change: parseFloat(index.index_percentage_change),
+          total_turnover: parseFloat(index.total_turnover),
+          total_traded_shares: parseFloat(index.total_traded_shares),
+          advanced: parseInt(index.advanced),
+          declined: parseInt(index.declined),
+          unchanged: parseInt(index.unchanged),
+          market_status_date: index.status_date,
+          market_status_time: index.status_time,
+          trading_date: targetDate,
+          last_updated: index.last_updated
+        };
+      }
+    } catch (error) {
+      logger.error('❌ Redis error in getMarketIndexData:', error);
+    }
+  }
+
+  // 2. Fallback to MySQL
   const sql = `
     SELECT 
       nepse_index,
@@ -399,12 +540,35 @@ async function getMarketIndexData(tradingDate = null) {
     LIMIT 1
   `;
 
-  const [rows] = await pool.execute(sql, [date]);
+  const [rows] = await pool.execute(sql, [targetDate]);
   return rows.length > 0 ? rows[0] : null;
 }
 
 async function getLatestMarketIndexData() {
-  // Get the most recent market index data regardless of date
+  // 1. Try Redis first (Live)
+  try {
+    const index = await redis.hgetall('live:market_index');
+    if (index && index.nepse_index) {
+      return {
+        nepse_index: parseFloat(index.nepse_index),
+        index_change: parseFloat(index.index_change),
+        index_percentage_change: parseFloat(index.index_percentage_change),
+        total_turnover: parseFloat(index.total_turnover),
+        total_traded_shares: parseFloat(index.total_traded_shares),
+        advanced: parseInt(index.advanced),
+        declined: parseInt(index.declined),
+        unchanged: parseInt(index.unchanged),
+        market_status_date: index.status_date,
+        market_status_time: index.status_time,
+        trading_date: new Date().toISOString().split('T')[0], // Approximation for live
+        last_updated: index.last_updated
+      };
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getLatestMarketIndexData:', error);
+  }
+
+  // 2. Fallback to MySQL
   const sql = `
     SELECT 
       nepse_index,
@@ -655,6 +819,42 @@ async function getStockHistory(symbol, startDate) {
   return rows;
 }
 
+async function getMarketIndicesHistory(options = {}) {
+  const {
+    indexId = null,
+    startDate = null,
+    endDate = null,
+    limit = 1000
+  } = options;
+
+  let sql = `
+    SELECT * FROM market_indices_history 
+    WHERE 1=1
+  `;
+  const params = [];
+
+  if (indexId) {
+    sql += ` AND exchange_index_id = ?`;
+    params.push(indexId);
+  }
+
+  if (startDate) {
+    sql += ` AND business_date >= ?`;
+    params.push(startDate);
+  }
+
+  if (endDate) {
+    sql += ` AND business_date <= ?`;
+    params.push(endDate);
+  }
+
+  sql += ` ORDER BY business_date ASC, exchange_index_id ASC LIMIT ?`;
+  params.push(String(limit));
+
+  const [rows] = await pool.execute(sql, params);
+  return rows;
+}
+
 async function getRecentBonusForSymbols(symbols) {
   if (!symbols || symbols.length === 0) return {};
 
@@ -798,10 +998,12 @@ module.exports = {
   saveMarketSummary,
   updateMarketStatus,
   saveMarketIndex,
+  saveMarketIndexHistory,
   getCurrentMarketStatus,
   getMarketIndexData,
   getLatestMarketIndexData,
   getMarketIndexHistory,
+  getMarketIndicesHistory,
   getMarketStatusHistory,
   insertTodayPrices,
   insertCompanyDetails,

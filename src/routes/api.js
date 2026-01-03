@@ -9,17 +9,17 @@ const { formatResponse } = require('../utils/formatter');
 
 // API Info
 router.get('/', (req, res) => {
-  res.json({
+  res.json(formatResponse({
     message: 'Welcome to NEPSE Portfolio API',
     version: '2.1.0',
     documentation: 'API specification available in the api-spec directory of the repository',
     github: 'https://github.com/pokhrelashok/nepal-stock-scraper'
-  });
+  }, 'API Information'));
 });
 
 // Health check
 router.get('/health', (req, res) => {
-  res.json({
+  res.json(formatResponse({
     status: 'healthy',
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
@@ -27,7 +27,7 @@ router.get('/health', (req, res) => {
       database: 'connected',
       api: 'running'
     }
-  });
+  }, 'Health Check Success'));
 });
 
 // Auth
@@ -65,6 +65,7 @@ router.get('/market/status', marketController.getMarketStatus);
 router.get('/market/summary', marketController.getMarketSummary);
 router.get('/market/gainers', marketController.getGainers);
 router.get('/market/losers', marketController.getLosers);
+router.get('/market/indices/history', marketController.getMarketIndicesHistory);
 
 // Today Prices
 router.get('/today-prices', marketController.getTodayPrices);

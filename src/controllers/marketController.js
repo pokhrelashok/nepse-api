@@ -5,6 +5,7 @@ const {
   saveMarketIndex,
   getMarketIndexData,
   getLatestMarketIndexData,
+  getMarketIndicesHistory,
   getCompanyStats,
   getRecentBonusForSymbols
 } = require('../database/queries');
@@ -18,6 +19,36 @@ const getNepalDateString = (offsetDays = 0) => {
   const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
   nepaliDate.setDate(nepaliDate.getDate() + offsetDays);
   return nepaliDate.toISOString().split('T')[0];
+};
+
+// Helper to calculate start date based on range
+const getStartDateFromRange = (range) => {
+  const now = new Date();
+  const date = new Date(now); // Clone date
+
+  switch (range) {
+    case '1W':
+      date.setDate(now.getDate() - 7);
+      break;
+    case '1M':
+      date.setMonth(now.getMonth() - 1);
+      break;
+    case '3M':
+      date.setMonth(now.getMonth() - 3);
+      break;
+    case '6M':
+      date.setMonth(now.getMonth() - 6);
+      break;
+    case '1Y':
+      date.setFullYear(now.getFullYear() - 1);
+      break;
+    case 'ALL':
+      return null;
+    default:
+      date.setFullYear(now.getFullYear() - 1);
+  }
+
+  return date.toISOString().split('T')[0];
 };
 
 exports.getMarketStatus = async (req, res) => {
@@ -295,6 +326,27 @@ exports.getLosers = async (req, res) => {
     res.json(formatResponse(losers));
   } catch (e) {
     console.error('API Losers Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+};
+
+exports.getMarketIndicesHistory = async (req, res) => {
+  try {
+    const range = req.query.range || '1M';
+    const indexId = req.query.index_id || 58; // Default to NEPSE Index
+    const limit = parseInt(req.query.limit) || 1000;
+
+    const startDate = getStartDateFromRange(range);
+
+    const history = await getMarketIndicesHistory({
+      indexId,
+      startDate,
+      limit
+    });
+
+    res.json(formatResponse(history));
+  } catch (e) {
+    console.error('API Market Indices History Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
   }
 };

@@ -10,11 +10,12 @@ const NEPSE_URL = 'https://www.nepalstock.com';
 const TODAY_PRICE_URL = 'https://www.nepalstock.com/today-price';
 
 class NepseScraper {
-  constructor() {
+  constructor(options = {}) {
     this.browser = null;
     this.initializingPromise = null;
     this.userAgent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
     this.userDataDir = null;
+    this.headless = options.headless !== undefined ? options.headless : true;
   }
 
   async init() {
@@ -37,7 +38,7 @@ class NepseScraper {
         console.log(`📂 Created temp user data dir: ${this.userDataDir}`);
 
         const launchOptions = {
-          headless: true,
+          headless: this.headless,
           userDataDir: this.userDataDir,
           pipe: true, // Use pipe instead of websocket for better stability
           timeout: 60000,
@@ -1622,9 +1623,79 @@ class NepseScraper {
     throw lastError;
   }
 
+  async scrapeMarketIndicesHistory(maxRetries = 3) {
+    console.log('📊 Scraping market indices history...');
+    await this.init();
 
+    let lastError;
+    let page = null;
 
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        page = await this.browser.newPage();
+        await page.setUserAgent(this.userAgent);
 
+        let interceptedData = null;
+
+        page.on('response', async (response) => {
+          const url = response.url();
+          if (url.includes('/api/nots/index/history/')) {
+            try {
+              const data = await response.json();
+              if (data && data.content && Array.isArray(data.content)) {
+                // Prioritize larger datasets (one with size=500)
+                if (!interceptedData || data.content.length > interceptedData.length) {
+                  interceptedData = data.content;
+                  console.log(`✅ Intercepted history API: ${url} (${interceptedData.length} records)`);
+                }
+              }
+            } catch (e) { }
+          }
+        });
+
+        await page.goto('https://www.nepalstock.com/indices', {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000
+        });
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        await page.evaluate(() => {
+          const selects = document.querySelectorAll('select');
+          // NEPSE often has multiple selects, the items per page is usually the second one
+          const select = selects.length > 1 ? selects[1] : selects[0];
+          if (select) {
+            select.value = '500';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+
+            // Also try to find and click the Filter/Search button
+            const filterButton = document.querySelector('button.box__filter--search');
+            if (filterButton) {
+              filterButton.click();
+            }
+          }
+        });
+
+        // Wait for the API response
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        if (!interceptedData) {
+          throw new Error('No index history data intercepted');
+        }
+
+        await page.close();
+        return interceptedData;
+
+      } catch (error) {
+        lastError = error;
+        if (page) await page.close().catch(() => { });
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        }
+      }
+    }
+    throw lastError;
+  }
 }
 
 // Export functions
@@ -1665,6 +1736,15 @@ async function scrapeAllCompanyDetails(securityIds, saveCallback = null) {
   }
 }
 
+async function scrapeMarketIndicesHistory() {
+  const scraper = new NepseScraper();
+  try {
+    return await scraper.scrapeMarketIndicesHistory();
+  } finally {
+    await scraper.close();
+  }
+}
+
 // Legacy function names for compatibility
 const fetchTodaysPrices = scrapeTodayPrices;
 
@@ -1674,5 +1754,6 @@ module.exports = {
   scrapeMarketStatus,
   scrapeTodayPrices,
   scrapeAllCompanyDetails,
+  scrapeMarketIndicesHistory,
   fetchTodaysPrices
 };

@@ -1,5 +1,8 @@
 const { pool } = require('../database');
+const crypto = require('crypto');
+const redis = require('../../config/redis');
 const logger = require('../../utils/logger');
+const { generateUuid } = require('../../utils/uuid');
 
 /**
  * Admin-specific database queries
@@ -18,17 +21,33 @@ async function getCompaniesForAdmin(limit = 20, offset = 0) {
       cd.sector_name AS sector,
       cd.nepali_sector_name,
       cd.status,
-      cd.market_capitalization,
-      sp.close_price AS ltp,
-      sp.percentage_change AS todays_change,
-      sp.\`change\` AS price_change
+      cd.market_capitalization
     FROM company_details cd
-    LEFT JOIN stock_prices sp ON cd.symbol = sp.symbol
     ORDER BY cd.company_name
     LIMIT ? OFFSET ?
   `;
 
   const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+
+  // Try to merge with live price changes from Redis
+  try {
+    const livePrices = await redis.hgetall('live:stock_prices');
+    if (livePrices) {
+      return rows.map(r => {
+        const live = livePrices[r.symbol] ? JSON.parse(livePrices[r.symbol]) : null;
+        return {
+          ...r,
+          ltp: live ? live.close_price : r.ltp,
+          todays_change: live ? live.percentage_change : r.todays_change,
+          price_change: live ? live.change : r.price_change,
+          source: live ? 'REDIS_LIVE' : 'MYSQL_CACHE'
+        };
+      });
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getCompaniesForAdmin:', error);
+  }
+
   return rows;
 }
 
@@ -113,6 +132,38 @@ async function getDividendCountForAdmin() {
 // ==================== PRICES ====================
 
 async function getPricesForAdmin(limit = 20, offset = 0, filters = {}) {
+  try {
+    const livePricesMap = await redis.hgetall('live:stock_prices');
+    if (livePricesMap && Object.keys(livePricesMap).length > 0) {
+      let prices = Object.values(livePricesMap).map(p => JSON.parse(p));
+
+      if (filters.symbol) {
+        const pattern = filters.symbol.toUpperCase();
+        prices = prices.filter(p => p.symbol.includes(pattern));
+      }
+
+      const paged = prices.slice(offset, offset + limit);
+      const symbols = paged.map(p => p.symbol);
+
+      if (symbols.length > 0) {
+        const placeholders = symbols.map(() => '?').join(',');
+        const [meta] = await pool.execute(
+          `SELECT symbol, company_name, sector_name FROM company_details WHERE symbol IN (${placeholders})`,
+          symbols
+        );
+        const metaMap = meta.reduce((acc, curr) => ({ ...acc, [curr.symbol]: curr }), {});
+
+        return paged.map(p => ({
+          ...p,
+          ...metaMap[p.symbol],
+          source: 'REDIS_LIVE'
+        }));
+      }
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getPricesForAdmin:', error);
+  }
+
   let sql = `
     SELECT 
       sp.*,
@@ -159,18 +210,18 @@ async function getAllApiKeys() {
 }
 
 async function createApiKey(name) {
-  const crypto = require('crypto');
+  const id = generateUuid();
   const apiKey = 'npt_' + crypto.randomBytes(32).toString('hex');
 
   const sql = `
-    INSERT INTO api_keys (name, api_key, status)
-    VALUES (?, ?, 'active')
+    INSERT INTO api_keys (id, name, api_key, status)
+    VALUES (?, ?, ?, 'active')
   `;
 
-  const [result] = await pool.execute(sql, [name, apiKey]);
+  const [result] = await pool.execute(sql, [id, name, apiKey]);
 
   return {
-    id: result.insertId,
+    id,
     name,
     api_key: apiKey,
     status: 'active',

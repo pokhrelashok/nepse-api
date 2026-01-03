@@ -1,0 +1,22 @@
+CREATE TABLE IF NOT EXISTS market_indices_history (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  business_date DATE NOT NULL,
+  exchange_index_id INT NOT NULL,
+  index_name VARCHAR(100),
+  closing_index DECIMAL(15, 4),
+  open_index DECIMAL(15, 4),
+  high_index DECIMAL(15, 4),
+  low_index DECIMAL(15, 4),
+  fifty_two_week_high DECIMAL(15, 4),
+  fifty_two_week_low DECIMAL(15, 4),
+  turnover_value DECIMAL(25, 2),
+  turnover_volume DECIMAL(25, 2),
+  total_transaction BIGINT,
+  abs_change DECIMAL(15, 4),
+  percentage_change DECIMAL(10, 4),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY unique_date_index (business_date, exchange_index_id),
+  INDEX idx_mih_date (business_date),
+  INDEX idx_mih_index (exchange_index_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

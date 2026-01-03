@@ -350,6 +350,69 @@ async function saveStockPriceHistory(historyData) {
   }
 }
 
+async function saveMarketIndexHistory(historyData) {
+  if (!historyData || historyData.length === 0) return Promise.resolve(0);
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const sql = `
+      INSERT INTO market_indices_history (
+        business_date, exchange_index_id, index_name, closing_index, 
+        open_index, high_index, low_index, fifty_two_week_high, 
+        fifty_two_week_low, turnover_value, turnover_volume, 
+        total_transaction, abs_change, percentage_change
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        index_name = VALUES(index_name),
+        closing_index = VALUES(closing_index),
+        open_index = VALUES(open_index),
+        high_index = VALUES(high_index),
+        low_index = VALUES(low_index),
+        fifty_two_week_high = VALUES(fifty_two_week_high),
+        fifty_two_week_low = VALUES(fifty_two_week_low),
+        turnover_value = VALUES(turnover_value),
+        turnover_volume = VALUES(turnover_volume),
+        total_transaction = VALUES(total_transaction),
+        abs_change = VALUES(abs_change),
+        percentage_change = VALUES(percentage_change),
+        updated_at = CURRENT_TIMESTAMP
+    `;
+
+    let insertedCount = 0;
+    for (const record of historyData) {
+      await connection.execute(sql, [
+        record.business_date || null,
+        record.exchange_index_id || null,
+        record.index_name || null,
+        record.closing_index ?? 0,
+        record.open_index ?? 0,
+        record.high_index ?? 0,
+        record.low_index ?? 0,
+        record.fifty_two_week_high ?? 0,
+        record.fifty_two_week_low ?? 0,
+        record.turnover_value ?? 0,
+        record.turnover_volume ?? 0,
+        record.total_transaction ?? 0,
+        record.abs_change ?? 0,
+        record.percentage_change ?? 0
+      ]);
+      insertedCount++;
+    }
+
+    await connection.commit();
+    logger.info(`Saved ${insertedCount} market index historical records.`);
+    return insertedCount;
+  } catch (err) {
+    await connection.rollback();
+    logger.error('Error saving market index history:', err);
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
 // Export pool for queries
 module.exports = {
   pool,
@@ -357,5 +420,6 @@ module.exports = {
   saveCompanyDetails,
   saveDividends,
   saveFinancials,
-  saveStockPriceHistory
+  saveStockPriceHistory,
+  saveMarketIndexHistory
 };

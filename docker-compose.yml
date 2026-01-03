@@ -21,12 +21,16 @@ services:
       - DB_PASSWORD=nepse_password
       - DB_NAME=nepse_db
       - DB_POOL_SIZE=10
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
       - PUPPETEER_ARGS=--no-sandbox,--disable-setuid-sandbox
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
     depends_on:
       mysql:
         condition: service_healthy
+      redis:
+        condition: service_started
     command: bun run bun:dev
     restart: unless-stopped
     networks:
@@ -72,8 +76,19 @@ services:
     networks:
       - nepse-network
 
+  redis:
+    image: redis:7-alpine
+    container_name: nepse-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - nepse-network
+
 volumes:
   mysql_local_data:
+  redis_data:
 
 networks:
   nepse-network:

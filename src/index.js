@@ -257,22 +257,59 @@ program
   });
 
 program
-  .command('schedule')
-  .description('Start the price update scheduler')
-  .action(async () => {
+  .command('seed')
+  .description('Populate initial data (status, prices, missing company details)')
+  .option('-q, --quick', 'Only scrape details for a few companies')
+  .action(async (options) => {
     try {
-      scheduler = new Scheduler();
-      await scheduler.startPriceUpdateSchedule();
+      console.log('🌱 Starting manual data seeding...');
+      scraper = new NepseScraper();
 
-      console.log('📅 Scheduler started. Press Ctrl+C to stop.');
+      // 1. Market Status
+      console.log('\n🔍 Phase 1: Fetching market summary...');
+      const summary = await scraper.scrapeMarketSummary();
+      await saveMarketSummary(summary);
+      console.log('✅ Market summary saved');
 
-      // Keep process alive
-      process.stdin.resume();
+      // 2. Prices
+      console.log('\n📊 Phase 2: Scraping today\'s prices...');
+      const prices = await scraper.scrapeTodayPrices();
+      const formattedPrices = formatPricesForDatabase(prices);
+      await insertTodayPrices(formattedPrices);
+      console.log(`✅ ${prices.length} stock prices saved`);
 
+      // 3. Company Details
+      console.log('\n🏢 Phase 3: Scraping company details...');
+      let securityIds;
+      if (options.quick) {
+        securityIds = (await getSecurityIdsWithoutDetails()).slice(0, 10);
+        console.log(`🎯 Quick mode: Scraping details for ${securityIds.length} missing companies`);
+      } else {
+        securityIds = await getSecurityIdsWithoutDetails();
+        console.log(`🔍 Scraping details for ${securityIds.length} missing companies`);
+      }
+
+      if (securityIds.length > 0) {
+        await scraper.scrapeAllCompanyDetails(
+          securityIds,
+          async (batch) => await insertCompanyDetails(formatCompanyDetailsForDatabase(batch)),
+          insertDividends,
+          insertFinancials
+        );
+        console.log(`✅ Company details saved`);
+      } else {
+        console.log('✅ All companies already have details');
+      }
+
+      console.log('\n✨ Seeding completed successfully!');
     } catch (error) {
-      console.error('❌ Error:', error.message);
-      await cleanup();
+      console.error('❌ Seeding failed:', error.message);
       process.exit(1);
+    } finally {
+      if (scraper) {
+        await scraper.close();
+        scraper = null;
+      }
     }
   });
 

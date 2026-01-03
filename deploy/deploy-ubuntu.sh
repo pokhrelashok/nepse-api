@@ -34,7 +34,7 @@ echo "📦 Updating system packages..."
 apt update && apt upgrade -y
 
 echo "📦 Installing required packages..."
-apt install -y curl wget git nginx mysql-server certbot python3-certbot-nginx ufw jq
+apt install -y curl wget git nginx mysql-server redis-server certbot python3-certbot-nginx ufw jq
 
 echo "📦 Installing Chrome dependencies for Puppeteer..."
 apt install -y ca-certificates fonts-liberation libatk-bridge2.0-0 libatk1.0-0 libdrm2 libxcomposite1 libxdamage1 libxrandr2 libgbm1 libxss1 libgtk-3-0 libasound2-dev xdg-utils
@@ -265,7 +265,17 @@ fi
 
 echo "✅ MySQL database 'nepse_db' configured"
 
-# Create .env file with database credentials
+# Verify Redis service
+echo "🧪 Verifying Redis service..."
+if systemctl is-active --quiet redis-server; then
+    echo "✅ Redis is running"
+else
+    echo "🔄 Starting Redis..."
+    systemctl start redis-server
+    systemctl enable redis-server
+fi
+
+# Create .env file with database and redis credentials
 cat > $APP_DIR/.env << ENV_EOF
 NODE_ENV=production
 PORT=3000
@@ -275,6 +285,8 @@ DB_USER=nepse
 DB_PASSWORD=${MYSQL_NEPSE_PASSWORD}
 DB_NAME=nepse_db
 DB_POOL_SIZE=10
+REDIS_HOST=localhost
+REDIS_PORT=6379
 ENV_EOF
 chown $APP_USER:$APP_USER $APP_DIR/.env
 chmod 600 $APP_DIR/.env

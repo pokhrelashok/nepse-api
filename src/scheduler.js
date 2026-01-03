@@ -141,6 +141,16 @@ class Scheduler {
     closeJob.start();
     companyDetailsJob.start();
 
+    // Market Indices History (Daily at 3:10 PM, after price archive)
+    const indexHistoryJob = cron.schedule('10 15 * * 0-4', async () => {
+      await this.runMarketIndicesHistoryScrape();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('index_history_update', indexHistoryJob);
+    indexHistoryJob.start();
+
     this.isRunning = true;
     logger.info('Scheduler started (index every 20s during hours, prices every 2 min, archive at 3:05 PM)');
   }
@@ -389,6 +399,61 @@ class Scheduler {
       this.stats[jobKey].success_count++;
     } catch (error) {
       logger.error('Daily price archive failed:', error);
+      this.stats[jobKey].fail_count++;
+    } finally {
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async runMarketIndicesHistoryScrape() {
+    const jobKey = 'index_history_update';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.stats[jobKey] = this.stats[jobKey] || { last_run: null, last_success: null, success_count: 0, fail_count: 0 };
+    this.stats[jobKey].last_run = new Date().toISOString();
+
+    logger.info('📊 Starting nightly market indices history scrape...');
+
+    try {
+      const { scrapeMarketIndicesHistory } = require('./scrapers/nepse-scraper');
+      const { saveMarketIndexHistory } = require('./database/queries');
+
+      const data = await scrapeMarketIndicesHistory();
+
+      if (data && data.length > 0) {
+        const indexNames = {
+          58: 'NEPSE Index',
+          57: 'Sensitive Index',
+          59: 'Float Index',
+          60: 'Sensitive Float Index'
+        };
+
+        const formattedData = data.map(record => ({
+          business_date: record.businessDate,
+          exchange_index_id: record.exchangeIndexId,
+          index_name: indexNames[record.exchangeIndexId] || `Index ${record.exchangeIndexId}`,
+          closing_index: parseFloat(record.closingIndex) || 0,
+          open_index: parseFloat(record.openIndex) || 0,
+          high_index: parseFloat(record.highIndex) || 0,
+          low_index: parseFloat(record.lowIndex) || 0,
+          fifty_two_week_high: parseFloat(record.fiftyTwoWeekHigh) || 0,
+          fifty_two_week_low: parseFloat(record.fiftyTwoWeekLow) || 0,
+          turnover_value: parseFloat(record.turnoverValue) || 0,
+          turnover_volume: parseFloat(record.turnoverVolume) || 0,
+          total_transaction: parseInt(record.totalTransaction) || 0,
+          abs_change: parseFloat(record.absChange) || 0,
+          percentage_change: parseFloat(record.percentageChange) || 0
+        }));
+
+        const count = await saveMarketIndexHistory(formattedData);
+        logger.info(`✅ Successfully saved ${count} historical index records`);
+      }
+
+      this.stats[jobKey].last_success = new Date().toISOString();
+      this.stats[jobKey].success_count++;
+    } catch (error) {
+      logger.error('Scheduled market indices history scrape failed:', error);
       this.stats[jobKey].fail_count++;
     } finally {
       this.isJobRunning.set(jobKey, false);

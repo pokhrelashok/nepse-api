@@ -1,6 +1,7 @@
 const admin = require('../config/firebase');
 const logger = require('../utils/logger');
 const { pool } = require('../database/database');
+const { formatResponse, formatError } = require('../utils/formatter');
 
 /**
  * Middleware to verify Firebase ID Token
@@ -9,7 +10,7 @@ const verifyToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized', message: 'No token provided' });
+    return res.status(401).json(formatError('No token provided', 401));
   }
 
   const idToken = authHeader.split('Bearer ')[1];
@@ -31,7 +32,7 @@ const verifyToken = async (req, res, next) => {
     next();
   } catch (error) {
     logger.error('Error verifying Firebase token:', error);
-    return res.status(403).json({ error: 'Forbidden', message: 'Invalid or expired token' });
+    return res.status(403).json(formatError('Invalid or expired token', 403));
   }
 };
 
@@ -49,10 +50,10 @@ const loginHandler = (req, res) => {
 
   if (username === adminUsername && password === adminPassword) {
     const token = jwt.sign({ role: 'admin' }, jwtSecret, { expiresIn: '24h' });
-    return res.json({ success: true, token });
+    return res.json(formatResponse({ token }, 'Login successful'));
   }
 
-  res.status(401).json({ error: 'Invalid credentials' });
+  res.status(401).json(formatError('Invalid credentials', 401));
 };
 
 /**
@@ -62,7 +63,7 @@ const authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Unauthorized', message: 'No token provided' });
+    return res.status(401).json(formatError('No token provided', 401));
   }
 
   const token = authHeader.split(' ')[1];
@@ -73,11 +74,11 @@ const authMiddleware = (req, res, next) => {
     if (decoded.role === 'admin') {
       next();
     } else {
-      res.status(403).json({ error: 'Forbidden', message: 'Admin access required' });
+      res.status(403).json(formatError('Admin access required', 403));
     }
   } catch (error) {
     logger.error('Error verifying admin token:', error);
-    res.status(401).json({ error: 'Unauthorized', message: 'Invalid or expired token' });
+    res.status(401).json(formatError('Invalid or expired token', 401));
   }
 };
 

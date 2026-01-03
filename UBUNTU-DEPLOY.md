@@ -19,6 +19,7 @@ sudo deploy/deploy-ubuntu.sh localhost
 - Node.js 18.x + PM2
 - Nginx with security config
 - MySQL 8.0 database
+- Redis Server (for live data)
 - SSL certificate (Let's Encrypt)
 - Firewall setup (UFW)
 
@@ -111,6 +112,9 @@ sudo systemctl restart nginx
 ```bash
 # Check MySQL status
 sudo systemctl status mysql
+
+# Check Redis status
+sudo systemctl status redis-server
 
 # Test database connection
 mysql -u nepse -p nepse_db -e "SELECT COUNT(*) FROM stock_prices;"

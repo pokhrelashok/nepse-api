@@ -1,4 +1,5 @@
 const { validateApiKey } = require('../database/apiKeyQueries');
+const { formatError } = require('../utils/formatter');
 const logger = require('../utils/logger');
 
 const jwt = require('jsonwebtoken');
@@ -59,10 +60,7 @@ const apiKeyAuth = async (req, res, next) => {
   }
 
   if (!apiKey) {
-    return res.status(401).json({
-      error: 'API Key Required',
-      message: 'Please provide a valid API key in the x-api-key header'
-    });
+    return res.status(401).json(formatError('API Key Required', 401));
   }
 
   try {
@@ -70,16 +68,13 @@ const apiKeyAuth = async (req, res, next) => {
 
     if (!isValid) {
       logger.warn(`Invalid API key attempt: ${apiKey.substring(0, 8)}...`);
-      return res.status(403).json({
-        error: 'Invalid API Key',
-        message: 'The provided API key is invalid or has been revoked'
-      });
+      return res.status(403).json(formatError('Invalid API Key', 403));
     }
 
     next();
   } catch (error) {
     logger.error('Error in apiKeyAuth middleware:', error);
-    res.status(500).json({ error: 'Internal Server Error' });
+    res.status(500).json(formatError('Internal Server Error', 500));
   }
 };
 
