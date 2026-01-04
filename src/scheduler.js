@@ -22,6 +22,7 @@ class Scheduler {
       company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       price_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      market_index_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       index_history_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
@@ -205,6 +206,16 @@ class Scheduler {
     });
     this.jobs.set('price_archive', archiveJob);
     archiveJob.start();
+
+    // Daily Market Index Archive (at 3:06 PM, after price archive)
+    const marketIndexArchiveJob = cron.schedule('6 15 * * 0-4', async () => {
+      await this.archiveMarketIndex();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('market_index_archive', marketIndexArchiveJob);
+    marketIndexArchiveJob.start();
 
     indexJob.start();
     priceJob.start();
@@ -471,6 +482,31 @@ class Scheduler {
       await this.updateStatus(jobKey, 'SUCCESS', msg);
     } catch (error) {
       logger.error('Daily price archive failed:', error);
+      await this.updateStatus(jobKey, 'FAIL', error.message);
+    } finally {
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async archiveMarketIndex() {
+    const jobKey = 'market_index_archive';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    await this.updateStatus(jobKey, 'START', 'Starting market index archive...');
+
+    logger.info('📊 Starting daily market index archive...');
+
+    try {
+      const { archiveTodaysMarketIndex } = require('./schedulers/archiveMarketIndex');
+      const result = await archiveTodaysMarketIndex();
+
+      const msg = `Archived market index ${result.index} (${result.change}) for ${result.date}`;
+      logger.info(`✅ ${msg}`);
+
+      await this.updateStatus(jobKey, 'SUCCESS', msg);
+    } catch (error) {
+      logger.error('Market index archive failed:', error);
       await this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
       this.isJobRunning.set(jobKey, false);
