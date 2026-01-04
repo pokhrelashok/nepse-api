@@ -3,9 +3,20 @@ const redis = require('../config/redis');
 const logger = require('../utils/logger');
 const { normalizeShareType, formatShareType } = require('../utils/share-type-utils');
 
+// Helper function to convert ISO datetime to MySQL format
+function toMySQLDatetime(isoString) {
+  if (!isoString) return null;
+  // Convert '2026-01-04T07:25:40.014Z' to '2026-01-04 07:25:40'
+  return isoString.replace('T', ' ').replace(/\.\d{3}Z$/, '').replace('Z', '');
+}
+
 // Wrapper functions for database operations
 async function saveSchedulerStatus(jobName, statusData) {
   const { last_run, last_success, success_count, fail_count, status, message } = statusData;
+
+  // Convert ISO datetime strings to MySQL-compatible format
+  const mysqlLastRun = toMySQLDatetime(last_run);
+  const mysqlLastSuccess = toMySQLDatetime(last_success);
   const sql = `
     INSERT INTO scheduler_status (job_name, last_run, last_success, success_count, fail_count, status, message)
     VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -18,7 +29,7 @@ async function saveSchedulerStatus(jobName, statusData) {
       message = VALUES(message)
   `;
   try {
-    const [result] = await pool.execute(sql, [jobName, last_run, last_success, success_count, fail_count, status, message]);
+    const [result] = await pool.execute(sql, [jobName, mysqlLastRun, mysqlLastSuccess, success_count, fail_count, status, message]);
     return result;
   } catch (error) {
     logger.error(`❌ Error saving scheduler status for ${jobName}:`, error);
