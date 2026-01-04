@@ -425,7 +425,9 @@ async function getIntradayMarketIndex(date = null) {
       const data = JSON.parse(snapshots[i]);
       result.push({
         nepse_index: data.nepseIndex,
-        market_status_time: data.marketStatusTime
+        market_status_time: data.marketStatusTime,
+        total_traded_shares: data.totalTradedShares || 0,
+        total_turnover: data.totalTurnover || 0
       });
     }
     return result;
