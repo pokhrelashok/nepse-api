@@ -1112,7 +1112,15 @@ async function createPriceAlert(userId, symbol, price, condition, alertType = 'P
     INSERT INTO price_alerts (user_id, symbol, target_price, alert_condition, alert_type, target_percentage)
     VALUES (?, ?, ?, ?, ?, ?)
   `;
-  const [result] = await pool.execute(sql, [userId, symbol, price, condition, alertType, targetPercentage]);
+  // MySQL2 requires null instead of undefined for bind parameters
+  const [result] = await pool.execute(sql, [
+    userId,
+    symbol,
+    price ?? null,
+    condition,
+    alertType,
+    targetPercentage ?? null
+  ]);
   return result.insertId;
 }
 
