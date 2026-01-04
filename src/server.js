@@ -71,6 +71,7 @@ app.use('/api', apiRoutes);
 app.use('/api/admin', require('./routes/admin'));
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/portfolios', require('./routes/portfolio'));
+app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/feedback', require('./routes/feedback'));
 
 // All non-API routes serve the React app (SPA fallback)
