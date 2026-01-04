@@ -24,7 +24,8 @@ class Scheduler {
       price_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       index_history_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null }
+      dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      db_backup: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null }
     };
 
   }
@@ -184,6 +185,16 @@ class Scheduler {
     dividendJob.start();
     cleanupJob.start();
     notificationJob.start();
+
+    // Database Backup (Daily at 5:00 AM - after cleanup)
+    const backupJob = cron.schedule('0 5 * * *', async () => {
+      await this.runDatabaseBackup();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('db_backup', backupJob);
+    backupJob.start();
 
     // Daily Price Archive (at 3:05 PM, a few minutes after market closes)
     const archiveJob = cron.schedule('5 15 * * 0-4', async () => {
@@ -607,6 +618,31 @@ class Scheduler {
       this.updateStatus(jobKey, 'SUCCESS', msg || 'Cleanup completed');
     } catch (error) {
       logger.error('System cleanup failed:', error);
+      this.updateStatus(jobKey, 'FAIL', error.message);
+    } finally {
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async runDatabaseBackup() {
+    const jobKey = 'db_backup';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.updateStatus(jobKey, 'START', 'Starting database backup...');
+
+    logger.info('💾 Starting scheduled database backup...');
+
+    try {
+      const { runDatabaseBackup } = require('./schedulers/backupScheduler');
+      const result = await runDatabaseBackup();
+
+      const msg = `Backup: ${result.backupFile}, Uploaded: ${result.uploadResult?.fileName || 'N/A'}`;
+      logger.info(`✅ ${msg}`);
+
+      this.updateStatus(jobKey, 'SUCCESS', msg);
+    } catch (error) {
+      logger.error('Scheduled database backup failed:', error);
       this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
       this.isJobRunning.set(jobKey, false);
