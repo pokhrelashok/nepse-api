@@ -230,9 +230,10 @@ class NotificationService {
    * Send broadcast notification for an IPO
    */
   static async sendIpoNotification(ipo, tokens) {
+    const { formatShareType } = require('../utils/share-type-utils');
     const title = `New IPO: ${ipo.company_name}`;
-    // share_type is already formatted by the query (e.g., "Ordinary", "Migrant Workers")
-    const body = `${ipo.share_type} opens ${this.formatDate(ipo.opening_date)}, apply before ${this.formatDate(ipo.application_deadline)}`;
+    const formattedType = formatShareType(ipo.share_type);
+    const body = `${formattedType} opens ${this.formatDate(ipo.opening_date)}, apply before ${this.formatDate(ipo.application_deadline)}`;
 
     const message = {
       notification: { title, body },
@@ -276,8 +277,10 @@ class NotificationService {
    * Send broadcast notification for an IPO Closing Reminder
    */
   static async sendIpoClosingNotification(ipo, tokens) {
-    const title = `⚠️ IPO Closing Today: ${ipo.company_name}`;
-    const body = `${ipo.share_type} for ${ipo.company_name} closes today! Apply via Meroshare before banking hours.`;
+    const { formatShareType } = require('../utils/share-type-utils');
+    const title = `IPO Closing Today: ${ipo.company_name}`;
+    const formattedType = formatShareType(ipo.share_type);
+    const body = `${formattedType} for ${ipo.company_name} closes today! Apply via Meroshare before banking hours.`;
 
     const message = {
       notification: { title, body },
@@ -347,8 +350,8 @@ class NotificationService {
        AND u.notify_dividends = TRUE
        GROUP BY p.user_id, nt.fcm_token
        HAVING SUM(CASE 
-           WHEN t.type IN ('BUY', 'BONUS', 'RIGHTS', 'IPO') THEN t.quantity 
-           WHEN t.type IN ('SELL') THEN -t.quantity 
+           WHEN t.type IN ('SECONDARY_BUY', 'BONUS', 'RIGHTS', 'IPO', 'FPO', 'AUCTION') THEN t.quantity 
+           WHEN t.type IN ('SECONDARY_SELL') THEN -t.quantity 
            ELSE 0 
        END) > 0
     `, [dividend.symbol]);
@@ -442,8 +445,8 @@ class NotificationService {
        AND u.notify_dividends = TRUE
        GROUP BY p.user_id, nt.fcm_token
        HAVING SUM(CASE 
-           WHEN t.type IN ('BUY', 'BONUS', 'RIGHTS', 'IPO') THEN t.quantity 
-           WHEN t.type IN ('SELL') THEN -t.quantity 
+           WHEN t.type IN ('SECONDARY_BUY', 'BONUS', 'RIGHTS', 'IPO', 'FPO', 'AUCTION') THEN t.quantity 
+           WHEN t.type IN ('SECONDARY_SELL') THEN -t.quantity 
            ELSE 0 
        END) > 0
     `, [rightShare.symbol]);
