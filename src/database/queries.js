@@ -461,9 +461,9 @@ async function getAllCompanies() {
         const live = livePrices[r.symbol] ? JSON.parse(livePrices[r.symbol]) : null;
         return {
           ...r,
-          todays_change: live ? live.percentage_change : 0,
-          price_change: live ? live.change : 0,
-          ltp: live ? live.close_price : null
+          todays_change: live ? Math.round(live.percentage_change * 100) / 100 : 0,
+          price_change: live ? Math.round(live.change * 100) / 100 : 0,
+          ltp: live ? Math.round(live.close_price * 100) / 100 : null
         };
       });
     }
