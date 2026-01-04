@@ -3,16 +3,24 @@ const logger = require('../utils/logger');
 const { formatResponse, formatError } = require('../utils/formatter');
 
 const createAlert = async (req, res) => {
-  const { symbol, price, condition } = req.body;
+  const { symbol, price, condition, alert_type, target_percentage } = req.body;
   const userId = req.currentUser.id;
 
-  if (!symbol || !price || !condition) {
-    return res.status(400).json(formatError('Symbol, price, and condition are required'));
+  if (!symbol || !condition) {
+    return res.status(400).json(formatError('Symbol and condition are required'));
+  }
+
+  if (alert_type === 'WACC_PERCENTAGE' && target_percentage === undefined) {
+    return res.status(400).json(formatError('Target percentage is required for WACC alerts'));
+  }
+
+  if ((!alert_type || alert_type === 'PRICE') && price === undefined) {
+    return res.status(400).json(formatError('Price is required for price alerts'));
   }
 
   try {
-    const alertId = await queries.createPriceAlert(userId, symbol, price, condition);
-    res.status(201).json(formatResponse({ id: alertId, symbol, price, condition }, 'Alert created successfully'));
+    const alertId = await queries.createPriceAlert(userId, symbol, price, condition, alert_type || 'PRICE', target_percentage);
+    res.status(201).json(formatResponse({ id: alertId, symbol, price, condition, alert_type, target_percentage }, 'Alert created successfully'));
   } catch (error) {
     logger.error('Create Alert Error:', error);
     res.status(500).json(formatError('Failed to create alert'));
@@ -34,10 +42,10 @@ const getAlerts = async (req, res) => {
 const updateAlert = async (req, res) => {
   const alertId = req.params.id;
   const userId = req.currentUser.id;
-  const { price, condition, is_active } = req.body;
+  const { price, condition, is_active, alert_type, target_percentage } = req.body;
 
   try {
-    const success = await queries.updatePriceAlert(alertId, userId, { price, condition, is_active });
+    const success = await queries.updatePriceAlert(alertId, userId, { price, condition, is_active, alert_type, target_percentage });
     if (!success) {
       return res.status(404).json(formatError('Alert not found or unauthorized'));
     }

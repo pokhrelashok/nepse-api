@@ -55,12 +55,27 @@ class NotificationService {
       const alertsToProcess = {};
 
       for (const alert of allActiveAlerts) {
-        const currentPrice = priceMap.get(alert.symbol);
+        let currentPrice = priceMap.get(alert.symbol);
         if (currentPrice === undefined) continue;
 
-        const isCurrentlyMet = (alert.alert_condition === 'ABOVE' && currentPrice >= alert.target_price) ||
-          (alert.alert_condition === 'BELOW' && currentPrice <= alert.target_price) ||
-          (alert.alert_condition === 'EQUAL' && currentPrice === alert.target_price);
+        let targetPrice = alert.target_price;
+        let isWaccAlert = alert.alert_type === 'WACC_PERCENTAGE';
+
+        if (isWaccAlert) {
+          const wacc = await queries.getUserHoldingWACC(alert.user_id, alert.symbol);
+          if (wacc === null) {
+            logger.warn(`Could not calculate WACC for user ${alert.user_id} and symbol ${alert.symbol}. Skipping alert.`);
+            continue;
+          }
+          // Target price is WACC * (1 + target_percentage / 100)
+          targetPrice = wacc * (1 + (alert.target_percentage / 100));
+          alert.wacc = wacc; // Store for notification template
+          alert.calculated_target_price = targetPrice;
+        }
+
+        const isCurrentlyMet = (alert.alert_condition === 'ABOVE' && currentPrice >= targetPrice) ||
+          (alert.alert_condition === 'BELOW' && currentPrice <= targetPrice) ||
+          (alert.alert_condition === 'EQUAL' && currentPrice === targetPrice);
 
         if (isCurrentlyMet) {
           if (alert.last_state === 'NOT_MET') {
@@ -69,7 +84,8 @@ class NotificationService {
               alertsToProcess[alert.id] = {
                 ...alert,
                 tokens: [],
-                current_price: currentPrice
+                current_price: currentPrice,
+                effective_target_price: targetPrice
               };
             }
             alertsToProcess[alert.id].tokens.push(alert.fcm_token);
@@ -523,9 +539,18 @@ class NotificationService {
    * Send notification for a triggered price alert
    */
   static async sendPriceAlertNotification(alert) {
-    const title = `Price Alert: ${alert.symbol}`;
+    let title = `Price Alert: ${alert.symbol}`;
+    let body = '';
+
     const conditionText = alert.alert_condition === 'ABOVE' ? 'is above' : 'is below';
-    const body = `${alert.symbol} ${conditionText} your target of ${alert.target_price}. Current: ${alert.current_price}`;
+
+    if (alert.alert_type === 'WACC_PERCENTAGE') {
+      const isProfit = alert.target_percentage > 0;
+      title = `${isProfit ? 'Profit Booking' : 'Stop Loss'}: ${alert.symbol}`;
+      body = `${alert.symbol} ${conditionText} your ${isProfit ? 'profit' : 'loss'} target of ${alert.target_percentage}%. WACC: ${alert.wacc.toFixed(2)}, Target: ${alert.effective_target_price.toFixed(2)}, LTP: ${alert.current_price.toFixed(2)}`;
+    } else {
+      body = `${alert.symbol} ${conditionText} your target of ${alert.target_price}. Current: ${alert.current_price}`;
+    }
 
     const message = {
       notification: { title, body },
@@ -537,10 +562,13 @@ class NotificationService {
       },
       data: {
         type: 'price_alert',
+        alert_type: alert.alert_type,
         symbol: alert.symbol,
         id: alert.id.toString(),
-        target_price: alert.target_price.toString(),
-        current_price: alert.current_price.toString()
+        target_price: (alert.effective_target_price || alert.target_price).toString(),
+        current_price: alert.current_price.toString(),
+        target_percentage: (alert.target_percentage || '').toString(),
+        wacc: (alert.wacc || '').toString()
       },
       tokens: alert.tokens
     };

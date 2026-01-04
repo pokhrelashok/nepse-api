@@ -1107,12 +1107,12 @@ async function getMarketStatusHistory(limit = 7) {
 
 // --- Price Alerts ---
 
-async function createPriceAlert(userId, symbol, price, condition) {
+async function createPriceAlert(userId, symbol, price, condition, alertType = 'PRICE', targetPercentage = null) {
   const sql = `
-    INSERT INTO price_alerts (user_id, symbol, target_price, alert_condition)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO price_alerts (user_id, symbol, target_price, alert_condition, alert_type, target_percentage)
+    VALUES (?, ?, ?, ?, ?, ?)
   `;
-  const [result] = await pool.execute(sql, [userId, symbol, price, condition]);
+  const [result] = await pool.execute(sql, [userId, symbol, price, condition, alertType, targetPercentage]);
   return result.insertId;
 }
 
@@ -1127,7 +1127,7 @@ async function getUserPriceAlerts(userId) {
 }
 
 async function updatePriceAlert(alertId, userId, data) {
-  const { price, condition, is_active } = data;
+  const { price, condition, is_active, alert_type, target_percentage } = data;
   const updates = [];
   const params = [];
 
@@ -1138,6 +1138,14 @@ async function updatePriceAlert(alertId, userId, data) {
   if (condition !== undefined) {
     updates.push('alert_condition = ?');
     params.push(condition);
+  }
+  if (alert_type !== undefined) {
+    updates.push('alert_type = ?');
+    params.push(alert_type);
+  }
+  if (target_percentage !== undefined) {
+    updates.push('target_percentage = ?');
+    params.push(target_percentage);
   }
   if (is_active !== undefined) {
     updates.push('is_active = ?');
@@ -1191,6 +1199,34 @@ async function updateAlertState(alertId, state) {
   await pool.execute(sql, [state, alertId]);
 }
 
+/**
+ * Calculates current WACC for a user across all portfolios for a symbol
+ */
+async function getUserHoldingWACC(userId, symbol) {
+  const sql = `
+    SELECT 
+      SUM(CASE WHEN type IN ('SECONDARY_BUY', 'IPO', 'FPO', 'AUCTION', 'RIGHTS', 'BONUS') THEN quantity ELSE 0 END) as total_qty,
+      SUM(CASE WHEN type IN ('SECONDARY_SELL') THEN quantity ELSE 0 END) as sell_qty,
+      SUM(CASE WHEN type IN ('SECONDARY_BUY', 'IPO', 'FPO', 'AUCTION', 'RIGHTS', 'BONUS') THEN quantity * price ELSE 0 END) as total_cost
+    FROM transactions t
+    JOIN portfolios p ON p.id = t.portfolio_id
+    WHERE p.user_id = ? AND t.stock_symbol = ?
+  `;
+
+  const [rows] = await pool.execute(sql, [userId, symbol]);
+  if (rows.length === 0) return null;
+
+  const { total_qty, sell_qty, total_cost } = rows[0];
+  const remaining_qty = total_qty - sell_qty;
+
+  if (remaining_qty <= 0) return null;
+
+  // WACC is (Total Cost / Total Buy Quantity)
+  // Note: This is simplified. True WACC might involve adjusting cost after partial sales.
+  // But for alerts, "cost basis" is what matters.
+  return total_cost / total_qty;
+}
+
 module.exports = {
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
@@ -1233,6 +1269,7 @@ module.exports = {
   getActivePriceAlerts,
   markAlertTriggered,
   updateAlertState,
+  getUserHoldingWACC,
   saveSchedulerStatus,
   getSchedulerStatus
 };
