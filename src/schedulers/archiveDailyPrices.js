@@ -21,7 +21,7 @@ async function archiveTodaysPrices() {
     logger.info(`📦 Archiving stock prices for ${todayStr} from Redis...`);
 
     // 1. Get data from Redis
-    const { default: redis } = require('../config/redis');
+    const redis = require('../config/redis');
     const livePricesMap = await redis.hgetall('live:stock_prices');
 
     if (!livePricesMap || Object.keys(livePricesMap).length === 0) {
