@@ -62,13 +62,15 @@ async function insertTodayPrices(prices) {
   if (!prices || prices.length === 0) return;
 
   try {
-    const pipeline = redis.pipeline();
     const now = new Date();
     const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
     const todayStr = nepaliDate.toISOString().split('T')[0];
     const timestamp = now.toISOString();
+    const timestampScore = now.getTime(); // Unix timestamp in milliseconds
 
-    // Store intraday snapshot for each symbol
+    // Check for duplicates and prepare data to store
+    const pricesToStore = [];
+
     for (const p of prices) {
       const symbol = p.symbol;
       const data = JSON.stringify({
@@ -76,20 +78,49 @@ async function insertTodayPrices(prices) {
         last_updated: timestamp
       });
 
-      // Update current live price
-      pipeline.hset('live:stock_prices', symbol, data);
-
-      // Append to intraday history (sorted set with timestamp as score)
+      // Check if this data is different from the last entry to avoid duplicates
       const intradayKey = `intraday:${todayStr}:${symbol}`;
-      const timestampScore = now.getTime(); // Unix timestamp in milliseconds
-      pipeline.zadd(intradayKey, timestampScore, data);
+      const lastSnapshot = await redis.zrange(intradayKey, -1, -1);
+      let shouldStore = true;
+
+      if (lastSnapshot && lastSnapshot.length > 0) {
+        const lastData = JSON.parse(lastSnapshot[0]);
+        // Compare key fields to detect if price data has actually changed
+        if (lastData.current_price === p.current_price &&
+          lastData.today_change === p.today_change &&
+          lastData.today_percentage_change === p.today_percentage_change) {
+          shouldStore = false;
+        }
+      }
+
+      if (shouldStore) {
+        pricesToStore.push({ symbol, data, intradayKey });
+      }
+    }
+
+    // Execute pipeline with live prices and deduplicated intraday data
+    const pipeline = redis.pipeline();
+
+    // Update all live prices
+    for (const p of prices) {
+      const symbol = p.symbol;
+      const data = JSON.stringify({
+        ...p,
+        last_updated: timestamp
+      });
+      pipeline.hset('live:stock_prices', symbol, data);
+    }
+
+    // Store only non-duplicate intraday data
+    for (const item of pricesToStore) {
+      pipeline.zadd(item.intradayKey, timestampScore, item.data);
 
       // Set expiry for intraday data (expire at end of next day)
       const tomorrow = new Date(nepaliDate);
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(23, 59, 59, 999);
       const ttlSeconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
-      pipeline.expire(intradayKey, ttlSeconds);
+      pipeline.expire(item.intradayKey, ttlSeconds);
     }
 
     // Update metadata
@@ -97,7 +128,7 @@ async function insertTodayPrices(prices) {
     pipeline.hset('live:metadata', 'last_price_date', todayStr);
 
     await pipeline.exec();
-    logger.info(`🚀 Saved ${prices.length} stock prices to Redis (live + intraday snapshots)`);
+    logger.info(`🚀 Saved ${prices.length} stock prices to Redis (${pricesToStore.length} new intraday snapshots, ${prices.length - pricesToStore.length} duplicates skipped)`);
 
     // Maintain MySQL for now as per user request
     return savePrices(prices);
@@ -561,7 +592,7 @@ async function saveMarketSummary(summary) {
     pipeline.hset('live:market_status', statusData);
     pipeline.hset('live:market_index', indexDataToSave);
 
-    // Store intraday market index snapshot
+    // Store intraday market index snapshot (with deduplication)
     const intradayKey = `intraday:market_index:${tradingDate}`;
     const snapshotData = JSON.stringify({
       ...indexData,
@@ -569,7 +600,25 @@ async function saveMarketSummary(summary) {
       isOpen,
       timestamp
     });
-    pipeline.zadd(intradayKey, timestampScore, snapshotData);
+
+    // Check if this data is different from the last entry to avoid duplicates
+    const lastSnapshot = await redis.zrange(intradayKey, -1, -1);
+    let shouldStore = true;
+
+    if (lastSnapshot && lastSnapshot.length > 0) {
+      const lastData = JSON.parse(lastSnapshot[0]);
+      // Compare key fields to detect if data has actually changed
+      if (lastData.nepseIndex === indexData.nepseIndex &&
+        lastData.marketStatusTime === indexData.marketStatusTime &&
+        lastData.totalTradedShares === indexData.totalTradedShares &&
+        lastData.totalTurnover === indexData.totalTurnover) {
+        shouldStore = false;
+      }
+    }
+
+    if (shouldStore) {
+      pipeline.zadd(intradayKey, timestampScore, snapshotData);
+    }
 
     // Set expiry for intraday data (expire at end of next day)
     const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
@@ -580,7 +629,7 @@ async function saveMarketSummary(summary) {
     pipeline.expire(intradayKey, ttlSeconds);
 
     await pipeline.exec();
-    logger.info(`🚀 Market summary saved to Redis for ${tradingDate} (live + intraday snapshot)`);
+    logger.info(`🚀 Market summary saved to Redis for ${tradingDate} (live + ${shouldStore ? 'new' : 'duplicate skipped'} intraday snapshot)`);
   } catch (error) {
     logger.error('❌ Redis error in saveMarketSummary:', error);
   }
