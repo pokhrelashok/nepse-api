@@ -11,7 +11,8 @@ module.exports = {
       env_file: '.env',
       env: {
         PUPPETEER_SKIP_CHROMIUM_DOWNLOAD: 'true',
-        PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable'
+        PUPPETEER_EXECUTABLE_PATH: '/usr/bin/google-chrome-stable',
+        NODE_TLS_REJECT_UNAUTHORIZED: '0'
       },
 
       error_file: './logs/api-err.log',

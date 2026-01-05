@@ -1325,6 +1325,12 @@ class NepseScraper {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
+        // Ensure browser is valid before each attempt
+        if (!this.browser || !this.browser.isConnected()) {
+          console.log('♻️ Browser invalid or disconnected, re-initializing...');
+          await this.init();
+        }
+
         console.log(`🔄 Attempt ${attempt}/${maxRetries} - Creating new page for market index...`);
         page = await this.browser.newPage();
 
@@ -1601,6 +1607,17 @@ class NepseScraper {
       } catch (error) {
         lastError = error;
         console.error(`❌ Market index scraping attempt ${attempt} failed:`, error.message);
+
+        // Force browser reset on critical errors
+        if (error.message.includes('createTarget') ||
+          error.message.includes('Protocol error') ||
+          error.message.includes('Browser disconnected') ||
+          error.message.includes('Navigating frame was detached') ||
+          error.message.includes('not an object')) {
+          console.log('⚠️ Browser appears unstable, closing instance...');
+          await this.close();
+        }
+
         if (page) {
           await page.close().catch(() => { });
           page = null;
