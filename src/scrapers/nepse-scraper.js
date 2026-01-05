@@ -501,9 +501,19 @@ class NepseScraper {
 
       // Trigger the selection
       await page.select(selector, '500');
+      console.log('✅ Selected 500 from dropdown');
 
       // Click the Filter button
       const filterButtonSelector = 'button.box__filter--search';
+
+      // Wait for the button to be visible and clickable
+      try {
+        await page.waitForSelector(filterButtonSelector, { visible: true, timeout: 5000 });
+        console.log('✅ Filter button found and visible');
+      } catch (e) {
+        console.log('⚠️ Filter button not found or not visible:', e.message);
+        throw new Error('Filter button not accessible');
+      }
 
       // We wrap the click in Promise.all to capture the API response that happens after clicking
       const [response] = await Promise.all([
@@ -516,7 +526,7 @@ class NepseScraper {
           console.log('⚠️ Warning: API response wait timed out after clicking Filter, but proceeding if UI updated');
           return null;
         }),
-        page.click(filterButtonSelector)
+        page.click(filterButtonSelector).then(() => console.log('✅ Clicked Filter button'))
       ]);
 
       if (response) {
@@ -594,13 +604,13 @@ class NepseScraper {
 
       // Click Filter button
       const filterButtonSelector = 'button.box__filter--search';
-      
+
       try {
         await page.waitForSelector(filterButtonSelector, { timeout: 5000 });
         await page.click(filterButtonSelector);
         console.log('✅ Set pagination to 500 and clicked Filter');
       } catch (e) {
-         console.log('⚠️ Could not find or click filter button: ' + e.message);
+        console.log('⚠️ Could not find or click filter button: ' + e.message);
       }
 
       // Wait for table to reload - give it a generous buffer since we are reading the DOM
