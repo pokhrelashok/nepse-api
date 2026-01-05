@@ -300,6 +300,30 @@ class Scheduler {
     }
 
     this.isJobRunning.set(jobKey, true);
+
+    // Safety: Update last run time in DB to indicate liveliness, 
+    // but primarily we trust in-memory. However, if we crashed, DB has old state.
+    // If we are starting fresh (constructor), we loaded stats. 
+    // If stats say RUNNING but we just started, we should probably reset it? (Already handled in constructor implicitly by isRunning=false)
+    // The issue here is if the JOB hangs but process doesn't restart.
+
+    // Set a safety timeout to clear the lock if the job hangs indefinitely (e.g., 10 minutes)
+    // Only set if not already set (though we cleared it in finally)
+    if (this._jobTimeouts && this._jobTimeouts.get(jobKey)) {
+      clearTimeout(this._jobTimeouts.get(jobKey));
+    }
+
+    if (!this._jobTimeouts) this._jobTimeouts = new Map();
+
+    const timeoutDuration = 10 * 60 * 1000; // 10 minutes
+    const timeoutId = setTimeout(async () => {
+      logger.error(`⚠️ Job ${jobKey} timed out after 10 minutes! forcing reset.`);
+      this.isJobRunning.set(jobKey, false);
+      this.updateStatus(jobKey, 'FAIL', 'Job timed out (watchdog)');
+    }, timeoutDuration);
+
+    this._jobTimeouts.set(jobKey, timeoutId);
+
     this.updateStatus(jobKey, 'START', `Starting ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update...`);
 
     logger.info(`Scheduled ${phase === 'AFTER_CLOSE' ? 'close' : 'price'} update started...`);
@@ -345,7 +369,10 @@ class Scheduler {
       logger.error('Scheduled update failed:', error);
       this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
-
+      if (this._jobTimeouts && this._jobTimeouts.get(jobKey)) {
+        clearTimeout(this._jobTimeouts.get(jobKey));
+        this._jobTimeouts.delete(jobKey);
+      }
       this.isJobRunning.set(jobKey, false);
     }
   }

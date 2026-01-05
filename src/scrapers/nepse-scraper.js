@@ -491,13 +491,63 @@ class NepseScraper {
 
     await new Promise(resolve => setTimeout(resolve, 3000));
 
-    // Process API response
-    const todayPriceResponse = apiResponses.find(r =>
+    // --- Pagination Fix: Select 500 items per page ---
+    try {
+      console.log('📄 Attempting to set pagination to 500...');
+
+      // Wait for the select element
+      const selector = 'div.box__filter--field select';
+      await page.waitForSelector(selector, { timeout: 10000 });
+
+      // Trigger the selection
+      await page.select(selector, '500');
+
+      // Click the Filter button
+      const filterButtonSelector = 'button.box__filter--search';
+
+      // We wrap the click in Promise.all to capture the API response that happens after clicking
+      const [response] = await Promise.all([
+        page.waitForResponse(response =>
+          response.url().includes('today-price') &&
+          response.url().includes('/api/') &&
+          response.status() === 200,
+          { timeout: 15000 }
+        ).catch(e => {
+          console.log('⚠️ Warning: API response wait timed out after clicking Filter, but proceeding if UI updated');
+          return null;
+        }),
+        page.click(filterButtonSelector)
+      ]);
+
+      if (response) {
+        console.log('✅ Pagination API call captured successfully');
+      }
+
+      // Small cooldown to ensure table render catches up if it wasn't tied directly to that exact response
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+    } catch (err) {
+      console.log(`⚠️ Pagination change failed: ${err.message}`);
+    }
+    // ------------------------------------------------
+
+    // Process API responses - Find the one with the most data
+    // We sort by content length descending to get the largest dataset (likely the 500 one)
+    const validResponses = apiResponses.filter(r =>
       r.url.includes('today-price') &&
       r.url.includes('/api/') &&
       r.status === 200 &&
       r.data?.content
     );
+
+    // Sort by number of records
+    validResponses.sort((a, b) => {
+      const lenA = Array.isArray(a.data.content) ? a.data.content.length : Object.keys(a.data.content).length;
+      const lenB = Array.isArray(b.data.content) ? b.data.content.length : Object.keys(b.data.content).length;
+      return lenB - lenA; // Descending
+    });
+
+    const todayPriceResponse = validResponses[0]; // Get the largest one
 
     if (!todayPriceResponse) {
       throw new Error('No valid API response found');
@@ -531,6 +581,35 @@ class NepseScraper {
     }
 
     await page.waitForSelector('table, .table-responsive', { timeout: 15000 });
+
+    // --- Pagination Fix: Select 500 items per page ---
+    try {
+      console.log('📄 Attempting to set pagination to 500 (HTML Method)...');
+
+      const selector = 'div.box__filter--field select';
+      await page.waitForSelector(selector, { timeout: 10000 });
+
+      // For HTML scraping, we mainly care about the table updating
+      await page.select(selector, '500');
+
+      // Click Filter button
+      const filterButtonSelector = 'button.box__filter--search';
+      
+      try {
+        await page.waitForSelector(filterButtonSelector, { timeout: 5000 });
+        await page.click(filterButtonSelector);
+        console.log('✅ Set pagination to 500 and clicked Filter');
+      } catch (e) {
+         console.log('⚠️ Could not find or click filter button: ' + e.message);
+      }
+
+      // Wait for table to reload - give it a generous buffer since we are reading the DOM
+      await new Promise(resolve => setTimeout(resolve, 5000));
+
+    } catch (err) {
+      console.log(`⚠️ Pagination change failed: ${err.message}`);
+    }
+    // ------------------------------------------------
 
     const data = await page.evaluate(() => {
       const tables = document.querySelectorAll('table');
