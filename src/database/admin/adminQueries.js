@@ -235,6 +235,40 @@ async function deleteApiKey(id) {
   return result.affectedRows > 0;
 }
 
+// ==================== USERS ====================
+
+async function getUsersForAdmin(limit = 20, offset = 0) {
+  const sql = `
+    SELECT 
+      u.id, u.google_id, u.email, u.display_name, u.avatar_url, u.created_at,
+      (SELECT COUNT(*) FROM portfolios WHERE user_id = u.id) as portfolio_count,
+      (SELECT COUNT(*) FROM price_alerts WHERE user_id = u.id) as alert_count
+    FROM users u
+    ORDER BY u.created_at DESC 
+    LIMIT ? OFFSET ?
+  `;
+  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+  return rows;
+}
+
+async function getUserCountForAdmin() {
+  const sql = 'SELECT COUNT(*) as total FROM users';
+  const [rows] = await pool.execute(sql);
+  return rows[0].total;
+}
+
+async function getUserStatsForAdmin() {
+  const sql = `
+    SELECT 
+      (SELECT COUNT(*) FROM users) as total_users,
+      (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as users_this_week,
+      (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as users_today,
+      (SELECT COUNT(*) FROM notification_tokens) as total_active_devices
+  `;
+  const [rows] = await pool.execute(sql);
+  return rows[0];
+}
+
 module.exports = {
   // Companies
   getCompaniesForAdmin,
@@ -255,4 +289,9 @@ module.exports = {
   getAllApiKeys,
   createApiKey,
   deleteApiKey,
+
+  // Users
+  getUsersForAdmin,
+  getUserCountForAdmin,
+  getUserStatsForAdmin
 };

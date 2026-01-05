@@ -450,17 +450,38 @@ async function getIntradayMarketIndex(date = null) {
       return [];
     }
 
-    // Parse snapshots and return only essential data
+    // Parse snapshots and return only valid data
     const result = [];
+    const seen = new Set(); // Track unique snapshots to avoid duplicates
+
     for (let i = 0; i < snapshots.length; i += 2) {
       const data = JSON.parse(snapshots[i]);
+      const timestamp = parseInt(snapshots[i + 1]);
+
+      // Filter out invalid snapshots (nepse_index = 0 means pre-market or invalid data)
+      if (!data.nepseIndex || data.nepseIndex === 0) {
+        continue;
+      }
+
+      // Create a unique key for deduplication
+      const uniqueKey = `${data.nepseIndex}-${data.marketStatusTime}-${data.totalTradedShares}`;
+      if (seen.has(uniqueKey)) {
+        continue;
+      }
+      seen.add(uniqueKey);
+
       result.push({
         nepse_index: data.nepseIndex,
         market_status_time: data.marketStatusTime,
         total_traded_shares: data.totalTradedShares || 0,
-        total_turnover: data.totalTurnover || 0
+        total_turnover: data.totalTurnover || 0,
+        timestamp: new Date(timestamp).toISOString()
       });
     }
+
+    // Sort by timestamp descending (most recent first)
+    result.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
     return result;
   } catch (error) {
     logger.error('❌ Redis error in getIntradayMarketIndex:', error);
@@ -620,13 +641,17 @@ async function saveMarketSummary(summary) {
       pipeline.zadd(intradayKey, timestampScore, snapshotData);
     }
 
-    // Set expiry for intraday data (expire at end of next day)
-    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-    const tomorrow = new Date(nepaliDate);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(23, 59, 59, 999);
-    const ttlSeconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
-    pipeline.expire(intradayKey, ttlSeconds);
+    // Set expiry for intraday data (expire at end of today, not tomorrow)
+    // This ensures we only keep today's data
+    const nepaliNow = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
+    const endOfToday = new Date(nepaliNow);
+    endOfToday.setHours(23, 59, 59, 999);
+    const ttlSeconds = Math.floor((endOfToday.getTime() - now.getTime()) / 1000);
+
+    // Only set expiry if TTL is positive (i.e., we're not past midnight)
+    if (ttlSeconds > 0) {
+      pipeline.expire(intradayKey, ttlSeconds);
+    }
 
     await pipeline.exec();
     logger.info(`🚀 Market summary saved to Redis for ${tradingDate} (live + ${shouldStore ? 'new' : 'duplicate skipped'} intraday snapshot)`);
@@ -1062,12 +1087,8 @@ async function getStockHistory(symbol, startDate) {
   const sql = `
     SELECT 
       business_date,
-      high_price,
-      low_price,
       close_price,
-      total_trades,
-      total_traded_quantity,
-      total_traded_value
+      total_traded_quantity
     FROM stock_price_history
     WHERE symbol = ? AND business_date >= ?
     ORDER BY business_date ASC
@@ -1086,7 +1107,13 @@ async function getMarketIndicesHistory(options = {}) {
   } = options;
 
   let sql = `
-    SELECT * FROM market_indices_history 
+    SELECT 
+      business_date,
+      closing_index,
+      percentage_change,
+      turnover_value,
+      turnover_volume
+    FROM market_indices_history 
     WHERE 1=1
   `;
   const params = [];

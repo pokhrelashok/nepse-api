@@ -114,8 +114,8 @@ class Scheduler {
       timezone: 'Asia/Kathmandu'
     });
 
-    // Price updates every 2 minutes during market hours (10 AM - 3 PM)
-    const priceJob = cron.schedule('*/2 10-15 * * 0-4', async () => {
+    // Price updates every 2 minutes during market hours (11 AM - 3 PM)
+    const priceJob = cron.schedule('*/2 11-15 * * 0-4', async () => {
       await this.updatePricesAndStatus('DURING_HOURS');
     }, {
       scheduled: false,
@@ -233,7 +233,7 @@ class Scheduler {
     indexHistoryJob.start();
 
     this.isRunning = true;
-    logger.info('Scheduler started (index every 20s during hours, prices every 2 min, archive at 3:05 PM)');
+    logger.info('Scheduler started (index every 20s during hours, prices every 2 min from 11 AM, archive at 3:05 PM)');
   }
 
   async updateMarketIndex() {
@@ -695,6 +695,25 @@ class Scheduler {
     }
   }
 
+  async waitForJobsToFinish(timeoutMs = 15000) {
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      const activeJobs = Array.from(this.isJobRunning.entries())
+        .filter(([_, isRunning]) => isRunning)
+        .map(([key, _]) => key);
+
+      if (activeJobs.length === 0) {
+        return true;
+      }
+
+      logger.info(`Waiting for jobs to complete: ${activeJobs.join(', ')}`);
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+
+    return false;
+  }
+
   async stopAllSchedules() {
     logger.info('Stopping all scheduled jobs...');
 
@@ -703,6 +722,13 @@ class Scheduler {
       console.log(`🛑 Stopped schedule: ${name}`);
     }
     this.jobs.clear();
+
+    const graceful = await this.waitForJobsToFinish();
+    if (!graceful) {
+      logger.warn('⚠️ Some jobs did not finish in time, forcing shutdown...');
+    } else {
+      logger.info('✅ All jobs completed successfully');
+    }
 
     if (this.scraper) {
       await this.scraper.close();

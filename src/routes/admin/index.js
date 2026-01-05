@@ -15,6 +15,7 @@ router.use('/feedback', require('./feedback'));
 router.use('/keys', require('./apiKeys'));
 router.use('/dividends', require('./dividends'));
 router.use('/prices', require('./prices'));
+router.use('/users', require('./users'));
 
 // Scheduler status endpoint
 router.get('/scheduler/status', authMiddleware, async (req, res) => {
