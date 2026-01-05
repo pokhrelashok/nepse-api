@@ -5,6 +5,25 @@
  * Usage: node scripts/test-scraper.js
  */
 
+// Set Chrome path for production server
+if (!process.env.PUPPETEER_EXECUTABLE_PATH) {
+  const fs = require('fs');
+  const chromePaths = [
+    '/usr/bin/chromium-browser',
+    '/usr/bin/chromium',
+    '/usr/bin/google-chrome',
+    '/usr/bin/google-chrome-stable'
+  ];
+
+  for (const path of chromePaths) {
+    if (fs.existsSync(path)) {
+      process.env.PUPPETEER_EXECUTABLE_PATH = path;
+      console.log(`🔧 Using Chrome at: ${path}\n`);
+      break;
+    }
+  }
+}
+
 const { NepseScraper } = require('../src/scrapers/nepse-scraper');
 
 async function testScraper() {
