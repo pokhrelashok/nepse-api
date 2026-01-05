@@ -297,29 +297,29 @@ class NepseScraper {
         await page.setDefaultTimeout(60000);
         await page.setDefaultNavigationTimeout(60000);
 
-        console.log('🎯 Trying CSV download method first...');
+        console.log('📡 Trying API capture method first...');
         try {
-          const result = await this.scrapeTodayPricesCSVDownload(page);
+          const result = await this.scrapeTodayPricesAPI(page);
           await page.close().catch(() => { });
           page = null;
           return result;
-        } catch (csvError) {
-          console.log(`⚠️ CSV download method failed (attempt ${attempt}): ${csvError.message}`);
+        } catch (apiError) {
+          console.log(`⚠️ API capture method failed (attempt ${attempt}): ${apiError.message}`);
 
-          // Close old page and open a fresh one for the next method to avoid "main frame too early"
+          // Close old page and open a fresh one for the next method
           await page.close().catch(() => { });
           page = await this.browser.newPage();
           await page.setUserAgent(this.userAgent);
           await page.setDefaultTimeout(60000);
 
-          console.log('🔄 Falling back to API capture...');
+          console.log('🔄 Falling back to CSV download...');
           try {
-            const result = await this.scrapeTodayPricesAPI(page);
+            const result = await this.scrapeTodayPricesCSVDownload(page);
             await page.close().catch(() => { });
             page = null;
             return result;
-          } catch (apiError) {
-            console.log(`⚠️ API capture failed (attempt ${attempt}): ${apiError.message}`);
+          } catch (csvError) {
+            console.log(`⚠️ CSV download failed (attempt ${attempt}): ${csvError.message}`);
 
             // Fresh page for HTML scraping
             await page.close().catch(() => { });
@@ -572,32 +572,40 @@ class NepseScraper {
   }
 
   formatAPIData(stockArray) {
-    return stockArray.map(stock => ({
-      symbol: stock.symbol,
-      securityName: stock.securityName,
-      securityId: stock.securityId,
-      businessDate: stock.businessDate,
-      openPrice: stock.openPrice,
-      highPrice: stock.highPrice,
-      lowPrice: stock.lowPrice,
-      closePrice: stock.closePrice,
-      previousClose: stock.previousDayClosePrice,
-      change: stock.closePrice - stock.previousDayClosePrice,
-      percentageChange: ((stock.closePrice - stock.previousDayClosePrice) / stock.previousDayClosePrice * 100),
-      totalTradedQuantity: stock.totalTradedQuantity,
-      totalTradedValue: stock.totalTradedValue,
-      totalTrades: stock.totalTrades,
-      averageTradedPrice: stock.averageTradedPrice,
-      marketCapitalization: stock.marketCapitalization,
-      fiftyTwoWeekHigh: stock.fiftyTwoWeekHigh,
-      fiftyTwoWeekLow: stock.fiftyTwoWeekLow,
-      lastUpdatedTime: stock.lastUpdatedTime,
-      lastTradedPrice: stock.closePrice,
-      volume: stock.totalTradedQuantity,
-      turnover: stock.totalTradedValue,
-      maxPrice: stock.highPrice,
-      minPrice: stock.lowPrice
-    }));
+    return stockArray.map(stock => {
+      // Logic from formatCSVDownloadData to handle missing closePrice
+      const ltp = stock.lastUpdatedPrice || stock.lastTradedPrice || stock.closePrice || 0;
+      const prevClose = stock.previousDayClosePrice || 0;
+      const pointChange = ltp && prevClose ? (ltp - prevClose) : 0;
+      const percentChange = prevClose && prevClose !== 0 ? ((pointChange / prevClose) * 100) : 0;
+
+      return {
+        symbol: stock.symbol,
+        securityName: stock.securityName,
+        securityId: stock.securityId,
+        businessDate: stock.businessDate,
+        openPrice: stock.openPrice,
+        highPrice: stock.highPrice,
+        lowPrice: stock.lowPrice,
+        closePrice: ltp,
+        previousClose: prevClose,
+        change: pointChange,
+        percentageChange: percentChange,
+        totalTradedQuantity: stock.totalTradedQuantity,
+        totalTradedValue: stock.totalTradedValue,
+        totalTrades: stock.totalTrades,
+        averageTradedPrice: stock.averageTradedPrice,
+        marketCapitalization: stock.marketCapitalization,
+        fiftyTwoWeekHigh: stock.fiftyTwoWeekHigh,
+        fiftyTwoWeekLow: stock.fiftyTwoWeekLow,
+        lastUpdatedTime: stock.lastUpdatedTime,
+        lastTradedPrice: ltp,
+        volume: stock.totalTradedQuantity,
+        turnover: stock.totalTradedValue,
+        maxPrice: stock.highPrice,
+        minPrice: stock.lowPrice
+      };
+    });
   }
 
   formatHTMLData(rawData) {
