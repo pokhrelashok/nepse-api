@@ -57,6 +57,7 @@ import IposPage from './pages/admin/Ipos'
 import DividendsPage from './pages/admin/Dividends'
 import ApiKeysPage from './pages/admin/ApiKeys'
 import FeedbackPage from './pages/admin/Feedback'
+import UsersPage from './pages/admin/Users'
 
 export const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -99,6 +100,12 @@ export const adminDashboardRoute = createRoute({
   getParentRoute: () => adminAuthenticatedRoute,
   path: 'dashboard',
   component: Dashboard,
+})
+
+export const adminUsersRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'users',
+  component: UsersPage,
 })
 
 export const adminCompaniesRoute = createRoute({
@@ -149,6 +156,7 @@ export const routeTree = rootRoute.addChildren([
     adminLoginRoute,
     adminAuthenticatedRoute.addChildren([
       adminDashboardRoute,
+      adminUsersRoute,
       adminCompaniesRoute,
       adminPricesRoute,
       adminIposRoute,

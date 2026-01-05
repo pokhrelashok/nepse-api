@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Activity, ArrowUpRight, ArrowDownRight, Equal, Clock, CheckCircle2, XCircle } from "lucide-react"
+import { Activity, ArrowUpRight, ArrowDownRight, Equal, Clock, CheckCircle2, XCircle, Users, UserPlus } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 
@@ -26,6 +26,14 @@ export default function Dashboard() {
       return res.data?.data || {}
     },
     refetchInterval: 10000 // Refresh every 10 seconds
+  })
+
+  const { data: userStats, isLoading: userStatsLoading } = useQuery({
+    queryKey: ['admin-user-stats'],
+    queryFn: async () => {
+      const res = await api.get('/admin/users/stats')
+      return res.data?.data || {}
+    }
   })
 
   // Fallback data
@@ -53,6 +61,34 @@ export default function Dashboard() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground">Market overview and scraper status.</p>
+      </div>
+
+      {/* User Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            {userStatsLoading ? <Skeleton className="h-7 w-[60px]" /> : (
+              <div className="text-2xl font-bold">{userStats?.total_users || 0}</div>
+            )}
+            <p className="text-xs text-muted-foreground">Registered users</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">New Users</CardTitle>
+            <UserPlus className="h-4 w-4 text-violet-500" />
+          </CardHeader>
+          <CardContent>
+            {userStatsLoading ? <Skeleton className="h-7 w-[60px]" /> : (
+              <div className="text-2xl font-bold">{userStats?.users_this_week || 0}</div>
+            )}
+            <p className="text-xs text-muted-foreground">Joined this week</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Market Stats Cards */}

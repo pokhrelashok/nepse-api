@@ -7,7 +7,8 @@ import {
   LogOut,
   Megaphone,
   Key,
-  MessageSquareText
+  MessageSquareText,
+  Users
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,11 @@ export function AdminSidebar({ className }: SidebarProps) {
       title: "Dashboard",
       icon: LayoutDashboard,
       href: "/admin/dashboard",
+    },
+    {
+      title: "Users",
+      icon: Users,
+      href: "/admin/users",
     },
     {
       title: "Companies",
