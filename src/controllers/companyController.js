@@ -152,8 +152,9 @@ exports.getIpos = async (req, res) => {
     const offset = parseInt(req.query.offset) || 0;
     const from_date = req.query.from;
     const to_date = req.query.to;
+    const offering_type = req.query.type; // 'ipo' or 'fpo'
 
-    const ipos = await getIpos(limit, offset, from_date, to_date);
+    const ipos = await getIpos(limit, offset, from_date, to_date, offering_type);
 
     res.json(formatResponse(ipos));
   } catch (e) {

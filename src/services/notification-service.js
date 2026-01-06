@@ -140,22 +140,27 @@ class NotificationService {
         // Get the normalized share_type (lowercase_underscore) for querying
         // The ipo object from scraper has the raw value, we need to normalize it
         const { normalizeShareType } = require('../utils/share-type-utils');
-        const normalizedType = normalizeShareType(ipo.share_type);
+        const normalizedShareType = normalizeShareType(ipo.share_type);
+        const offeringType = (ipo.offering_type || 'ipo').toLowerCase();
+
+        // Target type for preference check: 
+        // If it's an FPO, we check 'fpo'. If it's an IPO, we check its share_type
+        const preferenceType = offeringType === 'fpo' ? 'fpo' : normalizedShareType;
 
         // Get tokens of users who:
         // - Have IPO alerts enabled (notify_ipos = TRUE)
-        // - Have this specific IPO type in their preferences
+        // - Have this specific preference type enabled
         const [rows] = await pool.execute(`
           SELECT DISTINCT nt.fcm_token 
           FROM notification_tokens nt 
           JOIN users u ON u.id = nt.user_id 
           WHERE u.notify_ipos = TRUE
           AND JSON_CONTAINS(u.ipo_notification_types, JSON_QUOTE(?))
-        `, [normalizedType]);
+        `, [preferenceType]);
 
         const tokens = rows.map(r => r.fcm_token);
         if (tokens.length === 0) {
-          logger.info(`No users subscribed to ${normalizedType} IPO notifications.`);
+          logger.info(`No users subscribed to ${preferenceType} notifications.`);
           continue;
         }
 
@@ -189,7 +194,10 @@ class NotificationService {
       for (const ipo of closingIpos) {
         // Reuse logic to filter users by share type preferences
         const { normalizeShareType } = require('../utils/share-type-utils');
-        const normalizedType = normalizeShareType(ipo.share_type);
+        const normalizedShareType = normalizeShareType(ipo.share_type);
+        const offeringType = (ipo.offering_type || 'ipo').toLowerCase();
+
+        const preferenceType = offeringType === 'fpo' ? 'fpo' : normalizedShareType;
 
         const [rows] = await pool.execute(`
           SELECT DISTINCT nt.fcm_token 
@@ -197,11 +205,11 @@ class NotificationService {
           JOIN users u ON u.id = nt.user_id 
           WHERE u.notify_ipos = TRUE
           AND JSON_CONTAINS(u.ipo_notification_types, JSON_QUOTE(?))
-        `, [normalizedType]);
+        `, [preferenceType]);
 
         const tokens = rows.map(r => r.fcm_token);
         if (tokens.length === 0) {
-          logger.info(`No users subscribed to ${normalizedType} IPO notifications (closing reminder).`);
+          logger.info(`No users subscribed to ${preferenceType} notifications (closing reminder).`);
           continue;
         }
 
@@ -246,10 +254,10 @@ class NotificationService {
    * Send broadcast notification for an IPO
    */
   static async sendIpoNotification(ipo, tokens) {
-    const { formatShareType } = require('../utils/share-type-utils');
-    const title = `New IPO: ${ipo.company_name}`;
+    const offeringType = (ipo.offering_type || 'ipo').toUpperCase();
+    const title = `New ${offeringType}: ${ipo.company_name}`;
     const formattedType = formatShareType(ipo.share_type);
-    const body = `${formattedType} opens ${this.formatDate(ipo.opening_date)}, apply before ${this.formatDate(ipo.application_deadline)}`;
+    const body = `${formattedType} offering opens ${this.formatDate(ipo.opening_date)}, apply before ${this.formatDate(ipo.closing_date)}`;
 
     const message = {
       notification: { title, body },
@@ -260,7 +268,7 @@ class NotificationService {
         }
       },
       data: {
-        type: 'ipo',
+        type: offeringType.toLowerCase(),
         route: 'ipo_calendar',
         symbol: ipo.symbol || '',
         id: ipo.id.toString()
@@ -294,7 +302,8 @@ class NotificationService {
    */
   static async sendIpoClosingNotification(ipo, tokens) {
     const { formatShareType } = require('../utils/share-type-utils');
-    const title = `IPO Closing Today: ${ipo.company_name}`;
+    const offeringType = (ipo.offering_type || 'ipo').toUpperCase();
+    const title = `${offeringType} Closing Today: ${ipo.company_name}`;
     const formattedType = formatShareType(ipo.share_type);
     const body = `${formattedType} for ${ipo.company_name} closes today! Apply via Meroshare before banking hours.`;
 
@@ -307,7 +316,7 @@ class NotificationService {
         }
       },
       data: {
-        type: 'ipo_closing',
+        type: `${offeringType.toLowerCase()}_closing`,
         route: 'ipo_calendar',
         symbol: ipo.symbol || '',
         id: ipo.id.toString()

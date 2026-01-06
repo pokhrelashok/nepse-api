@@ -25,6 +25,7 @@ class Scheduler {
       market_index_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       index_history_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      fpo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       db_backup: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       notification_check: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null }
@@ -177,6 +178,17 @@ class Scheduler {
     this.jobs.set('ipo_update', ipoJob);
 
     ipoJob.start();
+
+    // FPO Scraper (Once a day at 2:15 AM - after IPO scraper)
+    const fpoJob = cron.schedule('15 2 * * *', async () => {
+      await this.runFpoScrape();
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('fpo_update', fpoJob);
+
+    fpoJob.start();
 
     // Announced Dividends Scraper (Once a day at 2:30 AM)
     const dividendJob = cron.schedule('30 2 * * *', async () => {
@@ -485,6 +497,28 @@ class Scheduler {
       this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
 
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async runFpoScrape() {
+    const jobKey = 'fpo_update';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.updateStatus(jobKey, 'START', 'Starting FPO scrape...');
+
+    logger.info('Starting scheduled FPO scrape...');
+
+    try {
+      const { scrapeFpos } = require('./scrapers/fpo-scraper');
+      await scrapeFpos(false);
+
+      this.updateStatus(jobKey, 'SUCCESS', 'FPO scrape completed');
+    } catch (error) {
+      logger.error('Scheduled FPO scrape failed:', error);
+      this.updateStatus(jobKey, 'FAIL', error.message);
+    } finally {
       this.isJobRunning.set(jobKey, false);
     }
   }

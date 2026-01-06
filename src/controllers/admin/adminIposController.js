@@ -15,8 +15,11 @@ exports.getAllIpos = async (req, res) => {
     const limit = parseInt(req.query.limit) || 20;
     const offset = parseInt(req.query.offset) || 0;
     const status = req.query.status;
+    const type = req.query.type;
 
-    const filters = status ? { status } : {};
+    const filters = {};
+    if (status) filters.status = status;
+    if (type) filters.type = type;
 
     const [ipos, total] = await Promise.all([
       getIposForAdmin(limit, offset, filters),

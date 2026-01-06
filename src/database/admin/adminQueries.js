@@ -70,6 +70,7 @@ async function getIposForAdmin(limit = 20, offset = 0, filters = {}) {
       sector_name,
       nepali_sector_name,
       share_type,
+      offering_type,
       price_per_unit,
       rating,
       units,
@@ -90,6 +91,11 @@ async function getIposForAdmin(limit = 20, offset = 0, filters = {}) {
     params.push(filters.status);
   }
 
+  if (filters.type) {
+    sql += ' AND offering_type = ?';
+    params.push(filters.type);
+  }
+
   sql += ' ORDER BY opening_date DESC LIMIT ? OFFSET ?';
   params.push(String(limit), String(offset));
 
@@ -104,6 +110,11 @@ async function getIpoCountForAdmin(filters = {}) {
   if (filters.status) {
     sql += ' AND status = ?';
     params.push(filters.status);
+  }
+
+  if (filters.type) {
+    sql += ' AND offering_type = ?';
+    params.push(filters.type);
   }
 
   const [rows] = await pool.execute(sql, params);
