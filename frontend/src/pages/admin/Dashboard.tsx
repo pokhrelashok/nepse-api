@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Activity, ArrowUpRight, ArrowDownRight, Equal, Clock, CheckCircle2, XCircle, Users, UserPlus } from "lucide-react"
+import { Activity, ArrowUpRight, ArrowDownRight, Equal, Clock, CheckCircle2, XCircle, Users, UserPlus, Cpu, HardDrive, MemoryStick, Server } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 
@@ -34,6 +34,15 @@ export default function Dashboard() {
       const res = await api.get('/admin/users/stats')
       return res.data?.data || {}
     }
+  })
+
+  const { data: systemMetrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ['system-metrics'],
+    queryFn: async () => {
+      const res = await api.get('/admin/system/metrics')
+      return res.data?.data || {}
+    },
+    refetchInterval: 30000 // Refresh every 30 seconds
   })
 
   // Fallback data
@@ -144,6 +153,103 @@ export default function Dashboard() {
           </CardContent>
         </Card>
       </div>
+
+      {/* System Metrics */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Server className="h-5 w-5" />
+            Server Resources
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {metricsLoading ? (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-24 w-full" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              {/* CPU Usage */}
+              <div className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Cpu className="h-4 w-4 text-blue-500" />
+                    <span className="font-medium text-sm">CPU</span>
+                  </div>
+                  <span className="text-lg font-bold">{systemMetrics?.cpu?.usage || 0}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 transition-all duration-500"
+                    style={{ width: `${Math.min(systemMetrics?.cpu?.usage || 0, 100)}%` }}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {systemMetrics?.cpu?.cores || 0} cores • Load: {(systemMetrics?.cpu?.loadAverage?.[0] || 0).toFixed(2)}
+                </div>
+              </div>
+
+              {/* Memory Usage */}
+              <div className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MemoryStick className="h-4 w-4 text-violet-500" />
+                    <span className="font-medium text-sm">Memory</span>
+                  </div>
+                  <span className="text-lg font-bold">{systemMetrics?.memory?.usagePercent || 0}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-violet-500 transition-all duration-500"
+                    style={{ width: `${Math.min(systemMetrics?.memory?.usagePercent || 0, 100)}%` }}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {systemMetrics?.memory?.formatted?.used || '0'} / {systemMetrics?.memory?.formatted?.total || '0'}
+                </div>
+              </div>
+
+              {/* Disk Usage */}
+              <div className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <HardDrive className="h-4 w-4 text-amber-500" />
+                    <span className="font-medium text-sm">Disk</span>
+                  </div>
+                  <span className="text-lg font-bold">{systemMetrics?.disk?.usagePercent || 0}%</span>
+                </div>
+                <div className="h-2 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 transition-all duration-500"
+                    style={{ width: `${Math.min(systemMetrics?.disk?.usagePercent || 0, 100)}%` }}
+                  />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {systemMetrics?.disk?.used || '0'} / {systemMetrics?.disk?.total || '0'}
+                </div>
+              </div>
+
+              {/* Uptime */}
+              <div className="border rounded-lg p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-green-500" />
+                    <span className="font-medium text-sm">Uptime</span>
+                  </div>
+                </div>
+                <div className="text-lg font-bold text-green-600">
+                  {systemMetrics?.uptime?.formatted || '0s'}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Process: {systemMetrics?.process?.uptimeFormatted || '0s'} • Node {systemMetrics?.process?.nodeVersion || ''}
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Scheduler Status */}
       <Card>

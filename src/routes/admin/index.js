@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth');
 const scheduler = require('../../scheduler-instance');
+const { getSystemMetrics } = require('../../utils/system-metrics');
 
 /**
  * Admin routes - completely separate from application APIs
@@ -34,4 +35,22 @@ router.get('/scheduler/status', authMiddleware, async (req, res) => {
   }
 });
 
+// System metrics endpoint
+router.get('/system/metrics', authMiddleware, async (req, res) => {
+  try {
+    const metrics = await getSystemMetrics();
+    res.json({
+      success: true,
+      data: metrics
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get system metrics',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;
+
