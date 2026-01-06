@@ -4,6 +4,7 @@ const { program } = require('commander');
 const Scheduler = require('./scheduler');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeIpos } = require('./scrapers/ipo-scraper');
+const { scrapeFpos } = require('./scrapers/fpo-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
 const { getAllSecurityIds, getSecurityIdsWithoutDetails, getSecurityIdsBySymbols, insertTodayPrices, insertCompanyDetails, insertDividends, insertFinancials, updateMarketStatus, saveMarketSummary } = require('./database/queries');
 const { formatPricesForDatabase, formatCompanyDetailsForDatabase } = require('./utils/formatter');
@@ -223,6 +224,21 @@ program
       console.log('📊 Scraping IPOs...');
       await scrapeIpos(options.all);
       console.log('✅ IPO scraping completed');
+    } catch (error) {
+      console.error('❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('fpos')
+  .description('Scrape FPO lists from Nepalipaisa')
+  .option('-a, --all', 'Scrape all pages')
+  .action(async (options) => {
+    try {
+      console.log('📊 Scraping FPOs...');
+      await scrapeFpos(options.all);
+      console.log('✅ FPO scraping completed');
     } catch (error) {
       console.error('❌ Error:', error.message);
       process.exit(1);
