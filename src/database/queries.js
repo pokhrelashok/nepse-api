@@ -465,6 +465,11 @@ async function getIntradayMarketIndex(date = null) {
     const todayStr = nepaliDate.toISOString().split('T')[0];
     const targetDate = date || todayStr;
 
+    // Get current Nepal time components for validation
+    const currentHour = nepaliDate.getHours();
+    const currentMinute = nepaliDate.getMinutes();
+    const isToday = targetDate === todayStr;
+
     // Get intraday market index snapshots for the specified date
     const intradayKey = `intraday:market_index:${targetDate}`;
     const snapshots = await redis.zrange(intradayKey, 0, -1, 'WITHSCORES');
@@ -484,6 +489,27 @@ async function getIntradayMarketIndex(date = null) {
       // Filter out invalid snapshots (nepse_index = 0 means pre-market or invalid data)
       if (!data.nepseIndex || data.nepseIndex === 0) {
         continue;
+      }
+
+      // For today's data, filter out snapshots with market_status_time in the future
+      // This prevents stale data from yesterday showing up (e.g., "3:00 PM" when it's only 2:30 PM)
+      if (isToday && data.marketStatusTime) {
+        const timeMatch = data.marketStatusTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (timeMatch) {
+          let hour = parseInt(timeMatch[1]);
+          const minute = parseInt(timeMatch[2]);
+          const period = timeMatch[3].toUpperCase();
+
+          // Convert to 24-hour format
+          if (period === 'PM' && hour !== 12) hour += 12;
+          if (period === 'AM' && hour === 12) hour = 0;
+
+          // Skip if the market_status_time is in the future
+          if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
+            logger.debug(`Skipping future intraday data: ${data.marketStatusTime} (current: ${currentHour}:${currentMinute})`);
+            continue;
+          }
+        }
       }
 
       // Create a unique key for deduplication
@@ -625,6 +651,7 @@ async function saveMarketSummary(summary) {
   // 1. Save to Redis (Primary Live Store)
   try {
     const now = new Date();
+    const nepaliNow = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
     const timestamp = now.toISOString();
     const timestampScore = now.getTime();
 
@@ -677,13 +704,36 @@ async function saveMarketSummary(summary) {
       }
     }
 
+    // Validate that marketStatusTime is not in the future (stale data from yesterday)
+    // If the scraped time is ahead of current Nepal time, skip storing intraday snapshot
+    if (shouldStore && indexData.marketStatusTime) {
+      const timeMatch = indexData.marketStatusTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (timeMatch) {
+        let hour = parseInt(timeMatch[1]);
+        const minute = parseInt(timeMatch[2]);
+        const period = timeMatch[3].toUpperCase();
+
+        // Convert to 24-hour format
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+
+        const currentHour = nepaliNow.getHours();
+        const currentMinute = nepaliNow.getMinutes();
+
+        // Skip if the marketStatusTime is in the future (stale data from yesterday)
+        if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
+          logger.warn(`⚠️ Skipping stale intraday data: marketStatusTime ${indexData.marketStatusTime} is ahead of current time ${currentHour}:${currentMinute}`);
+          shouldStore = false;
+        }
+      }
+    }
+
     if (shouldStore) {
       pipeline.zadd(intradayKey, timestampScore, snapshotData);
     }
 
     // Set expiry for intraday data (expire at end of today, not tomorrow)
     // This ensures we only keep today's data
-    const nepaliNow = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
     const endOfToday = new Date(nepaliNow);
     endOfToday.setHours(23, 59, 59, 999);
     const ttlSeconds = Math.floor((endOfToday.getTime() - now.getTime()) / 1000);

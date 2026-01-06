@@ -137,8 +137,8 @@ class Scheduler {
       timezone: 'Asia/Kathmandu'
     });
 
-    // Price updates every 2 minutes during market hours (11 AM - 3 PM)
-    const priceJob = cron.schedule('*/2 11-15 * * 0-4', async () => {
+    // Price updates every 1 minutes during market hours (11 AM - 3 PM)
+    const priceJob = cron.schedule('*/1 11-15 * * 0-4', async () => {
       await this.updatePricesAndStatus('DURING_HOURS');
     }, {
       scheduled: false,
