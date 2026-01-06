@@ -26,7 +26,8 @@ class Scheduler {
       index_history_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
       dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      db_backup: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null }
+      db_backup: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
+      notification_check: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null }
     };
 
   }
@@ -175,8 +176,7 @@ class Scheduler {
 
     // Notifications (Daily at 9:00 AM)
     const notificationJob = cron.schedule('0 9 * * *', async () => {
-      const NotificationService = require('./services/notification-service');
-      await NotificationService.checkAndSendNotifications();
+      await this.runNotificationCheck();
     }, {
       scheduled: false,
       timezone: 'Asia/Kathmandu'
@@ -706,6 +706,31 @@ class Scheduler {
       this.updateStatus(jobKey, 'SUCCESS', msg);
     } catch (error) {
       logger.error('Scheduled database backup failed:', error);
+      this.updateStatus(jobKey, 'FAIL', error.message);
+    } finally {
+      this.isJobRunning.set(jobKey, false);
+    }
+  }
+
+  async runNotificationCheck() {
+    const jobKey = 'notification_check';
+    if (this.isJobRunning.get(jobKey)) return;
+
+    this.isJobRunning.set(jobKey, true);
+    this.updateStatus(jobKey, 'START', 'Starting notification check...');
+
+    logger.info('📧 Starting scheduled notification check...');
+
+    try {
+      const NotificationService = require('./services/notification-service');
+      const result = await NotificationService.checkAndSendNotifications();
+
+      const msg = result?.message || 'Notification check completed';
+      logger.info(`✅ ${msg}`);
+
+      this.updateStatus(jobKey, 'SUCCESS', msg);
+    } catch (error) {
+      logger.error('Scheduled notification check failed:', error);
       this.updateStatus(jobKey, 'FAIL', error.message);
     } finally {
       this.isJobRunning.set(jobKey, false);

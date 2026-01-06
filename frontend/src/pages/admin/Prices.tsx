@@ -9,20 +9,36 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { useState } from "react"
+import { Input } from "@/components/ui/input"
+import { useState, useEffect } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, Search } from "lucide-react"
 
 export default function PricesPage() {
   const [page, setPage] = useState(0)
   const [sortBy, setSortBy] = useState("symbol")
   const [order, setOrder] = useState<"asc" | "desc">("asc")
+  const [search, setSearch] = useState("")
+  const [debouncedSearch, setDebouncedSearch] = useState("")
   const limit = 20
 
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(0) // Reset to first page on search
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [search])
+
   const { data, isLoading } = useQuery({
-    queryKey: ['prices', page, sortBy, order],
+    queryKey: ['prices', page, sortBy, order, debouncedSearch],
     queryFn: async () => {
-      const res = await api.get(`/today-prices?limit=${limit}&offset=${page * limit}&sortBy=${sortBy}&order=${order}`)
+      let url = `/today-prices?limit=${limit}&offset=${page * limit}&sortBy=${sortBy}&order=${order}`
+      if (debouncedSearch.trim()) {
+        url += `&search=${encodeURIComponent(debouncedSearch.trim())}`
+      }
+      const res = await api.get(url)
       // API returns { data: [], pagination: { total, ... } }
       return res.data?.data || {}
     },
@@ -41,11 +57,26 @@ export default function PricesPage() {
     }
   }
 
+  const formatPercentage = (value: number | null | undefined) => {
+    if (value == null) return "0.00%"
+    return `${value.toFixed(2)}%`
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Market Prices</h1>
+      </div>
 
+      {/* Search Input */}
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Search by symbol or name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-9"
+        />
       </div>
 
       <div className="rounded-md border bg-card">
@@ -90,7 +121,7 @@ export default function PricesPage() {
                   <TableCell className="font-medium font-mono">{stock.symbol}</TableCell>
                   <TableCell className="text-right">Rs. {stock.close_price}</TableCell>
                   <TableCell className={`text-right ${stock.percentage_change > 0 ? 'text-green-600' : (stock.percentage_change < 0 ? 'text-red-600' : '')}`}>
-                    {stock.percentage_change}%
+                    {formatPercentage(stock.percentage_change)}
                   </TableCell>
                   <TableCell className="text-right">{stock.high_price}</TableCell>
                   <TableCell className="text-right">{stock.low_price}</TableCell>
@@ -98,7 +129,7 @@ export default function PricesPage() {
                 </TableRow>
               ))
             ) : (
-              <TableRow><TableCell colSpan={6} className="text-center h-24">No data available</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center h-24">{debouncedSearch ? 'No matching stocks found' : 'No data available'}</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

@@ -278,7 +278,8 @@ async function getLatestPrices(symbols, options = {}) {
     offset = 0,
     sortBy = 'symbol',
     order = 'ASC',
-    filter = null
+    filter = null,
+    search = null
   } = options;
 
   let allPrices = [];
@@ -321,6 +322,15 @@ async function getLatestPrices(symbols, options = {}) {
     allPrices = allPrices.filter(p => p.change > 0);
   } else if (filter === 'losers') {
     allPrices = allPrices.filter(p => p.change < 0);
+  }
+
+  // 4. Apply search filter (by symbol or security name)
+  if (search && search.trim()) {
+    const searchTerm = search.trim().toUpperCase();
+    allPrices = allPrices.filter(p =>
+      (p.symbol && p.symbol.toUpperCase().includes(searchTerm)) ||
+      (p.security_name && p.security_name.toUpperCase().includes(searchTerm))
+    );
   }
 
   // 4. Join with metadata (company details)

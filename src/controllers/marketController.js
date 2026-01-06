@@ -282,14 +282,22 @@ exports.getTodayPrices = async (req, res) => {
     const offset = parseInt(req.query.offset) || 0;
     const sortBy = req.query.sortBy || 'symbol';
     const order = req.query.order === 'desc' ? 'DESC' : 'ASC';
+    const search = req.query.search || null;
 
-    const prices = await getLatestPrices(null, { limit, offset, sortBy, order });
+    const prices = await getLatestPrices(null, { limit, offset, sortBy, order, search });
+
+    // Format percentage_change to 2 decimal places
+    const formattedPrices = prices.map(p => ({
+      ...p,
+      percentage_change: p.percentage_change != null ? Math.round(p.percentage_change * 100) / 100 : 0
+    }));
+
     res.json(formatResponse({
-      data: prices,
+      data: formattedPrices,
       pagination: {
         limit,
         offset,
-        total: prices.length
+        total: formattedPrices.length
       }
     }));
   } catch (e) {
