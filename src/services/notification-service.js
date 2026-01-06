@@ -141,11 +141,8 @@ class NotificationService {
         // The ipo object from scraper has the raw value, we need to normalize it
         const { normalizeShareType } = require('../utils/share-type-utils');
         const normalizedShareType = normalizeShareType(ipo.share_type);
-        const offeringType = (ipo.offering_type || 'ipo').toLowerCase();
-
-        // Target type for preference check: 
-        // If it's an FPO, we check 'fpo'. If it's an IPO, we check its share_type
-        const preferenceType = offeringType === 'fpo' ? 'fpo' : normalizedShareType;
+        // Target type for preference check: use the normalized share_type (e.g., 'ordinary', 'local')
+        const preferenceType = normalizedShareType;
 
         // Get tokens of users who:
         // - Have IPO alerts enabled (notify_ipos = TRUE)
@@ -195,9 +192,7 @@ class NotificationService {
         // Reuse logic to filter users by share type preferences
         const { normalizeShareType } = require('../utils/share-type-utils');
         const normalizedShareType = normalizeShareType(ipo.share_type);
-        const offeringType = (ipo.offering_type || 'ipo').toLowerCase();
-
-        const preferenceType = offeringType === 'fpo' ? 'fpo' : normalizedShareType;
+        const preferenceType = normalizedShareType;
 
         const [rows] = await pool.execute(`
           SELECT DISTINCT nt.fcm_token 
