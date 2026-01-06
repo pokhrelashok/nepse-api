@@ -190,7 +190,7 @@ async function searchStocks(query) {
   const [rows] = await pool.execute(
     `SELECT DISTINCT sp.symbol, sp.security_name, sp.security_id, 
             cd.sector_name as sector, cd.nepali_sector_name, 
-            cd.company_name, cd.nepali_company_name, cd.status 
+            cd.company_name AS name, cd.nepali_company_name, cd.status 
      FROM stock_prices sp
      LEFT JOIN company_details cd ON sp.symbol = cd.symbol
      WHERE sp.symbol LIKE ? OR sp.security_name LIKE ? 
