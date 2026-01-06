@@ -35,21 +35,9 @@ async function getSystemMetrics() {
     loadAverage: os.loadavg() // 1, 5, 15 minute load averages
   };
 
-  // Memory Info
-  const totalMem = os.totalmem();
-  const freeMem = os.freemem();
-  const usedMem = totalMem - freeMem;
-  metrics.memory = {
-    total: totalMem,
-    used: usedMem,
-    free: freeMem,
-    usagePercent: Math.round((usedMem / totalMem) * 100 * 10) / 10,
-    formatted: {
-      total: formatBytes(totalMem),
-      used: formatBytes(usedMem),
-      free: formatBytes(freeMem)
-    }
-  };
+  // Memory Info - use /proc/meminfo on Linux for accurate available memory
+  const memInfo = getMemoryInfo();
+  metrics.memory = memInfo;
 
   // Disk Info (try to get disk usage)
   try {
@@ -102,6 +90,70 @@ function getCpuUsage() {
   const usage = 100 - Math.round((idle / total) * 100 * 10) / 10;
 
   return usage;
+}
+
+/**
+ * Get memory info - uses /proc/meminfo on Linux for accurate available memory
+ * This accounts for buffers/cache which os.freemem() doesn't
+ */
+function getMemoryInfo() {
+  const totalMem = os.totalmem();
+
+  try {
+    // Try to read /proc/meminfo for accurate available memory (Linux only)
+    const fs = require('fs');
+    const meminfo = fs.readFileSync('/proc/meminfo', 'utf8');
+
+    // Parse MemAvailable from /proc/meminfo
+    const lines = meminfo.split('\n');
+    let memAvailable = null;
+    let memTotal = null;
+
+    for (const line of lines) {
+      if (line.startsWith('MemAvailable:')) {
+        // Value is in kB
+        memAvailable = parseInt(line.split(/\s+/)[1]) * 1024;
+      }
+      if (line.startsWith('MemTotal:')) {
+        memTotal = parseInt(line.split(/\s+/)[1]) * 1024;
+      }
+    }
+
+    if (memAvailable !== null && memTotal !== null) {
+      const usedMem = memTotal - memAvailable;
+      const usagePercent = Math.round((usedMem / memTotal) * 100 * 10) / 10;
+
+      return {
+        total: memTotal,
+        used: usedMem,
+        available: memAvailable,
+        usagePercent: usagePercent,
+        formatted: {
+          total: formatBytes(memTotal),
+          used: formatBytes(usedMem),
+          available: formatBytes(memAvailable)
+        }
+      };
+    }
+  } catch (e) {
+    // /proc/meminfo not available (Mac/Windows) - fall back to os module
+  }
+
+  // Fallback: use os.freemem() (less accurate on Linux but works everywhere)
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+
+  return {
+    total: totalMem,
+    used: usedMem,
+    free: freeMem,
+    usagePercent: Math.round((usedMem / totalMem) * 100 * 10) / 10,
+    formatted: {
+      total: formatBytes(totalMem),
+      used: formatBytes(usedMem),
+      free: formatBytes(freeMem)
+    }
+  };
 }
 
 /**
