@@ -22,11 +22,52 @@ async function archiveTodaysMarketIndex() {
 
     // Get data from Redis
     const redis = require('../config/redis');
-    const indexData = await redis.hgetall('live:market_index');
+    let indexData = await redis.hgetall('live:market_index');
 
-    if (!indexData || Object.keys(indexData).length === 0) {
-      logger.warn('⚠️ No market index found in Redis to archive');
-      return { success: false, reason: 'NO_REDIS_DATA' };
+    // Debug: Log what we got from Redis
+    logger.info(`📋 Redis data: nepse_index=${indexData?.nepse_index}, index_change=${indexData?.index_change}`);
+
+    // Check if Redis has valid data (closing_index should never be 0 for NEPSE)
+    const redisClosingIndex = parseFloat(indexData?.nepse_index);
+    const hasValidRedisData = indexData &&
+      Object.keys(indexData).length > 0 &&
+      !isNaN(redisClosingIndex) &&
+      redisClosingIndex > 0;
+
+    // Fallback to MySQL if Redis has no valid data
+    if (!hasValidRedisData) {
+      logger.warn('⚠️ Redis has no valid market index data, falling back to MySQL...');
+
+      const [rows] = await connection.execute(`
+        SELECT nepse_index, index_change, index_percentage_change, 
+               total_turnover, total_traded_shares
+        FROM market_index 
+        WHERE trading_date = ?
+        ORDER BY last_updated DESC
+        LIMIT 1
+      `, [todayStr]);
+
+      if (rows.length > 0 && rows[0].nepse_index && parseFloat(rows[0].nepse_index) > 0) {
+        // Convert MySQL data to same format as Redis
+        indexData = {
+          nepse_index: String(rows[0].nepse_index),
+          index_change: String(rows[0].index_change || 0),
+          index_percentage_change: String(rows[0].index_percentage_change || 0),
+          total_turnover: String(rows[0].total_turnover || 0),
+          total_traded_shares: String(rows[0].total_traded_shares || 0)
+        };
+        logger.info(`📋 MySQL fallback data: nepse_index=${indexData.nepse_index}`);
+      } else {
+        logger.warn('⚠️ No valid market index found in Redis or MySQL to archive');
+        return { success: false, reason: 'NO_VALID_DATA' };
+      }
+    }
+
+    // Final validation: closing_index must be > 0 (NEPSE Index is never 0)
+    const closingIndex = parseFloat(indexData.nepse_index);
+    if (isNaN(closingIndex) || closingIndex <= 0) {
+      logger.error(`❌ Invalid closing_index value: ${indexData.nepse_index} (parsed: ${closingIndex})`);
+      return { success: false, reason: 'INVALID_CLOSING_INDEX', value: indexData.nepse_index };
     }
 
     // NEPSE Index has exchange_index_id = 58
@@ -34,7 +75,7 @@ async function archiveTodaysMarketIndex() {
       business_date: todayStr,
       exchange_index_id: 58,
       index_name: 'NEPSE Index',
-      closing_index: parseFloat(indexData.nepse_index) || 0,
+      closing_index: closingIndex,
       open_index: 0, // Not available in live data
       high_index: 0, // Not available in live data
       low_index: 0,  // Not available in live data
