@@ -263,7 +263,9 @@ async function getUserStatsForAdmin() {
       (SELECT COUNT(*) FROM users) as total_users,
       (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as users_this_week,
       (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as users_today,
-      (SELECT COUNT(*) FROM notification_tokens) as total_active_devices
+      (SELECT COUNT(*) FROM notification_tokens) as total_active_devices,
+      (SELECT COUNT(*) FROM price_alerts WHERE triggered_at >= CURDATE()) as alerts_triggered_today,
+      (SELECT COUNT(*) FROM price_alerts WHERE is_active = TRUE) as total_active_alerts
   `;
   const [rows] = await pool.execute(sql);
   return rows[0];
