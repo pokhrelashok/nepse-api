@@ -178,7 +178,7 @@ export default function Dashboard() {
                     <Cpu className="h-4 w-4 text-blue-500" />
                     <span className="font-medium text-sm">CPU</span>
                   </div>
-                  <span className="text-lg font-bold">{systemMetrics?.cpu?.usage || 0}%</span>
+                  <span className="text-lg font-bold">{(systemMetrics?.cpu?.usage || 0).toFixed(1)}%</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
@@ -198,7 +198,7 @@ export default function Dashboard() {
                     <MemoryStick className="h-4 w-4 text-violet-500" />
                     <span className="font-medium text-sm">Memory</span>
                   </div>
-                  <span className="text-lg font-bold">{systemMetrics?.memory?.usagePercent || 0}%</span>
+                  <span className="text-lg font-bold">{(systemMetrics?.memory?.usagePercent || 0).toFixed(1)}%</span>
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div
