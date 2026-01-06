@@ -219,10 +219,16 @@ export default function Dashboard() {
                         {formatDate(value.last_success)}
                       </div>
                       <div>
-                        <span className="font-medium">Success:</span> {value.success_count}
+                        <span className="font-medium">Today:</span>{' '}
+                        <span className="text-green-600">{value.today_success_count || 0}✓</span>
+                        {' / '}
+                        <span className="text-red-600">{value.today_fail_count || 0}✗</span>
                       </div>
                       <div>
-                        <span className="font-medium">Failed:</span> {value.fail_count}
+                        <span className="font-medium">Total:</span>{' '}
+                        <span className="text-green-600">{value.success_count}✓</span>
+                        {' / '}
+                        <span className="text-red-600">{value.fail_count}✗</span>
                       </div>
                     </div>
                   </div>

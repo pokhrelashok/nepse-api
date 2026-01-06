@@ -16,19 +16,20 @@ class Scheduler {
     this.isMarketOpen = false; // Track market status for index updates
     this.isJobRunning = new Map(); // Track if a specific job is currently executing
     this.stats = {
-      index_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      close_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      price_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      market_index_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      index_history_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      db_backup: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null },
-      notification_check: { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null }
+      index_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      price_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      close_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      company_details_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      cleanup_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      price_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      market_index_archive: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      index_history_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      db_backup: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      notification_check: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null }
     };
+
 
   }
 
@@ -66,11 +67,29 @@ class Scheduler {
 
   async updateStatus(jobKey, type, message = null) {
     const timestamp = new Date().toISOString();
+
+    // Get today's date in Nepal timezone
+    const now = new Date();
+    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
+    const todayStr = nepaliDate.toISOString().split('T')[0];
+
     // Initialize if missing
     if (!this.stats[jobKey]) {
-      this.stats[jobKey] = { last_run: null, last_success: null, success_count: 0, fail_count: 0, status: 'IDLE', message: null };
+      this.stats[jobKey] = {
+        last_run: null, last_success: null,
+        success_count: 0, fail_count: 0,
+        today_success_count: 0, today_fail_count: 0, stats_date: null,
+        status: 'IDLE', message: null
+      };
     }
     const stat = this.stats[jobKey];
+
+    // Reset daily counts if date has changed
+    if (stat.stats_date !== todayStr) {
+      stat.today_success_count = 0;
+      stat.today_fail_count = 0;
+      stat.stats_date = todayStr;
+    }
 
     if (type === 'START') {
       stat.last_run = timestamp;
@@ -79,11 +98,13 @@ class Scheduler {
     } else if (type === 'SUCCESS') {
       stat.last_success = timestamp;
       stat.success_count++;
+      stat.today_success_count++;
       stat.status = 'SUCCESS';
       // Only Keep success message if provided, otherwise keep "Running..." message or set to "Completed"
       stat.message = message || 'Completed successfully';
     } else if (type === 'FAIL') {
       stat.fail_count++;
+      stat.today_fail_count++;
       stat.status = 'FAILED';
       stat.message = message || 'Failed';
     }
@@ -94,6 +115,7 @@ class Scheduler {
       // console.error('Failed to save scheduler status:', err.message);
     });
   }
+
 
 
   async startPriceUpdateSchedule() {
