@@ -270,9 +270,9 @@ class Scheduler {
     const currentTime = hour * 100 + minutes;
     const day = nepalTime.getDay(); // 0 = Sunday, 4 = Thursday
 
-    // Market hours: 10:30 AM - 3 PM on Sun-Thu (days 0-4)
-    // Pre-open starts at 10:30
-    const isMarketHours = currentTime >= 1030 && currentTime < 1500 && day >= 0 && day <= 4;
+    // Market hours: 11:00 AM - 3 PM on Sun-Thu (days 0-4)
+    // Starting at 11 AM to avoid stale cached data from NEPSE website before trading begins
+    const isMarketHours = currentTime >= 1100 && currentTime < 1500 && day >= 0 && day <= 4;
 
     if (!isMarketHours && !this.isMarketOpen) {
       // Skip silently outside market hours
