@@ -670,7 +670,7 @@ class Scheduler {
 
       const files = fs.readdirSync(tmpDir);
       for (const file of files) {
-        if (file.startsWith('nepse-scraper-')) {
+        if (file.startsWith('nepse-scraper-') || file.startsWith('puppeteer_dev_chrome_profile-')) {
           const filePath = path.join(tmpDir, file);
           try {
             const stats = fs.statSync(filePath);
@@ -732,6 +732,17 @@ class Scheduler {
       } catch (err) {
         // Directory doesn't exist or no permissions - this is fine on dev machines
         logger.info('ℹ️ Downloads directory not accessible (expected on dev machines)');
+      }
+
+      // Cleanup 3: Journal logs (Linux only) - Keep only 1 day of logs
+      if (process.platform === 'linux') {
+        try {
+          const { execSync } = require('child_process');
+          execSync('journalctl --vacuum-time=1d', { stdio: 'ignore' });
+          logger.info('✅ Vacuumed system journal logs to 1 day');
+        } catch (err) {
+          // Might fail if not root or journalctl not available, ignore
+        }
       }
 
       this.updateStatus(jobKey, 'SUCCESS', msg || 'Cleanup completed');

@@ -26,6 +26,13 @@ $BUN_BIN install
 $BUN_BIN run build
 cd ..
 
+# System Maintenance (Server only)
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    echo "🧹 Cleaning up system logs and caches..."
+    sudo journalctl --vacuum-time=1d || true
+    sudo apt-get clean || true
+fi
+
 echo "🔄 Reloading application..."
 export PM2_HOME="/home/$USER/.pm2"
 # Use ecosystem.config.js (renamed from bun version)

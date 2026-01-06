@@ -117,6 +117,18 @@ class NepseScraper {
         // Reset if browser disconnects
         this.browser.on('disconnected', () => {
           console.warn('⚠️ Browser disconnected');
+
+          // Clean up temp directory if it exists
+          if (this.userDataDir) {
+            try {
+              console.log(`🧹 Cleaning up temp dir after disconnect: ${this.userDataDir}`);
+              fs.rmSync(this.userDataDir, { recursive: true, force: true });
+            } catch (err) {
+              console.warn(`⚠️ Failed to clean up temp dir on disconnect: ${err.message}`);
+            }
+            this.userDataDir = null;
+          }
+
           this.browser = null;
           this.initializingPromise = null;
         });
