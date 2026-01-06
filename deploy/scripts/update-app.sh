@@ -18,7 +18,7 @@ echo "📦 Installing/Updating dependencies with Bun..."
 $BUN_BIN install
 
 echo "🗄️ Running Database Migrations..."
-$BUN_BIN run bun:migrate
+$BUN_BIN run migrate
 
 echo "🏗️ Building Frontend..."
 cd frontend

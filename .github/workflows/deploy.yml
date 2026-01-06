@@ -63,7 +63,7 @@ jobs:
               # Assuming Bun is in path or using full path
               BUN_BIN="/usr/local/bin/bun"
               $BUN_BIN install
-              $BUN_BIN run bun:migrate
+              $BUN_BIN run migrate
               
               cd frontend 
               $BUN_BIN install 
