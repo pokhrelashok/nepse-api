@@ -263,7 +263,9 @@ async function getScriptDetails(symbol) {
 
     // 3. Fetch dividends and financials independently
     const [dividends] = await pool.execute(
-      "SELECT * FROM dividends WHERE security_id = ? ORDER BY fiscal_year DESC",
+      `SELECT id, security_id, fiscal_year, bonus_share, cash_dividend, total_dividend, 
+              DATE_FORMAT(published_date, '%Y-%m-%d') as published_date, updated_at 
+       FROM dividends WHERE security_id = ? ORDER BY fiscal_year DESC`,
       [securityId]
     );
     details.dividends = dividends;
@@ -497,26 +499,26 @@ async function getIntradayMarketIndex(date = null) {
         continue;
       }
 
-      // // For today's data, filter out snapshots with market_status_time in the future
-      // // This prevents stale data from yesterday showing up (e.g., "3:00 PM" when it's only 2:30 PM)
-      // if (isToday && data.marketStatusTime) {
-      //   const timeMatch = data.marketStatusTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-      //   if (timeMatch) {
-      //     let hour = parseInt(timeMatch[1]);
-      //     const minute = parseInt(timeMatch[2]);
-      //     const period = timeMatch[3].toUpperCase();
+      // For today's data, filter out snapshots with market_status_time in the future
+      // This prevents stale data from yesterday showing up (e.g., "3:00 PM" when it's only 2:30 PM)
+      if (isToday && data.marketStatusTime) {
+        const timeMatch = data.marketStatusTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+        if (timeMatch) {
+          let hour = parseInt(timeMatch[1]);
+          const minute = parseInt(timeMatch[2]);
+          const period = timeMatch[3].toUpperCase();
 
-      //     // Convert to 24-hour format
-      //     if (period === 'PM' && hour !== 12) hour += 12;
-      //     if (period === 'AM' && hour === 12) hour = 0;
+          // Convert to 24-hour format
+          if (period === 'PM' && hour !== 12) hour += 12;
+          if (period === 'AM' && hour === 12) hour = 0;
 
-      //     // Skip if the market_status_time is in the future
-      //     if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
-      //       logger.info(`Skipping future intraday data: ${data.marketStatusTime} (current: ${currentHour}:${currentMinute})`);
-      //       continue;
-      //     }
-      //   }
-      // }
+          // Skip if the market_status_time is in the future
+          if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
+            logger.info(`Skipping future intraday data: ${data.marketStatusTime} (current: ${currentHour}:${currentMinute})`);
+            continue;
+          }
+        }
+      }
 
       // Create a unique key for deduplication
       const uniqueKey = `${data.nepseIndex}-${data.marketStatusTime}-${data.totalTradedShares}`;
@@ -1060,8 +1062,8 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
       min_units,
       max_units,
       total_amount,
-      opening_date,
-      closing_date,
+      DATE_FORMAT(opening_date, '%Y-%m-%d') as opening_date,
+      DATE_FORMAT(closing_date, '%Y-%m-%d') as closing_date,
       status
     FROM ipos
     WHERE 1=1
@@ -1089,7 +1091,7 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
 
   const [rows] = await pool.execute(sql, params);
 
-  // Format share_type for display (Title Case)
+  // Format share_type for display
   return rows.map(row => ({
     ...row,
     share_type: formatShareType(row.share_type)
@@ -1145,7 +1147,7 @@ async function findPublishedDate(symbol, fiscalYearAD, fiscalYearBS) {
   const fyBS_hyphen = fiscalYearBS ? fiscalYearBS.replace('/', '-') : null;
 
   const sql = `
-    SELECT published_date 
+    SELECT DATE_FORMAT(published_date, '%Y-%m-%d') as published_date 
     FROM dividends d
     JOIN stock_prices sp ON d.security_id = sp.security_id
     WHERE sp.symbol = ? AND (
@@ -1167,7 +1169,16 @@ async function findPublishedDate(symbol, fiscalYearAD, fiscalYearBS) {
 }
 
 async function getAnnouncedDividends(limit = 100, offset = 0, startDate = null, endDate = null) {
-  let sql = `SELECT * FROM announced_dividends WHERE 1=1`;
+  let sql = `
+    SELECT 
+      symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend, 
+      DATE_FORMAT(book_close_date, '%Y-%m-%d') as book_close_date, 
+      DATE_FORMAT(published_date, '%Y-%m-%d') as published_date, 
+      fiscal_year, fiscal_year_bs, book_close_date_bs, right_share, 
+      DATE_FORMAT(right_book_close_date, '%Y-%m-%d') as right_book_close_date
+    FROM announced_dividends 
+    WHERE 1=1
+  `;
   const params = [];
 
   if (startDate) {
@@ -1250,7 +1261,8 @@ async function getRecentBonusForSymbols(symbols) {
   const placeholders = symbols.map(() => '?').join(',');
   const sql = `
     SELECT symbol, company_name, nepali_company_name, bonus_share, cash_dividend, 
-           total_dividend, book_close_date, published_date, fiscal_year, fiscal_year_bs
+           total_dividend, DATE_FORMAT(book_close_date, '%Y-%m-%d') as book_close_date, 
+           DATE_FORMAT(published_date, '%Y-%m-%d') as published_date, fiscal_year, fiscal_year_bs
     FROM announced_dividends 
     WHERE symbol IN (${placeholders})
       AND updated_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)

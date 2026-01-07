@@ -60,13 +60,13 @@ curl -fsSL https://bun.sh/install | bash
 bun install
 
 # Start the API server
-bun run bun:start
+bun run start
 
 # Run scraper manually
-bun run bun:scraper
+bun run scraper
 
 # Run tests
-bun run bun:test
+bun run test
 ```
 
 ## API Specification
@@ -98,19 +98,19 @@ npm run clean           # Remove database and temp files
 
 ```bash
 # Development
-bun run bun:dev          # Start server with hot reload
-bun run bun:scheduler    # Start automated scraper
+bun run dev          # Start server with hot reload
+bun run scheduler    # Start automated scraper
 
 # Data Collection
-bun run bun:scraper      # Scrape today's prices
-bun run bun:scraper:companies  # Scrape company details
+bun run scraper      # Scrape today's prices
+bun run scraper:companies  # Scrape company details
 
 # Testing
-bun run bun:test:scraper # Test scraper functionality
-bun run bun:test:api     # Test API endpoints
+bun run test:scraper # Test scraper functionality
+bun run test:api     # Test API endpoints
 
 # Database
-bun run bun:migrate      # Run database migrations
+bun run migrate      # Run database migrations
 ```
 
 ## Project Structure
