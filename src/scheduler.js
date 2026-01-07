@@ -256,15 +256,27 @@ class Scheduler {
     closeJob.start();
     companyDetailsJob.start();
 
-    // Market Indices History (Daily at 3:10 PM, after price archive)
-    const indexHistoryJob = cron.schedule('10 15 * * 0-4', async () => {
-      await this.runMarketIndicesHistoryScrape();
-    }, {
-      scheduled: false,
-      timezone: 'Asia/Kathmandu'
-    });
-    this.jobs.set('index_history_update', indexHistoryJob);
-    indexHistoryJob.start();
+    // Market Indices History Scraper - DISABLED
+    // This scraper fetches historical data from NEPSE's API and should ONLY be used
+    // for one-time historical backfills, NOT for daily updates.
+    // 
+    // Problem: NEPSE's historical API returns stale data (closing_index=0) for today's date
+    // which overwrites the correct data archived by archiveMarketIndex at 3:06 PM.
+    // 
+    // Solution: Use archiveMarketIndex (3:06 PM) for daily archiving from live Redis data.
+    // Only run runMarketIndicesHistoryScrape manually when backfilling historical data.
+    //
+    // To manually run historical backfill:
+    //   bun run scripts/backfill-market-history.js
+    //
+    // const indexHistoryJob = cron.schedule('10 15 * * 0-4', async () => {
+    //   await this.runMarketIndicesHistoryScrape();
+    // }, {
+    //   scheduled: false,
+    //   timezone: 'Asia/Kathmandu'
+    // });
+    // this.jobs.set('index_history_update', indexHistoryJob);
+    // indexHistoryJob.start();
 
     this.isRunning = true;
     logger.info('Scheduler started (index every 20s during hours, prices every 2 min from 11 AM, archive at 3:05 PM)');
