@@ -346,11 +346,23 @@ async function getLatestPrices(symbols, options = {}) {
     );
   }
 
-  // 4. Join with metadata (company details)
-  // To keep it efficient, we only fetch what we need for the current page if it's the full list
+  // 5. Sort BEFORE pagination (critical for top gainers/losers)
+  allPrices.sort((a, b) => {
+    const valA = a[sortBy] ?? 0;
+    const valB = b[sortBy] ?? 0;
+
+    // Use numeric subtraction for proper sorting
+    if (order.toUpperCase() === 'DESC') {
+      return valB - valA;
+    }
+    return valA - valB;
+  });
+
+  // 6. Paginate AFTER sorting
   const pagedList = allPrices.slice(offset, offset + limit);
   const pagedSymbols = pagedList.map(p => p.symbol);
 
+  // 7. Join with metadata (company details)
   if (pagedSymbols.length > 0) {
     const placeholders = pagedSymbols.map(() => '?').join(',');
     const [metadata] = await pool.execute(
@@ -360,19 +372,13 @@ async function getLatestPrices(symbols, options = {}) {
       pagedSymbols
     );
 
-    // Merge
+    // Merge and return (already sorted)
     const metaMap = metadata.reduce((acc, curr) => ({ ...acc, [curr.symbol]: curr }), {});
     return pagedList.map(p => ({
       ...p,
       ...metaMap[p.symbol],
       source
-    })).sort((a, b) => {
-      const field = sortBy === 'change' ? 'change' : sortBy;
-      const valA = a[field];
-      const valB = b[field];
-      if (order.toUpperCase() === 'DESC') return valB > valA ? 1 : -1;
-      return valA > valB ? 1 : -1;
-    });
+    }));
   }
 
   return [];
