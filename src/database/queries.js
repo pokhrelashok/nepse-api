@@ -512,7 +512,7 @@ async function getIntradayMarketIndex(date = null) {
 
           // Skip if the market_status_time is in the future
           if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
-            logger.debug(`Skipping future intraday data: ${data.marketStatusTime} (current: ${currentHour}:${currentMinute})`);
+            logger.info(`Skipping future intraday data: ${data.marketStatusTime} (current: ${currentHour}:${currentMinute})`);
             continue;
           }
         }
