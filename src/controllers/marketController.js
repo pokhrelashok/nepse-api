@@ -12,43 +12,45 @@ const {
 const { NepseScraper } = require('../scrapers/nepse-scraper');
 const { formatResponse, formatError } = require('../utils/formatter');
 const logger = require('../utils/logger');
+const { DateTime } = require('luxon');
 
 // Helper to get Nepal date string (UTC+5:45) with optional day offset
 const getNepalDateString = (offsetDays = 0) => {
-  const now = new Date();
-  const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-  nepaliDate.setDate(nepaliDate.getDate() + offsetDays);
-  return nepaliDate.toISOString().split('T')[0];
+  let dt = DateTime.now().setZone('Asia/Kathmandu');
+  if (offsetDays !== 0) {
+    dt = dt.plus({ days: offsetDays });
+  }
+  return dt.toISODate();
 };
 
 // Helper to calculate start date based on range
 const getStartDateFromRange = (range) => {
-  const now = new Date();
-  const date = new Date(now); // Clone date
+  const now = DateTime.now().setZone('Asia/Kathmandu');
+  let dt = now;
 
   switch (range) {
     case '1W':
-      date.setDate(now.getDate() - 7);
+      dt = now.minus({ days: 7 });
       break;
     case '1M':
-      date.setMonth(now.getMonth() - 1);
+      dt = now.minus({ months: 1 });
       break;
     case '3M':
-      date.setMonth(now.getMonth() - 3);
+      dt = now.minus({ months: 3 });
       break;
     case '6M':
-      date.setMonth(now.getMonth() - 6);
+      dt = now.minus({ months: 6 });
       break;
     case '1Y':
-      date.setFullYear(now.getFullYear() - 1);
+      dt = now.minus({ years: 1 });
       break;
     case 'ALL':
       return null;
     default:
-      date.setFullYear(now.getFullYear() - 1);
+      dt = now.minus({ years: 1 });
   }
 
-  return date.toISOString().split('T')[0];
+  return dt.toISODate();
 };
 
 exports.getMarketStatus = async (req, res) => {

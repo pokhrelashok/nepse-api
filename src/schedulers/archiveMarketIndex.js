@@ -6,6 +6,7 @@
 
 const { pool } = require('../database/database');
 const logger = require('../utils/logger');
+const { DateTime } = require('luxon');
 
 async function archiveTodaysMarketIndex() {
   const connection = await pool.getConnection();
@@ -13,10 +14,7 @@ async function archiveTodaysMarketIndex() {
   try {
     await connection.beginTransaction();
 
-    // Get today's date in Nepal timezone
-    const today = new Date();
-    const nepaliDate = new Date(today.getTime() + (5.75 * 60 * 60 * 1000));
-    const todayStr = nepaliDate.toISOString().split('T')[0];
+    const todayStr = DateTime.now().setZone('Asia/Kathmandu').toISODate();
 
     logger.info(`📊 Archiving market index for ${todayStr} from Redis...`);
 

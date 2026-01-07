@@ -1,6 +1,7 @@
 const { pool, savePrices, saveCompanyDetails, saveDividends, saveFinancials, saveMarketIndexHistory, saveStockPriceHistory } = require('./database');
 const redis = require('../config/redis');
 const logger = require('../utils/logger');
+const { DateTime } = require('luxon');
 const { normalizeShareType, formatShareType } = require('../utils/share-type-utils');
 
 // Helper function to convert ISO datetime to MySQL format
@@ -76,8 +77,7 @@ async function insertTodayPrices(prices) {
 
   try {
     const now = new Date();
-    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-    const todayStr = nepaliDate.toISOString().split('T')[0];
+    const todayStr = DateTime.now().setZone('Asia/Kathmandu').toISODate();
     const timestamp = now.toISOString();
     const timestampScore = now.getTime(); // Unix timestamp in milliseconds
 
@@ -129,7 +129,7 @@ async function insertTodayPrices(prices) {
       pipeline.zadd(item.intradayKey, timestampScore, item.data);
 
       // Set expiry for intraday data (expire at end of next day)
-      const tomorrow = new Date(nepaliDate);
+      const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(23, 59, 59, 999);
       const ttlSeconds = Math.floor((tomorrow.getTime() - now.getTime()) / 1000);
@@ -388,9 +388,7 @@ async function getLatestPrices(symbols, options = {}) {
 
 async function getIntradayData(symbol = null) {
   try {
-    const now = new Date();
-    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-    const todayStr = nepaliDate.toISOString().split('T')[0];
+    const todayStr = DateTime.now().setZone('Asia/Kathmandu').toISODate();
     const keyPrefix = process.env.REDIS_PREFIX || 'nepse:';
 
     if (symbol) {
@@ -469,13 +467,12 @@ async function getIntradayData(symbol = null) {
 async function getIntradayMarketIndex(date = null) {
   try {
     const now = new Date();
-    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-    const todayStr = nepaliDate.toISOString().split('T')[0];
+    const todayStr = DateTime.now().setZone('Asia/Kathmandu').toISODate();
     const targetDate = date || todayStr;
 
-    // Get current Nepal time components for validation
-    const currentHour = nepaliDate.getHours();
-    const currentMinute = nepaliDate.getMinutes();
+    // Get current Nepal time components for validation (server is in Nepal time)
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
     const isToday = targetDate === todayStr;
 
     // Get intraday market index snapshots for the specified date
@@ -650,16 +647,11 @@ async function saveMarketSummary(summary) {
   const { status, isOpen, indexData } = summary;
 
   // Ensure we have a valid date
-  const tradingDate = indexData.tradingDate || (() => {
-    const now = new Date();
-    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-    return nepaliDate.toISOString().split('T')[0];
-  })();
+  const tradingDate = indexData.tradingDate || DateTime.now().setZone('Asia/Kathmandu').toISODate();
 
   // 1. Save to Redis (Primary Live Store)
   try {
     const now = new Date();
-    const nepaliNow = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
     const timestamp = now.toISOString();
     const timestampScore = now.getTime();
 
@@ -725,8 +717,8 @@ async function saveMarketSummary(summary) {
         if (period === 'PM' && hour !== 12) hour += 12;
         if (period === 'AM' && hour === 12) hour = 0;
 
-        const currentHour = nepaliNow.getHours();
-        const currentMinute = nepaliNow.getMinutes();
+        const currentHour = now.getHours();
+        const currentMinute = now.getMinutes();
 
         // Skip if the marketStatusTime is in the future (stale data from yesterday)
         if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
@@ -742,7 +734,7 @@ async function saveMarketSummary(summary) {
 
     // Set expiry for intraday data (expire at end of today, not tomorrow)
     // This ensures we only keep today's data
-    const endOfToday = new Date(nepaliNow);
+    const endOfToday = new Date();
     endOfToday.setHours(23, 59, 59, 999);
     const ttlSeconds = Math.floor((endOfToday.getTime() - now.getTime()) / 1000);
 
@@ -870,9 +862,7 @@ async function getCurrentMarketStatus() {
 
 async function getMarketIndexData(tradingDate = null) {
   // Get today's date in Nepal timezone if not provided
-  const now = new Date();
-  const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-  const todayStr = nepaliDate.toISOString().split('T')[0];
+  const todayStr = DateTime.now().setZone('Asia/Kathmandu').toISODate();
   const targetDate = tradingDate || todayStr;
 
   // 1. If looking for today, try Redis
@@ -902,8 +892,8 @@ async function getMarketIndexData(tradingDate = null) {
 
   // 2. Fallback to MySQL
   const sql = `
-    SELECT 
-      nepse_index,
+    SELECT
+    nepse_index,
       index_change,
       index_percentage_change,
       total_turnover,
@@ -917,9 +907,9 @@ async function getMarketIndexData(tradingDate = null) {
       last_updated
     FROM market_index 
     WHERE trading_date = ?
-    ORDER BY last_updated DESC
+      ORDER BY last_updated DESC
     LIMIT 1
-  `;
+      `;
 
   const [rows] = await pool.execute(sql, [targetDate]);
   return rows.length > 0 ? rows[0] : null;
@@ -941,7 +931,7 @@ async function getLatestMarketIndexData() {
         unchanged: parseInt(index.unchanged),
         market_status_date: index.status_date,
         market_status_time: index.status_time,
-        trading_date: new Date().toISOString().split('T')[0], // Approximation for live
+        trading_date: DateTime.now().setZone('Asia/Kathmandu').toISODate(), // Approximation for live
         last_updated: index.last_updated
       };
     }
@@ -951,8 +941,8 @@ async function getLatestMarketIndexData() {
 
   // 2. Fallback to MySQL
   const sql = `
-    SELECT 
-      nepse_index,
+    SELECT
+    nepse_index,
       index_change,
       index_percentage_change,
       total_turnover,
@@ -967,7 +957,7 @@ async function getLatestMarketIndexData() {
     FROM market_index 
     ORDER BY trading_date DESC, last_updated DESC
     LIMIT 1
-  `;
+      `;
 
   const [rows] = await pool.execute(sql);
   return rows.length > 0 ? rows[0] : null;
@@ -975,8 +965,8 @@ async function getLatestMarketIndexData() {
 
 async function getMarketIndexHistory(days = 7) {
   const sql = `
-    SELECT 
-      nepse_index,
+    SELECT
+    nepse_index,
       index_change,
       index_percentage_change,
       total_turnover,
@@ -991,7 +981,7 @@ async function getMarketIndexHistory(days = 7) {
     FROM market_index 
     WHERE trading_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
     ORDER BY trading_date DESC, last_updated DESC
-  `;
+      `;
 
   const [rows] = await pool.execute(sql, [String(days)]);
   return rows;
@@ -1001,13 +991,13 @@ async function getMarketIndexHistory(days = 7) {
 // IPO functions
 async function insertIpo(ipoData) {
   const sql = `
-    INSERT INTO ipos (
-      ipo_id, company_name, nepali_company_name, symbol, share_registrar, 
-      sector_name, nepali_sector_name, share_type, offering_type, price_per_unit, rating, 
-      units, min_units, max_units, total_amount, opening_date, closing_date, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO ipos(
+        ipo_id, company_name, nepali_company_name, symbol, share_registrar,
+        sector_name, nepali_sector_name, share_type, offering_type, price_per_unit, rating,
+        units, min_units, max_units, total_amount, opening_date, closing_date, status
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
-      company_name = VALUES(company_name),
+    company_name = VALUES(company_name),
       nepali_company_name = COALESCE(VALUES(nepali_company_name), nepali_company_name),
       symbol = VALUES(symbol),
       share_registrar = VALUES(share_registrar),
@@ -1024,7 +1014,7 @@ async function insertIpo(ipoData) {
       opening_date = VALUES(opening_date),
       closing_date = VALUES(closing_date),
       status = VALUES(status)
-  `;
+        `;
 
   const {
     ipoId, companyName, nepaliCompanyName, stockSymbol, shareRegistrar, sectorName, nepaliSectorName,
@@ -1046,8 +1036,8 @@ async function insertIpo(ipoData) {
 
 async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null, offeringType = null) {
   let sql = `
-    SELECT 
-      ipo_id,
+    SELECT
+    ipo_id,
       company_name,
       nepali_company_name,
       symbol,
@@ -1066,27 +1056,27 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
       DATE_FORMAT(closing_date, '%Y-%m-%d') as closing_date,
       status
     FROM ipos
-    WHERE 1=1
-  `;
+    WHERE 1 = 1
+      `;
 
   const params = [];
 
   if (startDate) {
-    sql += ` AND opening_date >= ?`;
+    sql += ` AND opening_date >= ? `;
     params.push(startDate);
   }
 
   if (endDate) {
-    sql += ` AND opening_date <= ?`;
+    sql += ` AND opening_date <= ? `;
     params.push(endDate);
   }
 
   if (offeringType) {
-    sql += ` AND offering_type = ?`;
+    sql += ` AND offering_type = ? `;
     params.push(offeringType);
   }
 
-  sql += ` ORDER BY opening_date DESC LIMIT ? OFFSET ?`;
+  sql += ` ORDER BY opening_date DESC LIMIT ? OFFSET ? `;
   params.push(String(limit), String(offset));
 
   const [rows] = await pool.execute(sql, params);
@@ -1100,13 +1090,13 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
 // Announced Dividend functions
 async function insertAnnouncedDividends(dividendData) {
   const sql = `
-    INSERT INTO announced_dividends (
-      symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend, 
-      book_close_date, published_date, fiscal_year, fiscal_year_bs, 
-      book_close_date_bs, right_share, right_book_close_date
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO announced_dividends(
+        symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend,
+        book_close_date, published_date, fiscal_year, fiscal_year_bs,
+        book_close_date_bs, right_share, right_book_close_date
+      ) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
-      company_name = VALUES(company_name),
+    company_name = VALUES(company_name),
       nepali_company_name = COALESCE(VALUES(nepali_company_name), nepali_company_name),
       bonus_share = VALUES(bonus_share),
       cash_dividend = VALUES(cash_dividend),
@@ -1118,7 +1108,7 @@ async function insertAnnouncedDividends(dividendData) {
       right_share = VALUES(right_share),
       right_book_close_date = VALUES(right_book_close_date),
       updated_at = CURRENT_TIMESTAMP
-  `;
+        `;
 
   const {
     symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend,
@@ -1150,19 +1140,19 @@ async function findPublishedDate(symbol, fiscalYearAD, fiscalYearBS) {
     SELECT DATE_FORMAT(published_date, '%Y-%m-%d') as published_date 
     FROM dividends d
     JOIN stock_prices sp ON d.security_id = sp.security_id
-    WHERE sp.symbol = ? AND (
-      d.fiscal_year = ? OR d.fiscal_year = ? OR 
+    WHERE sp.symbol = ? AND(
+          d.fiscal_year = ? OR d.fiscal_year = ? OR 
       d.fiscal_year = ? OR d.fiscal_year = ? OR
       d.fiscal_year LIKE ? OR d.fiscal_year LIKE ?
     )
     LIMIT 1
-  `;
+      `;
 
   const [rows] = await pool.execute(sql, [
     symbol,
     fiscalYearAD, fyAD_hyphen,
     fiscalYearBS, fyBS_hyphen,
-    `%${fyAD_hyphen}%`, `%${fyBS_hyphen}%`
+    `% ${fyAD_hyphen}% `, ` % ${fyBS_hyphen}% `
   ]);
 
   return rows.length > 0 ? rows[0].published_date : null;
@@ -1170,28 +1160,28 @@ async function findPublishedDate(symbol, fiscalYearAD, fiscalYearBS) {
 
 async function getAnnouncedDividends(limit = 100, offset = 0, startDate = null, endDate = null) {
   let sql = `
-    SELECT 
-      symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend, 
-      DATE_FORMAT(book_close_date, '%Y-%m-%d') as book_close_date, 
-      DATE_FORMAT(published_date, '%Y-%m-%d') as published_date, 
-      fiscal_year, fiscal_year_bs, book_close_date_bs, right_share, 
+    SELECT
+    symbol, company_name, nepali_company_name, bonus_share, cash_dividend, total_dividend,
+      DATE_FORMAT(book_close_date, '%Y-%m-%d') as book_close_date,
+      DATE_FORMAT(published_date, '%Y-%m-%d') as published_date,
+      fiscal_year, fiscal_year_bs, book_close_date_bs, right_share,
       DATE_FORMAT(right_book_close_date, '%Y-%m-%d') as right_book_close_date
     FROM announced_dividends 
-    WHERE 1=1
-  `;
+    WHERE 1 = 1
+      `;
   const params = [];
 
   if (startDate) {
-    sql += ` AND book_close_date >= ?`;
+    sql += ` AND book_close_date >= ? `;
     params.push(startDate);
   }
 
   if (endDate) {
-    sql += ` AND book_close_date <= ?`;
+    sql += ` AND book_close_date <= ? `;
     params.push(endDate);
   }
 
-  sql += ` ORDER BY book_close_date DESC, fiscal_year DESC LIMIT ? OFFSET ?`;
+  sql += ` ORDER BY book_close_date DESC, fiscal_year DESC LIMIT ? OFFSET ? `;
   params.push(String(limit), String(offset));
 
   const [rows] = await pool.execute(sql, params);
@@ -1200,14 +1190,14 @@ async function getAnnouncedDividends(limit = 100, offset = 0, startDate = null, 
 
 async function getStockHistory(symbol, startDate) {
   const sql = `
-    SELECT 
-      business_date,
+    SELECT
+    business_date,
       close_price,
       total_traded_quantity
     FROM stock_price_history
     WHERE symbol = ? AND business_date >= ?
-    ORDER BY business_date ASC
-  `;
+      ORDER BY business_date ASC
+        `;
 
   const [rows] = await pool.execute(sql, [symbol, startDate]);
   return rows;
@@ -1222,33 +1212,33 @@ async function getMarketIndicesHistory(options = {}) {
   } = options;
 
   let sql = `
-    SELECT 
-      business_date,
+    SELECT
+    business_date,
       closing_index,
       percentage_change,
       turnover_value,
       turnover_volume
     FROM market_indices_history 
-    WHERE 1=1
-  `;
+    WHERE 1 = 1
+      `;
   const params = [];
 
   if (indexId) {
-    sql += ` AND exchange_index_id = ?`;
+    sql += ` AND exchange_index_id = ? `;
     params.push(indexId);
   }
 
   if (startDate) {
-    sql += ` AND business_date >= ?`;
+    sql += ` AND business_date >= ? `;
     params.push(startDate);
   }
 
   if (endDate) {
-    sql += ` AND business_date <= ?`;
+    sql += ` AND business_date <= ? `;
     params.push(endDate);
   }
 
-  sql += ` ORDER BY business_date ASC, exchange_index_id ASC LIMIT ?`;
+  sql += ` ORDER BY business_date ASC, exchange_index_id ASC LIMIT ? `;
   params.push(String(limit));
 
   const [rows] = await pool.execute(sql, params);
@@ -1260,14 +1250,14 @@ async function getRecentBonusForSymbols(symbols) {
 
   const placeholders = symbols.map(() => '?').join(',');
   const sql = `
-    SELECT symbol, company_name, nepali_company_name, bonus_share, cash_dividend, 
-           total_dividend, DATE_FORMAT(book_close_date, '%Y-%m-%d') as book_close_date, 
-           DATE_FORMAT(published_date, '%Y-%m-%d') as published_date, fiscal_year, fiscal_year_bs
+    SELECT symbol, company_name, nepali_company_name, bonus_share, cash_dividend,
+      total_dividend, DATE_FORMAT(book_close_date, '%Y-%m-%d') as book_close_date,
+      DATE_FORMAT(published_date, '%Y-%m-%d') as published_date, fiscal_year, fiscal_year_bs
     FROM announced_dividends 
-    WHERE symbol IN (${placeholders})
+    WHERE symbol IN(${placeholders})
       AND updated_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)
     ORDER BY updated_at DESC
-  `;
+      `;
 
   const [rows] = await pool.execute(sql, symbols);
 
@@ -1283,15 +1273,15 @@ async function getRecentBonusForSymbols(symbols) {
 
 async function getMarketStatusHistory(limit = 7) {
   const sql = `
-    SELECT 
-      trading_date,
+    SELECT
+    trading_date,
       is_open as isOpen,
       status,
       last_updated as lastUpdated
     FROM market_index 
-    ORDER BY trading_date DESC 
+    ORDER BY trading_date DESC
     LIMIT ?
-  `;
+      `;
   const [rows] = await pool.execute(sql, [String(limit)]);
   return rows.map(r => ({
     ...r,
@@ -1303,9 +1293,9 @@ async function getMarketStatusHistory(limit = 7) {
 
 async function createPriceAlert(userId, symbol, price, condition, alertType = 'PRICE', targetPercentage = null) {
   const sql = `
-    INSERT INTO price_alerts (user_id, symbol, target_price, alert_condition, alert_type, target_percentage)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `;
+    INSERT INTO price_alerts(user_id, symbol, target_price, alert_condition, alert_type, target_percentage)
+    VALUES(?, ?, ?, ?, ?, ?)
+      `;
   // MySQL2 requires null instead of undefined for bind parameters
   const [result] = await pool.execute(sql, [
     userId,
@@ -1321,9 +1311,9 @@ async function createPriceAlert(userId, symbol, price, condition, alertType = 'P
 async function getUserPriceAlerts(userId) {
   const sql = `
     SELECT * FROM price_alerts 
-    WHERE user_id = ? 
-    ORDER BY created_at DESC
-  `;
+    WHERE user_id = ?
+      ORDER BY created_at DESC
+        `;
   const [rows] = await pool.execute(sql, [userId]);
   return rows;
 }
@@ -1365,7 +1355,7 @@ async function updatePriceAlert(alertId, userId, data) {
     UPDATE price_alerts 
     SET ${updates.join(', ')} 
     WHERE id = ? AND user_id = ?
-  `;
+      `;
   const [result] = await pool.execute(sql, params);
   return result.affectedRows > 0;
 }
@@ -1382,7 +1372,7 @@ async function getActivePriceAlerts() {
     FROM price_alerts pa
     JOIN notification_tokens nt ON nt.user_id = pa.user_id
     WHERE pa.is_active = TRUE
-  `;
+      `;
   const [rows] = await pool.execute(sql);
   return rows;
 }
@@ -1392,7 +1382,7 @@ async function markAlertTriggered(alertId) {
     UPDATE price_alerts 
     SET triggered_at = CURRENT_TIMESTAMP, last_state = 'MET' 
     WHERE id = ?
-  `;
+      `;
   await pool.execute(sql, [alertId]);
 }
 
@@ -1406,14 +1396,14 @@ async function updateAlertState(alertId, state) {
  */
 async function getUserHoldingWACC(userId, symbol) {
   const sql = `
-    SELECT 
-      SUM(CASE WHEN type IN ('SECONDARY_BUY', 'IPO', 'FPO', 'AUCTION', 'RIGHTS', 'BONUS') THEN quantity ELSE 0 END) as total_qty,
-      SUM(CASE WHEN type IN ('SECONDARY_SELL') THEN quantity ELSE 0 END) as sell_qty,
-      SUM(CASE WHEN type IN ('SECONDARY_BUY', 'IPO', 'FPO', 'AUCTION', 'RIGHTS', 'BONUS') THEN quantity * price ELSE 0 END) as total_cost
+    SELECT
+    SUM(CASE WHEN type IN('SECONDARY_BUY', 'IPO', 'FPO', 'AUCTION', 'RIGHTS', 'BONUS') THEN quantity ELSE 0 END) as total_qty,
+      SUM(CASE WHEN type IN('SECONDARY_SELL') THEN quantity ELSE 0 END) as sell_qty,
+      SUM(CASE WHEN type IN('SECONDARY_BUY', 'IPO', 'FPO', 'AUCTION', 'RIGHTS', 'BONUS') THEN quantity * price ELSE 0 END) as total_cost
     FROM transactions t
     JOIN portfolios p ON p.id = t.portfolio_id
     WHERE p.user_id = ? AND t.stock_symbol = ?
-  `;
+      `;
 
   const [rows] = await pool.execute(sql, [userId, symbol]);
   if (rows.length === 0) return null;

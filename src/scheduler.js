@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { DateTime } = require('luxon');
 const { NepseScraper } = require('./scrapers/nepse-scraper');
 const { scrapeDividends } = require('./scrapers/dividend-scraper');
 const { insertTodayPrices, saveMarketIndex, saveMarketSummary, getSecurityIdsWithoutDetails, getAllSecurityIds, insertCompanyDetails, insertDividends, insertFinancials, saveSchedulerStatus, getSchedulerStatus } = require('./database/queries');
@@ -69,10 +70,8 @@ class Scheduler {
   async updateStatus(jobKey, type, message = null) {
     const timestamp = new Date().toISOString();
 
-    // Get today's date in Nepal timezone
-    const now = new Date();
-    const nepaliDate = new Date(now.getTime() + (5.75 * 60 * 60 * 1000));
-    const todayStr = nepaliDate.toISOString().split('T')[0];
+    // Get today's date in Nepal timezone reliably
+    const todayStr = DateTime.now().setZone('Asia/Kathmandu').toISODate();
 
     // Initialize if missing
     if (!this.stats[jobKey]) {
@@ -287,16 +286,16 @@ class Scheduler {
 
 
     // Only update when market is open (check time in Nepal timezone)
-    const now = new Date();
-    const nepalTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kathmandu' }));
-    const hour = nepalTime.getHours();
-    const minutes = nepalTime.getMinutes();
+    const nepalTime = DateTime.now().setZone('Asia/Kathmandu');
+    const hour = nepalTime.hour;
+    const minutes = nepalTime.minute;
     const currentTime = hour * 100 + minutes;
-    const day = nepalTime.getDay(); // 0 = Sunday, 4 = Thursday
+    const day = nepalTime.weekday; // 1 = Monday, 7 = Sunday
 
-    // Market hours: 11:00 AM - 3 PM on Sun-Thu (days 0-4)
-    // Starting at 11 AM to avoid stale cached data from NEPSE website before trading begins
-    const isMarketHours = currentTime >= 1100 && currentTime < 1500 && day >= 0 && day <= 4;
+    // Market hours: 11:00 AM - 3 PM on Sun-Thu
+    // Luxon weekdays: 1 (Mon), 2 (Tue), 3 (Wed), 4 (Thu), 7 (Sun)
+    const isTradingDay = [1, 2, 3, 4, 7].includes(day);
+    const isMarketHours = currentTime >= 1100 && currentTime < 1500 && isTradingDay;
 
     if (!isMarketHours && !this.isMarketOpen) {
       // Skip silently outside market hours
