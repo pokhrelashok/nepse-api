@@ -497,26 +497,26 @@ async function getIntradayMarketIndex(date = null) {
         continue;
       }
 
-      // For today's data, filter out snapshots with market_status_time in the future
-      // This prevents stale data from yesterday showing up (e.g., "3:00 PM" when it's only 2:30 PM)
-      if (isToday && data.marketStatusTime) {
-        const timeMatch = data.marketStatusTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-        if (timeMatch) {
-          let hour = parseInt(timeMatch[1]);
-          const minute = parseInt(timeMatch[2]);
-          const period = timeMatch[3].toUpperCase();
+      // // For today's data, filter out snapshots with market_status_time in the future
+      // // This prevents stale data from yesterday showing up (e.g., "3:00 PM" when it's only 2:30 PM)
+      // if (isToday && data.marketStatusTime) {
+      //   const timeMatch = data.marketStatusTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      //   if (timeMatch) {
+      //     let hour = parseInt(timeMatch[1]);
+      //     const minute = parseInt(timeMatch[2]);
+      //     const period = timeMatch[3].toUpperCase();
 
-          // Convert to 24-hour format
-          if (period === 'PM' && hour !== 12) hour += 12;
-          if (period === 'AM' && hour === 12) hour = 0;
+      //     // Convert to 24-hour format
+      //     if (period === 'PM' && hour !== 12) hour += 12;
+      //     if (period === 'AM' && hour === 12) hour = 0;
 
-          // Skip if the market_status_time is in the future
-          if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
-            logger.info(`Skipping future intraday data: ${data.marketStatusTime} (current: ${currentHour}:${currentMinute})`);
-            continue;
-          }
-        }
-      }
+      //     // Skip if the market_status_time is in the future
+      //     if (hour > currentHour || (hour === currentHour && minute > currentMinute)) {
+      //       logger.info(`Skipping future intraday data: ${data.marketStatusTime} (current: ${currentHour}:${currentMinute})`);
+      //       continue;
+      //     }
+      //   }
+      // }
 
       // Create a unique key for deduplication
       const uniqueKey = `${data.nepseIndex}-${data.marketStatusTime}-${data.totalTradedShares}`;
