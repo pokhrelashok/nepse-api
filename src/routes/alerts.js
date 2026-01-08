@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { verifyToken } = require('../middleware/auth');
-const alertController = require('../controllers/alertController');
+const alertController = require('../controllers/alert-controller');
 
 // Apply auth middleware to all alert routes
 router.use(verifyToken);

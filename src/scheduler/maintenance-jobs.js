@@ -116,7 +116,7 @@ async function runDatabaseBackup(scheduler) {
   logger.info('💾 Starting scheduled database backup...');
 
   try {
-    const { runDatabaseBackup } = require('../schedulers/backupScheduler');
+    const { runDatabaseBackup } = require('./jobs/backup-scheduler');
     const result = await runDatabaseBackup();
 
     const msg = `Backup: ${result.backupFile}, Uploaded: ${result.uploadResult?.fileName || 'N/A'}`;

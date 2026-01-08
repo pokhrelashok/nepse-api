@@ -1,4 +1,4 @@
-const { validateApiKey } = require('../database/apiKeyQueries');
+const { validateApiKey } = require('../database/api-key-queries');
 const { formatError } = require('../utils/formatter');
 const logger = require('../utils/logger');
 

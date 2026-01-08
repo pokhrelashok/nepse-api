@@ -2,7 +2,7 @@ const request = require('supertest');
 const app = require('../src/server');
 const mysql = require('mysql2/promise');
 const admin = require('../src/config/firebase');
-const { createApiKey, deleteApiKey } = require('../src/database/apiKeyQueries');
+const { createApiKey, deleteApiKey } = require('../src/database/api-key-queries');
 
 // Mock Firebase Admin
 jest.mock('../src/config/firebase', () => ({

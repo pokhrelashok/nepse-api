@@ -13,7 +13,7 @@ const { getSystemMetrics } = require('../../utils/system-metrics');
 router.use('/companies', require('./companies'));
 router.use('/ipos', require('./ipos'));
 router.use('/feedback', require('./feedback'));
-router.use('/keys', require('./apiKeys'));
+router.use('/keys', require('./api-keys'));
 router.use('/dividends', require('./dividends'));
 router.use('/prices', require('./prices'));
 router.use('/users', require('./users'));

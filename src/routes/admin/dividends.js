@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth');
-const dividendsController = require('../../controllers/admin/adminDividendsController');
+const dividendsController = require('../../controllers/admin/admin-dividends-controller');
 
 // All routes require authentication
 router.use(authMiddleware);

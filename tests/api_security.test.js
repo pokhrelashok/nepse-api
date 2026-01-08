@@ -1,7 +1,7 @@
 const request = require('supertest');
 const app = require('../src/server');
 const { pool } = require('../src/database/database');
-const { createApiKey, deleteApiKey } = require('../src/database/apiKeyQueries');
+const { createApiKey, deleteApiKey } = require('../src/database/api-key-queries');
 
 describe('API Key Security', () => {
   let validApiKey;

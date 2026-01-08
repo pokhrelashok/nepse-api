@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth');
-const feedbackController = require('../../controllers/admin/adminFeedbackController');
+const feedbackController = require('../../controllers/admin/admin-feedback-controller');
 
 // All routes require authentication
 router.use(authMiddleware);

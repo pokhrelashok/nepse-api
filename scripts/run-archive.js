@@ -5,7 +5,7 @@
  * Usage: node scripts/run-archive.js
  */
 
-const { archiveTodaysPrices } = require('../src/schedulers/archiveDailyPrices');
+const { archiveTodaysPrices } = require('../src/scheduler/jobs/archive-daily-prices');
 const { pool } = require('../src/database/database');
 
 async function runArchive() {

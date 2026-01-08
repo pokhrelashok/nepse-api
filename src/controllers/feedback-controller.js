@@ -9,7 +9,7 @@ const {
   updateFeedbackStatus,
   deleteFeedback,
   getFeedbackStats
-} = require('../database/feedbackQueries');
+} = require('../database/feedback-queries');
 
 // Ensure upload directory exists
 const uploadDir = path.join(__dirname, '../../public/uploads/feedback');

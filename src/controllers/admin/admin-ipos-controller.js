@@ -1,7 +1,7 @@
 const {
   getIposForAdmin,
   getIpoCountForAdmin,
-} = require('../../database/admin/adminQueries');
+} = require('../../database/admin/admin-queries');
 const { insertIpo } = require('../../database/queries');
 const { formatResponse, formatError } = require('../../utils/formatter');
 const logger = require('../../utils/logger');

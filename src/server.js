@@ -55,7 +55,7 @@ app.use(express.static('public'));
 // Serve React app build files
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
-const apiKeyAuth = require('./middleware/apiKeyAuth');
+const apiKeyAuth = require('./middleware/api-key-auth');
 
 // API Routes
 app.use('/api', (req, res, next) => {

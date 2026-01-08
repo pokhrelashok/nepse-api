@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../middleware/auth');
-const feedbackController = require('../controllers/feedbackController');
+const feedbackController = require('../controllers/feedback-controller');
 
 /**
  * Public endpoint for submitting feedback

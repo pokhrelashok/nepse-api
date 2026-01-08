@@ -59,16 +59,19 @@ docker compose down
 All endpoints require either an API key or JWT token (except `/api/health` and `/api/admin/login`).
 
 **API Key Header:**
+
 ```bash
 x-api-key: npt_your_api_key_here
 ```
 
 **JWT Token Header:**
+
 ```bash
 Authorization: Bearer your_jwt_token_here
 ```
 
 **How to Get API Key:**
+
 1. Log in to the Admin Panel
 2. Navigate to API Keys section
 3. Click "Generate New Key"
@@ -88,6 +91,7 @@ All endpoints return standardized responses:
 ```
 
 **Error Response:**
+
 ```json
 {
   "success": false,
@@ -100,6 +104,7 @@ All endpoints return standardized responses:
 ### Key Endpoints
 
 **Market Data:**
+
 - `GET /api/market/status` - Current market status and index
 - `GET /api/today-prices` - All stock prices for today
 - `GET /api/scripts/:symbol` - Single stock details
@@ -107,11 +112,13 @@ All endpoints return standardized responses:
 - `GET /api/market/stats` - Market statistics and top performers
 
 **Company Information:**
+
 - `GET /api/companies` - All companies with details
 - `GET /api/scripts/:symbol/history?range=1M` - Historical price data
 - `GET /api/sectors` - Sector analysis
 
 **Portfolio (requires JWT):**
+
 - `GET /api/portfolio` - User's portfolios
 - `POST /api/portfolio` - Create portfolio
 - `POST /api/portfolio/sync` - Sync portfolio with latest prices
@@ -119,11 +126,13 @@ All endpoints return standardized responses:
 - `GET /api/holdings/:portfolioId` - Portfolio holdings with gains/losses
 
 **Notifications (requires JWT):**
+
 - `POST /api/alerts/price` - Create price alert
 - `GET /api/alerts/price` - Get user's price alerts
 - `PUT /api/alerts/price/:id` - Update alert
 
 **Admin (requires admin JWT):**
+
 - `POST /api/admin/login` - Admin authentication
 - `GET /api/admin/api-keys` - Manage API keys
 - `GET /api/admin/users` - User management
@@ -201,6 +210,7 @@ sudo ./deploy/deploy-ubuntu.sh localhost
 ```
 
 **What Gets Installed:**
+
 - Bun runtime
 - Node.js 20.x (for PM2)
 - PM2 process manager
@@ -265,6 +275,7 @@ sudo certbot renew
 ### Monitoring
 
 Built-in monitoring dashboard shows:
+
 - System services status
 - API health checks
 - Disk space and memory usage
@@ -429,6 +440,7 @@ Successfully completed major refactoring with zero downtime:
 - **Phase 5:** Notifications (593 lines → 6 modules) ✅
 
 **Results:**
+
 - 100% backward compatible
 - Zero breaking changes
 - All tests passing
@@ -455,6 +467,7 @@ Successfully completed major refactoring with zero downtime:
 ## Troubleshooting
 
 ### Server won't start
+
 ```bash
 # Check logs
 docker logs nepse-backend
@@ -469,6 +482,7 @@ lsof -i :3000
 ```
 
 ### Scraper not working
+
 ```bash
 # Install Chrome/Chromium
 sudo apt-get install chromium-browser
@@ -481,6 +495,7 @@ bun src/index.js prices
 ```
 
 ### Database issues
+
 ```bash
 # Check MySQL status
 sudo systemctl status mysql

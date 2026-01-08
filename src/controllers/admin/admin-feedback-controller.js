@@ -3,7 +3,7 @@ const {
   getFeedbackStats,
   updateFeedbackStatus,
   deleteFeedback,
-} = require('../../database/feedbackQueries');
+} = require('../../database/feedback-queries');
 const { formatResponse, formatError } = require('../../utils/formatter');
 const logger = require('../../utils/logger');
 

@@ -2,7 +2,7 @@ const {
   getAllApiKeys,
   createApiKey,
   deleteApiKey,
-} = require('../../database/admin/adminQueries');
+} = require('../../database/admin/admin-queries');
 const { formatResponse, formatError } = require('../../utils/formatter');
 const logger = require('../../utils/logger');
 

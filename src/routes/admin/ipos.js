@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { authMiddleware } = require('../../middleware/auth');
-const iposController = require('../../controllers/admin/adminIposController');
+const iposController = require('../../controllers/admin/admin-ipos-controller');
 
 // All routes require authentication
 router.use(authMiddleware);

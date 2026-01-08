@@ -14,7 +14,7 @@ async function archiveDailyPrices(scheduler) {
   logger.info('📦 Starting daily price archive...');
 
   try {
-    const { archiveTodaysPrices } = require('../schedulers/archiveDailyPrices');
+    const { archiveTodaysPrices } = require('./jobs/archive-daily-prices');
     const result = await archiveTodaysPrices();
 
     const msg = `Archived ${result.recordsArchived} stock prices for ${result.date}`;
@@ -43,7 +43,7 @@ async function archiveMarketIndex(scheduler) {
   logger.info('📊 Starting daily market index archive...');
 
   try {
-    const { archiveTodaysMarketIndex } = require('../schedulers/archiveMarketIndex');
+    const { archiveTodaysMarketIndex } = require('./jobs/archive-market-index');
     const result = await archiveTodaysMarketIndex();
 
     const msg = `Archived market index ${result.index} (${result.change}) for ${result.date}`;
