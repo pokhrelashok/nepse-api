@@ -15,9 +15,6 @@ async function runIpoScrape(scheduler) {
 
   try {
     const { scrapeIpos } = require('../scrapers/ipo-scraper');
-    // Run with checkAll=false for incremental (page 1 only) as per user request
-    // "by default we will only check the first page"
-    // For full scrape, use manual script with --all flag
     await scrapeIpos(false);
 
     scheduler.updateStatus(jobKey, 'SUCCESS', 'IPO scrape completed');

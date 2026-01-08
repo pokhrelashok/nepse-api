@@ -15,19 +15,15 @@ async function updateMarketIndex(scheduler, scraper, isMarketOpen) {
   const hour = nepalTime.hour;
   const minutes = nepalTime.minute;
   const currentTime = hour * 100 + minutes;
-  const day = nepalTime.weekday; // 1 = Monday, 7 = Sunday
+  const day = nepalTime.weekday;
 
-  // Market hours: 11:00 AM - 3 PM on Sun-Thu
-  // Luxon weekdays: 1 (Mon), 2 (Tue), 3 (Wed), 4 (Thu), 7 (Sun)
   const isTradingDay = [1, 2, 3, 4, 7].includes(day);
   const isMarketHours = currentTime >= 1100 && currentTime < 1500 && isTradingDay;
 
   if (!isMarketHours && !isMarketOpen.value) {
-    // Skip silently outside market hours
     return;
   }
 
-  // Prevent overlapping runs
   if (scheduler.isJobRunning.get(jobKey)) {
     return;
   }
@@ -47,7 +43,6 @@ async function updateMarketIndex(scheduler, scraper, isMarketOpen) {
     // Save index and status to database
     await saveMarketIndex(indexData, status);
     const msg = `Index: ${indexData.nepseIndex} (${indexData.indexChange > 0 ? '+' : ''}${indexData.indexChange}) [${status}]`;
-    console.log(`📈 ${msg}`);
 
     scheduler.updateStatus(jobKey, 'SUCCESS', msg);
   } catch (error) {
@@ -98,35 +93,27 @@ async function updatePricesAndStatus(scheduler, scraper, phase) {
     const summary = await scraper.scrapeMarketSummary();
     const { status, isOpen, indexData } = summary;
 
-    // Save summary (index + status)
     await saveMarketSummary(summary);
-    console.log(`📊 Market status: ${status}, Index: ${indexData.nepseIndex} (${indexData.indexChange})`);
 
     let msg = `Market status: ${status}`;
 
     if (phase === 'DURING_HOURS' && isOpen) {
-      console.log(`✅ Market is ${status}, updating prices...`);
       const prices = await scraper.scrapeTodayPrices();
       if (prices && prices.length > 0) {
         const formattedPrices = formatPricesForDatabase(prices);
         await insertTodayPrices(formattedPrices);
         const updateMsg = `Updated ${prices.length} stock prices`;
-        console.log(`✅ ${updateMsg}`);
         msg = updateMsg;
 
-        // Trigger price alerts check
         const NotificationService = require('../services/notification-service');
         await NotificationService.checkAndSendPriceAlerts();
       } else {
-        console.log('⚠️ No price data received');
         msg = 'No price data received';
       }
     } else if (phase === 'AFTER_CLOSE') {
       msg = 'Post-market close status update completed';
-      console.log(`🔒 ${msg}`);
     } else {
       msg = 'Market is closed, skipping price update';
-      console.log(`🔒 ${msg}`);
     }
 
     scheduler.updateStatus(jobKey, 'SUCCESS', msg);

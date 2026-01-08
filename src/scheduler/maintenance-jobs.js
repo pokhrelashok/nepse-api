@@ -19,9 +19,8 @@ async function runSystemCleanup(scheduler) {
   try {
     const tmpDir = os.tmpdir();
     const now = Date.now();
-    const MAX_AGE_MS = 3600 * 1000; // 1 hour
+    const MAX_AGE_MS = 3600 * 1000;
 
-    // Cleanup 1: Temp directories created by scraper
     let deletedCount = 0;
     let keptCount = 0;
 
@@ -40,7 +39,6 @@ async function runSystemCleanup(scheduler) {
             keptCount++;
           }
         } catch (err) {
-          // Ignore errors (file might be gone or locked)
         }
       }
     }
@@ -55,7 +53,6 @@ async function runSystemCleanup(scheduler) {
       logger.info('ℹ️ No temp directories found');
     }
 
-    // Cleanup 2: Downloads directory (CSV files from NEPSE scraper)
     const downloadsDir = '/home/nepse/Downloads';
     let csvDeletedCount = 0;
 
@@ -64,7 +61,6 @@ async function runSystemCleanup(scheduler) {
         const downloadFiles = fs.readdirSync(downloadsDir);
 
         for (const file of downloadFiles) {
-          // Only clean up CSV files (from NEPSE downloads)
           if (file.toLowerCase().endsWith('.csv')) {
             const filePath = path.join(downloadsDir, file);
             try {
@@ -76,7 +72,6 @@ async function runSystemCleanup(scheduler) {
                 csvDeletedCount++;
               }
             } catch (err) {
-              // Ignore errors (file might be gone or locked)
             }
           }
         }
@@ -87,18 +82,14 @@ async function runSystemCleanup(scheduler) {
         }
       }
     } catch (err) {
-      // Directory doesn't exist or no permissions - this is fine on dev machines
-      logger.info('ℹ️ Downloads directory not accessible (expected on dev machines)');
     }
 
-    // Cleanup 3: Journal logs (Linux only) - Keep only 1 day of logs
     if (process.platform === 'linux') {
       try {
         const { execSync } = require('child_process');
         execSync('journalctl --vacuum-time=1d', { stdio: 'ignore' });
         logger.info('✅ Vacuumed system journal logs to 1 day');
       } catch (err) {
-        // Might fail if not root or journalctl not available, ignore
       }
     }
 

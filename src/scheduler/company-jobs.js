@@ -23,8 +23,6 @@ async function updateCompanyDetails(scheduler, scraper, fetchAll = false) {
   scheduler.isJobRunning.set(jobKey, true);
   scheduler.updateStatus(jobKey, 'START', `Starting company details update (fetchAll: ${fetchAll})...`);
 
-  console.log(`🏢 Scheduled company details update started (fetchAll: ${fetchAll})...`);
-
   try {
     let companiesToScrape;
 
@@ -38,14 +36,10 @@ async function updateCompanyDetails(scheduler, scraper, fetchAll = false) {
 
     if (!companiesToScrape || companiesToScrape.length === 0) {
       const msg = 'No companies found to update';
-      console.log(`✅ ${msg}`);
       scheduler.updateStatus(jobKey, 'SUCCESS', msg);
       return;
     }
 
-    console.log(`📊 Found ${companiesToScrape.length} companies to update...`);
-
-    // Scrape details
     const details = await scraper.scrapeAllCompanyDetails(
       companiesToScrape,
       insertCompanyDetails,
@@ -54,8 +48,6 @@ async function updateCompanyDetails(scheduler, scraper, fetchAll = false) {
     );
 
     const msg = `Scraped and saved details for ${details.length} companies`;
-    console.log(`✅ ${msg}`);
-
     scheduler.updateStatus(jobKey, 'SUCCESS', msg);
   } catch (error) {
     logger.error('Company details update failed:', error);

@@ -7,7 +7,6 @@ const { sendDividendNotification, sendRightShareNotification } = require('./mess
  */
 async function processNewDividends() {
   try {
-    // Find new/updated dividends (updated_at matches scraper's conditional update logic)
     const [newDividends] = await pool.execute(`
       SELECT * FROM announced_dividends 
       WHERE updated_at >= NOW() - INTERVAL 1 DAY
@@ -20,7 +19,6 @@ async function processNewDividends() {
 
     logger.info(`Found ${newDividends.length} new/updated dividends.`);
 
-    // For each dividend, find users who hold that stock
     for (const dividend of newDividends) {
       await sendDividendNotification(dividend);
     }
@@ -35,7 +33,6 @@ async function processNewDividends() {
  */
 async function processNewRightShares() {
   try {
-    // Find new/updated right shares with non-empty right_share field
     const [newRightShares] = await pool.execute(`
       SELECT * FROM announced_dividends 
       WHERE updated_at >= NOW() - INTERVAL 1 DAY
@@ -51,7 +48,6 @@ async function processNewRightShares() {
 
     logger.info(`Found ${newRightShares.length} new right shares.`);
 
-    // For each right share, find users who hold that stock
     for (const rightShare of newRightShares) {
       await sendRightShareNotification(rightShare);
     }

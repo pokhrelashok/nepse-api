@@ -179,8 +179,6 @@ class Scheduler extends BaseScheduler {
     if (job) {
       job.stop();
       this.jobs.delete('price_update');
-
-      console.log('🛑 Price update schedule stopped');
     }
   }
 
@@ -189,7 +187,6 @@ class Scheduler extends BaseScheduler {
 
     for (const [name, job] of this.jobs) {
       job.stop();
-      console.log(`🛑 Stopped schedule: ${name}`);
     }
     this.jobs.clear();
 

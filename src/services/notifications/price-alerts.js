@@ -8,7 +8,7 @@ const { sendPriceAlertNotification } = require('./messaging');
  */
 async function checkAndSendPriceAlerts() {
   logger.info('🔔 Checking stock price alerts...');
-  
+
   try {
     const allActiveAlerts = await getActivePriceAlerts();
     if (allActiveAlerts.length === 0) {
