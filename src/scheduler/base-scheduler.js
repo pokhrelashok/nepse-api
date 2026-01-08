@@ -40,13 +40,30 @@ class BaseScheduler {
   async loadStats() {
     try {
       const dbStats = await getSchedulerStatus();
-      if (dbStats && Object.keys(dbStats).length > 0) {
+
+      // Clean up any numeric keys that might have been added by previous bug
+      // to the in-memory stats object
+      for (const key of Object.keys(this.stats)) {
+        if (!isNaN(key)) {
+          delete this.stats[key];
+        }
+      }
+
+      if (dbStats && Array.isArray(dbStats)) {
         logger.info('Loading scheduler stats from database...');
+        for (const row of dbStats) {
+          const key = row.job_name;
+          // Only update if we track this job (ignore numeric keys if they leaked into DB)
+          if (key && isNaN(key) && this.stats[key]) {
+            this.stats[key] = { ...this.stats[key], ...row };
+          }
+        }
+      } else if (dbStats && typeof dbStats === 'object') {
+        // Fallback for object format
+        logger.info('Loading scheduler stats from database (object format)...');
         for (const [key, val] of Object.entries(dbStats)) {
-          if (this.stats[key]) {
+          if (isNaN(key) && this.stats[key]) {
             this.stats[key] = { ...this.stats[key], ...val };
-          } else {
-            this.stats[key] = val;
           }
         }
       }
