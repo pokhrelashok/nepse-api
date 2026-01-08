@@ -1496,7 +1496,7 @@ async function getSectorBreakdown(options = {}) {
       const companyData = {
         symbol: company.symbol,
         company_name: company.company_name,
-        market_capitalization: company.market_capitalization || 0,
+        market_capitalization: parseFloat(company.market_capitalization) || 0,
         price_change: livePrice?.percentage_change || 0,
         volume: livePrice?.total_traded_quantity || 0,
         turnover: livePrice?.total_traded_value || 0
