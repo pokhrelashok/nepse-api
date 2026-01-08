@@ -1,0 +1,220 @@
+const cron = require('node-cron');
+const logger = require('../utils/logger');
+const BaseScheduler = require('./base-scheduler');
+const { NepseScraper } = require('../scrapers/nepse-scraper');
+
+// Import all job modules
+const { updateMarketIndex, updatePricesAndStatus } = require('./market-jobs');
+const { updateCompanyDetails } = require('./company-jobs');
+const { runIpoScrape, runFpoScrape, runDividendScrape, runMarketIndicesHistoryScrape } = require('./data-jobs');
+const { archiveDailyPrices, archiveMarketIndex } = require('./archive-jobs');
+const { runSystemCleanup, runDatabaseBackup, runNotificationCheck } = require('./maintenance-jobs');
+
+/**
+ * Main Scheduler class that orchestrates all scheduled jobs
+ */
+class Scheduler extends BaseScheduler {
+  constructor() {
+    super();
+    this.scraper = new NepseScraper();
+    this.isMarketOpen = { value: false }; // Use object for reference passing
+    this._jobTimeouts = new Map();
+  }
+
+  async startPriceUpdateSchedule() {
+    await this.loadStats();
+
+    logger.info('Starting scheduled jobs...');
+
+    // Market Index Update (Every 20 seconds during market hours - when market is open)
+    const indexJob = cron.schedule('*/20 * * * * *', async () => {
+      await updateMarketIndex(this, this.scraper, this.isMarketOpen);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('index_update', indexJob);
+
+    // Price Update (Every 2 minutes from 11 AM to 3 PM, Sunday-Thursday)
+    const priceJob = cron.schedule('*/2 11-14 * * 0-4', async () => {
+      await updatePricesAndStatus(this, this.scraper, 'DURING_HOURS');
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('price_update', priceJob);
+
+    // After-Close Status Check (At 3:01 PM)
+    const closeJob = cron.schedule('1 15 * * 0-4', async () => {
+      await updatePricesAndStatus(this, this.scraper, 'AFTER_CLOSE');
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('close_update', closeJob);
+
+    // Company Details Update (Daily at 2:00 AM)
+    const companyDetailsJob = cron.schedule('0 2 * * *', async () => {
+      await updateCompanyDetails(this, this.scraper, false);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('company_details_update', companyDetailsJob);
+
+    // IPO Scraper (Daily at 2:00 AM)
+    const ipoJob = cron.schedule('0 2 * * *', async () => {
+      await runIpoScrape(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('ipo_update', ipoJob);
+    ipoJob.start();
+
+    // FPO Scraper (Daily at 2:15 AM)
+    const fpoJob = cron.schedule('15 2 * * *', async () => {
+      await runFpoScrape(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('fpo_update', fpoJob);
+    fpoJob.start();
+
+    // Announced Dividends Scraper (Daily at 2:30 AM)
+    const dividendJob = cron.schedule('30 2 * * *', async () => {
+      await runDividendScrape(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('dividend_update', dividendJob);
+    dividendJob.start();
+
+    // System Cleanup (Daily at 4:30 AM - when no other jobs are running)
+    const cleanupJob = cron.schedule('30 4 * * *', async () => {
+      await runSystemCleanup(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('cleanup_update', cleanupJob);
+    cleanupJob.start();
+
+    // Notifications (Daily at 9:00 AM)
+    const notificationJob = cron.schedule('0 9 * * *', async () => {
+      await runNotificationCheck(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('notification_check', notificationJob);
+    notificationJob.start();
+
+    // Database Backup (Daily at 5:00 AM - after cleanup)
+    const backupJob = cron.schedule('0 5 * * *', async () => {
+      await runDatabaseBackup(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('db_backup', backupJob);
+    backupJob.start();
+
+    // Daily Price Archive (at 3:05 PM, a few minutes after market closes)
+    const archiveJob = cron.schedule('5 15 * * 0-4', async () => {
+      await archiveDailyPrices(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('price_archive', archiveJob);
+    archiveJob.start();
+
+    // Daily Market Index Archive (at 3:06 PM, after price archive)
+    const marketIndexArchiveJob = cron.schedule('6 15 * * 0-4', async () => {
+      await archiveMarketIndex(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('market_index_archive', marketIndexArchiveJob);
+    marketIndexArchiveJob.start();
+
+    // Start core market jobs
+    indexJob.start();
+    priceJob.start();
+    closeJob.start();
+    companyDetailsJob.start();
+
+    // Market Indices History Scraper - DISABLED
+    // This scraper fetches historical data from NEPSE's API and should ONLY be used
+    // for one-time historical backfills, NOT for daily updates.
+    // 
+    // Problem: NEPSE's historical API returns stale data (closing_index=0) for today's date
+    // which overwrites the correct data archived by archiveMarketIndex at 3:06 PM.
+    // 
+    // Solution: Use archiveMarketIndex (3:06 PM) for daily archiving from live Redis data.
+    // Only run runMarketIndicesHistoryScrape manually when backfilling historical data.
+    //
+    // To manually run historical backfill:
+    //   bun run scripts/backfill-market-history.js
+    //
+    // const indexHistoryJob = cron.schedule('10 15 * * 0-4', async () => {
+    //   await runMarketIndicesHistoryScrape(this);
+    // }, {
+    //   scheduled: false,
+    //   timezone: 'Asia/Kathmandu'
+    // });
+    // this.jobs.set('index_history_update', indexHistoryJob);
+    // indexHistoryJob.start();
+
+    this.isRunning = true;
+    logger.info('Scheduler started (index every 20s during hours, prices every 2 min from 11 AM, archive at 3:05 PM)');
+  }
+
+  async stopPriceUpdateSchedule() {
+    const job = this.jobs.get('price_update');
+    if (job) {
+      job.stop();
+      this.jobs.delete('price_update');
+
+      console.log('🛑 Price update schedule stopped');
+    }
+  }
+
+  async stopAllSchedules() {
+    logger.info('Stopping all scheduled jobs...');
+
+    for (const [name, job] of this.jobs) {
+      job.stop();
+      console.log(`🛑 Stopped schedule: ${name}`);
+    }
+    this.jobs.clear();
+
+    const graceful = await this.waitForJobsToFinish();
+    if (!graceful) {
+      logger.warn('⚠️ Some jobs did not finish in time, forcing shutdown...');
+    } else {
+      logger.info('✅ All jobs completed successfully');
+    }
+
+    if (this.scraper) {
+      await this.scraper.close();
+      logger.info('Scraper resources cleaned up');
+    }
+
+    this.isRunning = false;
+  }
+
+  getActiveJobs() {
+    return Array.from(this.jobs.keys());
+  }
+
+  isSchedulerRunning() {
+    return this.isRunning;
+  }
+}
+
+module.exports = Scheduler;

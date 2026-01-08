@@ -92,7 +92,7 @@ class BaseScheduler {
       stat.message = message || 'Failed';
     }
 
-    saveSchedulerStatus(jobKey, stat).catch(() => {});
+    saveSchedulerStatus(jobKey, stat).catch(() => { });
   }
 
   getActiveJobs() {
