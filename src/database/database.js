@@ -107,6 +107,55 @@ async function saveCompanyDetails(detailsArray) {
   try {
     await connection.beginTransaction();
 
+    // First, get financial data and dividend info for each symbol to compute metrics
+    const symbols = detailsArray.map(d => d.symbol).filter(Boolean);
+    const financialData = new Map();
+    const dividendData = new Map();
+
+    if (symbols.length > 0) {
+      // Get latest financial data
+      const [financials] = await connection.query(`
+        SELECT 
+          cd.symbol,
+          cf.earnings_per_share,
+          cf.net_worth_per_share
+        FROM company_details cd
+        LEFT JOIN (
+          SELECT security_id, earnings_per_share, net_worth_per_share
+          FROM company_financials
+          WHERE (security_id, fiscal_year) IN (
+            SELECT security_id, MAX(fiscal_year)
+            FROM company_financials
+            GROUP BY security_id
+          )
+        ) cf ON cd.security_id = cf.security_id
+        WHERE cd.symbol IN (?)
+      `, [symbols]);
+
+      financials.forEach(row => {
+        financialData.set(row.symbol, {
+          eps: row.earnings_per_share,
+          bookValue: row.net_worth_per_share
+        });
+      });
+
+      // Get latest dividend data
+      const [dividends] = await connection.query(`
+        SELECT 
+          symbol, 
+          CAST(COALESCE(bonus_share, '0') AS DECIMAL(10,2)) + 
+          CAST(COALESCE(cash_dividend, '0') AS DECIMAL(10,2)) as total_dividend
+        FROM announced_dividends
+        WHERE symbol IN (?)
+          AND fiscal_year = (SELECT MAX(fiscal_year) FROM announced_dividends WHERE symbol = announced_dividends.symbol)
+        GROUP BY symbol
+      `, [symbols]);
+
+      dividends.forEach(row => {
+        dividendData.set(row.symbol, row.total_dividend);
+      });
+    }
+
     const sql = `
       INSERT INTO company_details (
         security_id, symbol, company_name, nepali_company_name, sector_name, nepali_sector_name,
@@ -114,12 +163,12 @@ async function saveCompanyDetails(detailsArray) {
         listing_date, total_listed_shares, paid_up_capital,
         total_paid_up_value, email, website, status, permitted_to_trade,
         promoter_shares, public_shares, market_capitalization,
+        pe_ratio, pb_ratio, dividend_yield,
         logo_url, is_logo_placeholder, last_traded_price,
         open_price, close_price, high_price, low_price, previous_close,
         fifty_two_week_high, fifty_two_week_low, total_traded_quantity,
-        total_trades, average_traded_price, ai_summary,
-        pe_ratio, pb_ratio, dividend_yield, eps, metrics_updated_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        total_trades, average_traded_price, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         symbol = VALUES(symbol),
         company_name = VALUES(company_name),
@@ -140,6 +189,9 @@ async function saveCompanyDetails(detailsArray) {
         promoter_shares = VALUES(promoter_shares),
         public_shares = VALUES(public_shares),
         market_capitalization = VALUES(market_capitalization),
+        pe_ratio = VALUES(pe_ratio),
+        pb_ratio = VALUES(pb_ratio),
+        dividend_yield = VALUES(dividend_yield),
         logo_url = VALUES(logo_url),
         is_logo_placeholder = VALUES(is_logo_placeholder),
         last_traded_price = VALUES(last_traded_price),
@@ -153,16 +205,36 @@ async function saveCompanyDetails(detailsArray) {
         total_traded_quantity = VALUES(total_traded_quantity),
         total_trades = VALUES(total_trades),
         average_traded_price = VALUES(average_traded_price),
-        ai_summary = COALESCE(VALUES(ai_summary), ai_summary),
-        pe_ratio = VALUES(pe_ratio),
-        pb_ratio = VALUES(pb_ratio),
-        dividend_yield = VALUES(dividend_yield),
-        eps = VALUES(eps),
-        metrics_updated_at = VALUES(metrics_updated_at),
         updated_at = NOW()
     `;
 
     for (const d of detailsArray) {
+      // Compute financial metrics
+      const price = d.close_price || d.last_traded_price || 0;
+      const financial = financialData.get(d.symbol);
+      const totalDividend = dividendData.get(d.symbol) || 0;
+
+      let peRatio = null;
+      let pbRatio = null;
+      let dividendYield = null;
+
+      if (financial && price > 0) {
+        // P/E Ratio = Price / EPS
+        if (financial.eps && financial.eps > 0) {
+          peRatio = price / financial.eps;
+        }
+
+        // P/B Ratio = Price / Book Value
+        if (financial.bookValue && financial.bookValue > 0) {
+          pbRatio = price / financial.bookValue;
+        }
+      }
+
+      // Dividend Yield = (Annual Dividend / Price) * 100
+      if (totalDividend > 0 && price > 0) {
+        dividendYield = (totalDividend / price) * 100;
+      }
+
       await connection.execute(sql, [
         d.security_id || null,
         d.symbol || null,
@@ -184,6 +256,9 @@ async function saveCompanyDetails(detailsArray) {
         d.promoter_shares ?? 0,
         d.public_shares ?? 0,
         d.market_capitalization ?? 0,
+        peRatio,
+        pbRatio,
+        dividendYield,
         d.logo_url || null,
         d.is_logo_placeholder ? 1 : 0,
         d.last_traded_price ?? 0,
@@ -196,18 +271,12 @@ async function saveCompanyDetails(detailsArray) {
         d.fifty_two_week_low ?? 0,
         d.total_traded_quantity ?? 0,
         d.total_trades ?? 0,
-        d.average_traded_price ?? 0,
-        d.ai_summary || null,
-        d.pe_ratio ?? null,
-        d.pb_ratio ?? null,
-        d.dividend_yield ?? null,
-        d.eps ?? null,
-        d.pe_ratio !== undefined ? new Date() : null // metrics_updated_at
+        d.average_traded_price ?? 0
       ]);
     }
 
     await connection.commit();
-    logger.info(`Saved/Updated ${detailsArray.length} company details.`);
+    logger.info(`Saved/Updated ${detailsArray.length} company details with computed metrics.`);
   } catch (err) {
     await connection.rollback();
     throw err;

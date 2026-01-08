@@ -76,7 +76,7 @@ Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sec
       messages: [
         {
           role: 'system',
-          content: 'You are a financial analyst. Provide concise, actionable stock summaries. Max 3 sentences.'
+          content: 'You are a financial analyst specializing in Nepal Stock Exchange. Provide concise, actionable stock summaries. Max 3 sentences. IMPORTANT: Always use "रु" (not ₹ or Rs) when mentioning Nepali Rupee currency.'
         },
         {
           role: 'user',
