@@ -11,7 +11,7 @@ const logger = require('../src/utils/logger');
 async function testOnDemandGeneration() {
   const symbol = 'NABIL'; // Use a well-known symbol
 
-  console.log(`\n🔍 Starting verification for ${symbol}...`);
+  console.log(`\n🔍 Starting verification for dedicated AI summary endpoint for ${symbol}...`);
 
   try {
     // 1. Fetch initial state

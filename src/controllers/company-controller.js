@@ -71,12 +71,28 @@ exports.getCompanyDetails = async (req, res) => {
       return res.status(404).json(formatError(`Script '${symbol}' not found`, 404));
     }
 
-    // On-demand AI summary generation
-    details.ai_summary = await aiAnalysisService.getOrGenerateSummary(details);
-
     res.json(formatResponse(details));
   } catch (e) {
     console.error('API Detail Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+};
+
+exports.getAIStockSummary = async (req, res) => {
+  try {
+    const symbol = req.params.symbol.toUpperCase();
+    const details = await getScriptDetails(symbol);
+
+    if (!details) {
+      return res.status(404).json(formatError(`Script '${symbol}' not found`, 404));
+    }
+
+    // On-demand AI summary generation (now in dedicated endpoint)
+    const aiSummary = await aiAnalysisService.getOrGenerateSummary(details);
+
+    res.json(formatResponse({ symbol, ai_summary: aiSummary }));
+  } catch (e) {
+    console.error('API AI Summary Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
   }
 };
