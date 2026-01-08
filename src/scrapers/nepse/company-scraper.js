@@ -133,7 +133,7 @@ class CompanyScraper {
 
     console.log(`🏢 Starting company details scrape for ${securityIds.length} companies...`);
     await this.browserManager.init();
-    
+
     const browser = this.browserManager.getBrowser();
     const userAgent = this.browserManager.getUserAgent();
     const details = [];
