@@ -99,9 +99,9 @@ test('BaseScheduler has required methods', () => {
 test('Directory structure is correct', () => {
   const fs = require('fs');
   const schedulerDir = path.join(__dirname, 'src', 'scheduler');
-  
+
   if (!fs.existsSync(schedulerDir)) throw new Error('scheduler directory missing');
-  
+
   const requiredFiles = [
     'base-scheduler.js',
     'market-jobs.js',
@@ -111,15 +111,15 @@ test('Directory structure is correct', () => {
     'maintenance-jobs.js',
     'index.js'
   ];
-  
+
   for (const file of requiredFiles) {
     const filePath = path.join(schedulerDir, file);
     if (!fs.existsSync(filePath)) throw new Error(`${file} missing`);
   }
-  
+
   const wrapperPath = path.join(__dirname, 'src', 'scheduler.js');
   if (!fs.existsSync(wrapperPath)) throw new Error('scheduler.js wrapper missing');
-  
+
   const backupPath = path.join(__dirname, 'src', 'scheduler.js.old');
   if (!fs.existsSync(backupPath)) throw new Error('scheduler.js.old backup missing');
 });
