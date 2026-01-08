@@ -12,7 +12,12 @@ async function getAllCompanies() {
       cd.sector_name AS sector,
       cd.nepali_sector_name,
       cd.last_traded_price, 
-      cd.status
+      cd.status,
+      cd.pe_ratio,
+      cd.pb_ratio,
+      cd.eps,
+      cd.dividend_yield,
+      cd.market_capitalization
     FROM company_details cd
     ORDER BY cd.company_name
   `;

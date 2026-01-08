@@ -73,14 +73,16 @@ function calculateAllMetrics(companyData, latestFinancial = null, latestDividend
     market_capitalization: calculateMarketCap(price, totalShares),
     pe_ratio: null,
     pb_ratio: null,
-    dividend_yield: null
+    dividend_yield: null,
+    eps: null
   };
 
-  // Calculate PE and PB if financial data available
+  // Calculate PE, PB, and extract EPS if financial data available
   if (latestFinancial) {
     const eps = parseFloat(latestFinancial.earnings_per_share || 0);
     const bookValue = parseFloat(latestFinancial.net_worth_per_share || 0);
 
+    metrics.eps = eps > 0 ? eps : null;
     metrics.pe_ratio = calculatePERatio(price, eps);
     metrics.pb_ratio = calculatePBRatio(price, bookValue);
   }
@@ -107,7 +109,8 @@ function roundMetrics(metrics) {
     market_capitalization: metrics.market_capitalization ? Math.round(metrics.market_capitalization * 100) / 100 : null,
     pe_ratio: metrics.pe_ratio ? Math.round(metrics.pe_ratio * 10000) / 10000 : null,
     pb_ratio: metrics.pb_ratio ? Math.round(metrics.pb_ratio * 10000) / 10000 : null,
-    dividend_yield: metrics.dividend_yield !== null ? Math.round(metrics.dividend_yield * 10000) / 10000 : null
+    dividend_yield: metrics.dividend_yield !== null ? Math.round(metrics.dividend_yield * 10000) / 10000 : null,
+    eps: metrics.eps ? Math.round(metrics.eps * 10000) / 10000 : null
   };
 }
 

@@ -530,6 +530,7 @@ class CompanyScraper {
           item.pe_ratio = metrics.pe_ratio;
           item.pb_ratio = metrics.pb_ratio;
           item.dividend_yield = metrics.dividend_yield;
+          item.eps = metrics.eps;
 
           details.push(item);
 

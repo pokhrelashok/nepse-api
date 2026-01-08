@@ -34,6 +34,7 @@ async function testMetrics() {
       console.log(`   Market Cap: ${metrics.market_capitalization}`);
       console.log(`   PE Ratio: ${metrics.pe_ratio}`);
       console.log(`   PB Ratio: ${metrics.pb_ratio}`);
+      console.log(`   EPS: ${metrics.eps}`);
       console.log(`   Dividend Yield: ${metrics.dividend_yield}%`);
     } else {
       console.error('\n❌ Failed to calculate metrics');

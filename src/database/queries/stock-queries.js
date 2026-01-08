@@ -198,7 +198,8 @@ async function getLatestPrices(symbols, options = {}) {
   if (pagedSymbols.length > 0) {
     const placeholders = pagedSymbols.map(() => '?').join(',');
     const [metadata] = await pool.execute(
-      `SELECT symbol, company_name, nepali_company_name, sector_name, nepali_sector_name, market_capitalization 
+      `SELECT symbol, company_name, nepali_company_name, sector_name, nepali_sector_name, 
+              market_capitalization, pe_ratio, pb_ratio, eps, dividend_yield
        FROM company_details 
        WHERE symbol IN (${placeholders})`,
       pagedSymbols

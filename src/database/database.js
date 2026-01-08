@@ -118,8 +118,8 @@ async function saveCompanyDetails(detailsArray) {
         open_price, close_price, high_price, low_price, previous_close,
         fifty_two_week_high, fifty_two_week_low, total_traded_quantity,
         total_trades, average_traded_price, ai_summary,
-        pe_ratio, pb_ratio, dividend_yield, metrics_updated_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        pe_ratio, pb_ratio, dividend_yield, eps, metrics_updated_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       ON DUPLICATE KEY UPDATE
         symbol = VALUES(symbol),
         company_name = VALUES(company_name),
@@ -157,6 +157,7 @@ async function saveCompanyDetails(detailsArray) {
         pe_ratio = VALUES(pe_ratio),
         pb_ratio = VALUES(pb_ratio),
         dividend_yield = VALUES(dividend_yield),
+        eps = VALUES(eps),
         metrics_updated_at = VALUES(metrics_updated_at),
         updated_at = NOW()
     `;
@@ -200,6 +201,7 @@ async function saveCompanyDetails(detailsArray) {
         d.pe_ratio ?? null,
         d.pb_ratio ?? null,
         d.dividend_yield ?? null,
+        d.eps ?? null,
         d.pe_ratio !== undefined ? new Date() : null // metrics_updated_at
       ]);
     }

@@ -63,6 +63,7 @@ async function updateMetricsForCompany(securityId, symbol) {
            pe_ratio = ?, 
            pb_ratio = ?, 
            dividend_yield = ?,
+           eps = ?,
            metrics_updated_at = NOW()
        WHERE security_id = ?`,
       [
@@ -70,11 +71,12 @@ async function updateMetricsForCompany(securityId, symbol) {
         metrics.pe_ratio,
         metrics.pb_ratio,
         metrics.dividend_yield,
+        metrics.eps,
         securityId
       ]
     );
 
-    logger.info(`✅ Updated metrics for ${symbol}: PE=${metrics.pe_ratio}, PB=${metrics.pb_ratio}, DivYield=${metrics.dividend_yield}%, MCap=${metrics.market_capitalization}`);
+    logger.info(`✅ Updated metrics for ${symbol}: PE=${metrics.pe_ratio}, PB=${metrics.pb_ratio}, EPS=${metrics.eps}, DivYield=${metrics.dividend_yield}%, MCap=${metrics.market_capitalization}`);
     return metrics;
   } catch (error) {
     logger.error(`Failed to update metrics for ${symbol}:`, error.message);

@@ -5,6 +5,8 @@
  */
 
 const OpenAI = require('openai');
+const { pool } = require('../database/database');
+const { DateTime } = require('luxon');
 const logger = require('../utils/logger');
 
 // Reuse client initialization from translation service
@@ -59,6 +61,7 @@ async function generateStockSummary(stockData) {
       vol: stockData.total_traded_quantity,
       pe: stockData.pe_ratio,
       pb: stockData.pb_ratio,
+      eps: stockData.eps,
       div_yield: stockData.dividend_yield
     };
 
@@ -136,7 +139,58 @@ async function generateBatchSummaries(stocksData) {
   return results;
 }
 
+/**
+ * Get or generate AI summary for a stock
+ * @param {Object} stockData - Stock details from getScriptDetails
+ * @returns {Promise<string|null>} Summary content
+ */
+async function getOrGenerateSummary(stockData) {
+  if (!stockData || !stockData.symbol) return null;
+
+  const symbol = stockData.symbol;
+  const existingSummary = stockData.ai_summary;
+  const updatedAt = stockData.ai_summary_updated_at;
+  const businessDate = stockData.business_date; // Format expected: YYYY-MM-DD
+
+  // Check if we need to regenerate
+  // 1. No summary exists
+  // 2. Summary timestamp is older than the latest trading data (business_date)
+  let needsGeneration = !existingSummary || !updatedAt;
+
+  if (!needsGeneration && updatedAt && businessDate) {
+    try {
+      const summaryDate = DateTime.fromJSDate(new Date(updatedAt)).toISODate();
+      if (summaryDate < businessDate) {
+        needsGeneration = true;
+        logger.info(`🔄 AI summary for ${symbol} is stale (${summaryDate} < ${businessDate}), regenerating...`);
+      }
+    } catch (e) {
+      logger.warn(`Failed to parse summary date for ${symbol}, forcing regeneration`);
+      needsGeneration = true;
+    }
+  }
+
+  if (needsGeneration) {
+    const newSummary = await generateStockSummary(stockData);
+    if (newSummary) {
+      try {
+        await pool.execute(
+          'UPDATE company_details SET ai_summary = ?, ai_summary_updated_at = NOW() WHERE symbol = ?',
+          [newSummary, symbol]
+        );
+        return newSummary;
+      } catch (error) {
+        logger.error(`❌ Failed to save AI summary for ${symbol}:`, error.message);
+        return newSummary; // Return generated summary anyway
+      }
+    }
+  }
+
+  return existingSummary;
+}
+
 module.exports = {
   generateStockSummary,
-  generateBatchSummaries
+  generateBatchSummaries,
+  getOrGenerateSummary
 };

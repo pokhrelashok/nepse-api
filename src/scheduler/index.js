@@ -10,6 +10,7 @@ const { runIpoScrape, runFpoScrape, runDividendScrape, runMarketIndicesHistorySc
 const { archiveDailyPrices, archiveMarketIndex } = require('./archive-jobs');
 const { runSystemCleanup, runDatabaseBackup, runNotificationCheck } = require('./maintenance-jobs');
 const { generateStockSummaries } = require('./ai-analysis-jobs');
+const { calculateFinancialMetrics } = require('./financial-metrics-jobs');
 
 /**
  * Main Scheduler class that orchestrates all scheduled jobs
@@ -151,7 +152,17 @@ class Scheduler extends BaseScheduler {
       timezone: 'Asia/Kathmandu'
     });
     this.jobs.set('ai_summary_generation', aiSummaryJob);
-    aiSummaryJob.start();
+    // aiSummaryJob.start(); // Disabled in favor of on-demand generation
+
+    // Financial Metrics Calculation (at 3:30 PM, after market close, before AI summary)
+    const financialMetricsJob = cron.schedule('30 15 * * 0-4', async () => {
+      await calculateFinancialMetrics(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('financial_metrics_calculation', financialMetricsJob);
+    financialMetricsJob.start();
 
     // Start core market jobs
     indexJob.start();

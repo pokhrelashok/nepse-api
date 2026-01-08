@@ -9,6 +9,7 @@ const {
   getAnnouncedDividends,
   getStockHistory
 } = require('../database/queries');
+const aiAnalysisService = require('../services/ai-analysis-service');
 const { formatResponse, formatError } = require('../utils/formatter');
 
 // Helper to calculate start date based on range
@@ -69,6 +70,10 @@ exports.getCompanyDetails = async (req, res) => {
     if (!details) {
       return res.status(404).json(formatError(`Script '${symbol}' not found`, 404));
     }
+
+    // On-demand AI summary generation
+    details.ai_summary = await aiAnalysisService.getOrGenerateSummary(details);
+
     res.json(formatResponse(details));
   } catch (e) {
     console.error('API Detail Error:', e);
