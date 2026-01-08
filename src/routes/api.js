@@ -66,6 +66,7 @@ router.get('/market/summary', marketController.getMarketSummary);
 router.get('/market/gainers', marketController.getGainers);
 router.get('/market/losers', marketController.getLosers);
 router.get('/market/indices/history', marketController.getMarketIndicesHistory);
+router.get('/market/sectors', marketController.getSectorBreakdown);
 
 // Today Prices
 router.get('/today-prices', marketController.getTodayPrices);

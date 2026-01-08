@@ -54,7 +54,6 @@ async function searchStocks(query) {
 }
 
 async function getScriptDetails(symbol) {
-  // 1. Get company details from MySQL (Static/Metadata)
   const sql = `
     SELECT 
       cd.*
@@ -68,7 +67,7 @@ async function getScriptDetails(symbol) {
     const details = rows[0];
     const securityId = details.security_id;
 
-    // 2. Try to get live price from Redis
+    // Try Redis first, fallback to MySQL
     try {
       const livePriceJson = await redis.hget('live:stock_prices', symbol);
       if (livePriceJson) {
@@ -83,7 +82,6 @@ async function getScriptDetails(symbol) {
         details.total_traded_value = livePrice.total_traded_value;
         details.source = 'REDIS_LIVE';
       } else {
-        // Fallback to MySQL if not in Redis
         const [priceRows] = await pool.execute(
           "SELECT * FROM stock_prices WHERE symbol = ? ORDER BY business_date DESC LIMIT 1",
           [symbol]
@@ -101,7 +99,6 @@ async function getScriptDetails(symbol) {
       logger.error('❌ Redis error in getScriptDetails:', error);
     }
 
-    // 3. Fetch dividends and financials independently
     const [dividends] = await pool.execute(
       `SELECT id, security_id, fiscal_year, bonus_share, cash_dividend, total_dividend, 
               DATE_FORMAT(published_date, '%Y-%m-%d') as published_date, updated_at 
@@ -141,17 +138,14 @@ async function getLatestPrices(symbols, options = {}) {
   let source = 'REDIS_LIVE';
 
   try {
-    // 1. Try to get all prices from Redis
     const redisPrices = await redis.hgetall('live:stock_prices');
     if (redisPrices && Object.keys(redisPrices).length > 0) {
       allPrices = Object.values(redisPrices).map(p => JSON.parse(p));
 
-      // If specific symbols requested, filter them
       if (symbols && Array.isArray(symbols) && symbols.length > 0) {
         allPrices = allPrices.filter(p => symbols.includes(p.symbol));
       }
     } else {
-      // 2. Fallback to MySQL if Redis is empty
       source = 'MYSQL_CACHE';
       let sql = `
         SELECT sp.* FROM stock_prices sp
@@ -169,17 +163,15 @@ async function getLatestPrices(symbols, options = {}) {
     }
   } catch (error) {
     logger.error('❌ Redis error in getLatestPrices:', error);
-    // Extreme fallback omitted for brevity, usually MySQL
   }
 
-  // 3. Apply filters (gainers/losers)
+  // Apply filters
   if (filter === 'gainers') {
     allPrices = allPrices.filter(p => p.change > 0);
   } else if (filter === 'losers') {
     allPrices = allPrices.filter(p => p.change < 0);
   }
 
-  // 4. Apply search filter (by symbol or security name)
   if (search && search.trim()) {
     const searchTerm = search.trim().toUpperCase();
     allPrices = allPrices.filter(p =>
@@ -188,23 +180,19 @@ async function getLatestPrices(symbols, options = {}) {
     );
   }
 
-  // 5. Sort BEFORE pagination (critical for top gainers/losers)
+  // Sort before pagination
   allPrices.sort((a, b) => {
     const valA = a[sortBy] ?? 0;
     const valB = b[sortBy] ?? 0;
-
-    // Use numeric subtraction for proper sorting
     if (order.toUpperCase() === 'DESC') {
       return valB - valA;
     }
     return valA - valB;
   });
 
-  // 6. Paginate AFTER sorting
   const pagedList = allPrices.slice(offset, offset + limit);
   const pagedSymbols = pagedList.map(p => p.symbol);
 
-  // 7. Join with metadata (company details)
   if (pagedSymbols.length > 0) {
     const placeholders = pagedSymbols.map(() => '?').join(',');
     const [metadata] = await pool.execute(
@@ -214,7 +202,6 @@ async function getLatestPrices(symbols, options = {}) {
       pagedSymbols
     );
 
-    // Merge and return (already sorted)
     const metaMap = metadata.reduce((acc, curr) => ({ ...acc, [curr.symbol]: curr }), {});
     return pagedList.map(p => ({
       ...p,

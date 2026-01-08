@@ -1,8 +1,3 @@
-// Common parsing utilities for NEPSE scraper
-
-/**
- * Safely parse a number from various formats
- */
 function parseNumber(val) {
   if (val === null || val === undefined || val === '' || val === '-' || val === 'N/A') {
     return 0;
@@ -13,16 +8,10 @@ function parseNumber(val) {
   return parseFloat(String(val).replace(/,/g, '')) || 0;
 }
 
-/**
- * Clean text by removing extra whitespace
- */
 function cleanText(text) {
   return text ? String(text).replace(/\s+/g, ' ').trim() : '';
 }
 
-/**
- * Format CSV download data to standard format
- */
 function formatCSVDownloadData(data) {
   if (!Array.isArray(data)) return [];
 
@@ -62,9 +51,6 @@ function formatCSVDownloadData(data) {
   }).filter(stock => stock.symbol);
 }
 
-/**
- * Format API data to standard format
- */
 function formatAPIData(stockArray) {
   return stockArray.map(stock => {
     const ltp = stock.lastUpdatedPrice || stock.lastTradedPrice || stock.closePrice || 0;

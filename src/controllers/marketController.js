@@ -7,7 +7,8 @@ const {
   getLatestMarketIndexData,
   getMarketIndicesHistory,
   getCompanyStats,
-  getRecentBonusForSymbols
+  getRecentBonusForSymbols,
+  getSectorBreakdown
 } = require('../database/queries');
 const { NepseScraper } = require('../scrapers/nepse-scraper');
 const { formatResponse, formatError } = require('../utils/formatter');
@@ -379,4 +380,28 @@ exports.getIntradayPrices = async (req, res) => {
   }
 };
 
+/**
+ * Get sector-wise market breakdown
+ * @route GET /api/market/sectors
+ * @query sortBy - Sort field: market_cap, company_count, avg_change, sector_change
+ * @query order - Sort order: asc, desc
+ * @query includeInactive - Include inactive companies: true, false
+ */
+exports.getSectorBreakdown = async (req, res) => {
+  try {
+    const sortBy = req.query.sortBy || 'market_cap';
+    const order = req.query.order === 'asc' ? 'ASC' : 'DESC';
+    const includeInactive = req.query.includeInactive === 'true';
 
+    const sectors = await getSectorBreakdown({ sortBy, order, includeInactive });
+
+    res.json(formatResponse({
+      sectors,
+      count: sectors.length,
+      timestamp: new Date().toISOString()
+    }));
+  } catch (e) {
+    logger.error('API Sector Breakdown Error:', e);
+    res.status(500).json(formatError('Internal Server Error'));
+  }
+};
