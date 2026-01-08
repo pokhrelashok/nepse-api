@@ -63,7 +63,7 @@ async function getPortfoliosWithTransactions(userId) {
   }
 
   const portfoliosData = formatPortfoliosData(portfolios, allTransactions);
-  
+
   const metadata = portfolios.map(p => ({
     id: p.id.toString(),
     name: p.name,
