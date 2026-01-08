@@ -77,16 +77,35 @@ class BrowserManager {
         };
 
         // Use system Chrome in production
-        if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-          console.log(`🔧 Using Chrome executable: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
-          launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+        let executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
 
-          // Check if executable exists
+        // Auto-detect common paths if not explicitly provided
+        if (!executablePath) {
+          const commonPaths = [
+            '/usr/bin/google-chrome-stable',
+            '/usr/bin/google-chrome',
+            '/usr/bin/chromium-browser',
+            '/usr/bin/chromium'
+          ];
+          for (const p of commonPaths) {
+            if (fs.existsSync(p)) {
+              executablePath = p;
+              console.log(`🔍 Auto-detected Chrome at: ${p}`);
+              break;
+            }
+          }
+        }
+
+        if (executablePath) {
+          console.log(`🔧 Using Chrome executable: ${executablePath}`);
+          launchOptions.executablePath = executablePath;
+
+          // Check if executable exists (already done for auto-detected, but good for env var)
           try {
-            if (fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+            if (fs.existsSync(executablePath)) {
               console.log('✅ Chrome executable found');
             } else {
-              console.error(`❌ Chrome executable not found at: ${process.env.PUPPETEER_EXECUTABLE_PATH}`);
+              console.error(`❌ Chrome executable not found at: ${executablePath}`);
             }
           } catch (e) {
             console.warn('⚠️ Could not verify Chrome executable existence:', e.message);
