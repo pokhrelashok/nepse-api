@@ -234,6 +234,7 @@ async function getScriptDetails(symbol) {
       if (livePriceJson) {
         const livePrice = JSON.parse(livePriceJson);
         details.business_date = livePrice.business_date;
+        details.open_price = livePrice.open_price;
         details.ltp = livePrice.close_price;
         details.price_change = livePrice.change;
         details.percentage_change = livePrice.percentage_change;
@@ -251,6 +252,7 @@ async function getScriptDetails(symbol) {
         if (priceRows.length > 0) {
           const sp = priceRows[0];
           details.business_date = sp.business_date;
+          details.open_price = sp.open_price;
           details.ltp = sp.close_price;
           details.price_change = sp.change;
           details.percentage_change = sp.percentage_change;
