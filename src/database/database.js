@@ -117,8 +117,9 @@ async function saveCompanyDetails(detailsArray) {
         logo_url, is_logo_placeholder, last_traded_price,
         open_price, close_price, high_price, low_price, previous_close,
         fifty_two_week_high, fifty_two_week_low, total_traded_quantity,
-        total_trades, average_traded_price, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+        total_trades, average_traded_price, ai_summary,
+        pe_ratio, pb_ratio, dividend_yield, metrics_updated_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
       ON DUPLICATE KEY UPDATE
         symbol = VALUES(symbol),
         company_name = VALUES(company_name),
@@ -152,6 +153,11 @@ async function saveCompanyDetails(detailsArray) {
         total_traded_quantity = VALUES(total_traded_quantity),
         total_trades = VALUES(total_trades),
         average_traded_price = VALUES(average_traded_price),
+        ai_summary = COALESCE(VALUES(ai_summary), ai_summary),
+        pe_ratio = VALUES(pe_ratio),
+        pb_ratio = VALUES(pb_ratio),
+        dividend_yield = VALUES(dividend_yield),
+        metrics_updated_at = VALUES(metrics_updated_at),
         updated_at = NOW()
     `;
 
@@ -189,7 +195,12 @@ async function saveCompanyDetails(detailsArray) {
         d.fifty_two_week_low ?? 0,
         d.total_traded_quantity ?? 0,
         d.total_trades ?? 0,
-        d.average_traded_price ?? 0
+        d.average_traded_price ?? 0,
+        d.ai_summary || null,
+        d.pe_ratio ?? null,
+        d.pb_ratio ?? null,
+        d.dividend_yield ?? null,
+        d.pe_ratio !== undefined ? new Date() : null // metrics_updated_at
       ]);
     }
 

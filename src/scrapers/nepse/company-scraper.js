@@ -361,16 +361,9 @@ class CompanyScraper {
 
           delete item.rawLogoData;
 
-          details.push(item);
-
-          if (saveCallback) {
-            try {
-              await saveCallback([item]);
-              console.log(`💾 Saved ${symbol} (${count}/${securityIds.length})`);
-            } catch (saveErr) {
-              console.error(`❌ Failed to save ${symbol}:`, saveErr.message);
-            }
-          }
+          // Scrape dividends and financials first, then calculate metrics
+          let scrapedDividends = [];
+          let scrapedFinancials = [];
 
           if (dividendCallback) {
             try {
@@ -394,7 +387,7 @@ class CompanyScraper {
 
                   const rows = Array.from(table.querySelectorAll('tbody tr'));
 
-                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.toLowerCase().replace(/\s+/g, ' ').trim());
+                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.toLowerCase().replace(/\\s+/g, ' ').trim());
 
                   const getIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
@@ -412,7 +405,7 @@ class CompanyScraper {
 
                     const parseNum = (txt) => {
                       if (!txt) return 0;
-                      return parseFloat(txt.replace(/%|Rs\.?|,/g, '').trim()) || 0;
+                      return parseFloat(txt.replace(/%|Rs\\.?|,/g, '').trim()) || 0;
                     };
 
                     const fy = cleanVal(idxFY) || (cells[1] ? cells[1].innerText.trim() : null);
@@ -432,6 +425,8 @@ class CompanyScraper {
                     };
                   }).filter(d => d && d.fiscalYear);
                 }, security_id);
+
+                scrapedDividends = dividends;
 
                 if (dividends.length > 0) {
                   await dividendCallback(dividends);
@@ -475,7 +470,7 @@ class CompanyScraper {
 
                   const rows = Array.from(table.querySelectorAll('tbody tr'));
 
-                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.toLowerCase().replace(/\s+/g, ' ').trim());
+                  const headers = Array.from(table.querySelectorAll('thead th')).map(th => th.innerText.toLowerCase().replace(/\\s+/g, ' ').trim());
                   const getIdx = (keywords) => headers.findIndex(h => keywords.some(k => h.includes(k)));
 
                   const idxFY = getIdx(['fiscal', 'year']);
@@ -514,6 +509,8 @@ class CompanyScraper {
                   }).filter(f => f && f.fiscalYear);
                 }, security_id);
 
+                scrapedFinancials = financials;
+
                 if (financials.length > 0) {
                   await financialCallback(financials);
                   console.log(`   📈 Saved ${financials.length} financial records`);
@@ -521,6 +518,27 @@ class CompanyScraper {
               }
             } catch (finErr) {
               console.warn(`   ⚠️ Financials scrape failed for ${symbol}: ${finErr.message}`);
+            }
+          }
+
+          // Calculate financial metrics after scraping dividends and financials
+          const calculateMetricsAfterScrape = require('../../services/financial-metrics-service').calculateMetricsAfterScrape;
+          const metrics = calculateMetricsAfterScrape(item, scrapedFinancials, scrapedDividends);
+
+          // Add calculated metrics to item
+          item.market_capitalization = metrics.market_capitalization;
+          item.pe_ratio = metrics.pe_ratio;
+          item.pb_ratio = metrics.pb_ratio;
+          item.dividend_yield = metrics.dividend_yield;
+
+          details.push(item);
+
+          if (saveCallback) {
+            try {
+              await saveCallback([item]);
+              console.log(`💾 Saved ${symbol} (${count}/${securityIds.length})`);
+            } catch (saveErr) {
+              console.error(`❌ Failed to save ${symbol}:`, saveErr.message);
             }
           }
 

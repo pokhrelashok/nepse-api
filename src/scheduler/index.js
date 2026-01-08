@@ -9,6 +9,7 @@ const { updateCompanyDetails } = require('./company-jobs');
 const { runIpoScrape, runFpoScrape, runDividendScrape, runMarketIndicesHistoryScrape } = require('./data-jobs');
 const { archiveDailyPrices, archiveMarketIndex } = require('./archive-jobs');
 const { runSystemCleanup, runDatabaseBackup, runNotificationCheck } = require('./maintenance-jobs');
+const { generateStockSummaries } = require('./ai-analysis-jobs');
 
 /**
  * Main Scheduler class that orchestrates all scheduled jobs
@@ -141,6 +142,16 @@ class Scheduler extends BaseScheduler {
     });
     this.jobs.set('market_index_archive', marketIndexArchiveJob);
     marketIndexArchiveJob.start();
+
+    // AI Stock Summary Generation (at 4:00 PM, after all data archiving is complete)
+    const aiSummaryJob = cron.schedule('0 16 * * 0-4', async () => {
+      await generateStockSummaries(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('ai_summary_generation', aiSummaryJob);
+    aiSummaryJob.start();
 
     // Start core market jobs
     indexJob.start();
