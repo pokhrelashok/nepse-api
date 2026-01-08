@@ -28,7 +28,7 @@ async function getSectorBreakdown(options = {}) {
     `;
 
     if (!includeInactive) {
-      sql += ` AND status = 'Active'`;
+      sql += ` AND status = 'A'`;
     }
 
     const [companies] = await pool.execute(sql);

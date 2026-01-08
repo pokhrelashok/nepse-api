@@ -86,7 +86,7 @@ async function getCompanyStats() {
   const sql = `
     SELECT 
       COUNT(*) as total_companies,
-      COUNT(CASE WHEN status = 'Active' THEN 1 END) as active_companies,
+      COUNT(CASE WHEN status = 'A' THEN 1 END) as active_companies,
       COUNT(CASE WHEN logo_url IS NOT NULL AND is_logo_placeholder = 0 THEN 1 END) as companies_with_real_logos,
       COUNT(DISTINCT sector_name) as total_sectors,
       SUM(market_capitalization) as total_market_cap,
