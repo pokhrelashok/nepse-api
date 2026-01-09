@@ -8,8 +8,9 @@ class CompanyScraper {
     this.browserManager = browserManager;
   }
 
-  parseApiProfileData(profileData, securityData, symbol) {
+  parseApiProfileData(profileData, securityData, symbol, securityId) {
     const info = {
+      securityId: securityId,
       rawLogoData: '',
       isLogoPlaceholder: true,
       companyName: '',
@@ -94,6 +95,12 @@ class CompanyScraper {
       info.openPrice = parseNumber(dailyTrade.openPrice);
       info.closePrice = parseNumber(dailyTrade.closePrice);
 
+      // Fallback: If closePrice is 0 but lastTradedPrice is available, use LTP
+      // This happens during market hours when "Close Price" field is not yet set
+      if (info.closePrice === 0 && info.lastTradedPrice > 0) {
+        info.closePrice = info.lastTradedPrice;
+      }
+
       if (dailyTrade.averageTradedPrice) {
         info.averageTradedPrice = parseNumber(dailyTrade.averageTradedPrice);
       } else if (dailyTrade.totalTradeQuantity && dailyTrade.totalTradeQuantity > 0) {
@@ -169,7 +176,7 @@ class CompanyScraper {
             try {
               const status = response.status();
 
-              if (status === 200 || status === 401) {
+              if (status === 200) {
                 const data = await response.json().catch(() => null);
                 if (data) {
                   if (responseUrl.includes('/profile/')) {
@@ -225,7 +232,7 @@ class CompanyScraper {
         let data;
         try {
           if (apiProfileData || apiSecurityData) {
-            data = this.parseApiProfileData(apiProfileData, apiSecurityData, symbol);
+            data = this.parseApiProfileData(apiProfileData, apiSecurityData, symbol, security_id);
           } else {
             const iframeHandle = await page.$('#company_detail_iframe');
             let targetFrame = page;
@@ -326,6 +333,11 @@ class CompanyScraper {
 
               const closePriceText = getTableValue('Close Price');
               info.closePrice = parseNumber(closePriceText ? closePriceText.replace('*', '') : '0');
+
+              // Fallback: If closePrice is 0 but lastTradedPrice is available, use LTP
+              if (info.closePrice === 0 && info.lastTradedPrice > 0) {
+                info.closePrice = info.lastTradedPrice;
+              }
 
               info.totalListedShares = parseNumber(getTableValue('Total Listed Shares'));
               info.totalPaidUpValue = parseNumber(getTableValue('Total Paid up Value'));

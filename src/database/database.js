@@ -148,7 +148,7 @@ async function saveCompanyDetails(detailsArray) {
         FROM announced_dividends
         WHERE symbol IN (?)
           AND fiscal_year = (SELECT MAX(fiscal_year) FROM announced_dividends WHERE symbol = announced_dividends.symbol)
-        GROUP BY symbol
+        GROUP BY symbol, bonus_share, cash_dividend
       `, [symbols]);
 
       dividends.forEach(row => {
@@ -263,7 +263,8 @@ async function saveCompanyDetails(detailsArray) {
         d.is_logo_placeholder ? 1 : 0,
         d.last_traded_price ?? 0,
         d.open_price ?? 0,
-        d.close_price ?? 0,
+        // Fallback: Use last_traded_price if close_price is 0
+        (d.close_price && d.close_price > 0) ? d.close_price : (d.last_traded_price ?? 0),
         d.high_price ?? 0,
         d.low_price ?? 0,
         d.previous_close ?? 0,

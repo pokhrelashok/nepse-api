@@ -54,15 +54,15 @@ async function archiveTodaysPrices() {
     let archivedCount = 0;
     for (const p of prices) {
       await connection.execute(sql, [
-        p.security_id || 0,
+        p.security_id || p.securityId || 0,
         p.symbol,
-        p.business_date || todayStr,
-        p.high_price || 0,
-        p.low_price || 0,
-        p.close_price || 0,
+        p.business_date || p.businessDate || todayStr,
+        p.high_price || p.highPrice || 0,
+        p.low_price || p.lowPrice || 0,
+        p.close_price || p.closePrice || 0,
         0, // total_trades not always available in live data
-        p.total_traded_quantity || 0,
-        p.total_traded_value || 0
+        p.total_traded_quantity || p.totalTradedQuantity || 0,
+        p.total_traded_value || p.totalTradedValue || 0
       ]);
       archivedCount++;
     }

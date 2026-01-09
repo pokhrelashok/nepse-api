@@ -75,8 +75,8 @@ class NepseScraper {
     return this.companyScraper.scrapeAllCompanyDetails(securityIds, saveCallback, dividendCallback, financialCallback);
   }
 
-  parseApiProfileData(profileData, securityData, symbol) {
-    return this.companyScraper.parseApiProfileData(profileData, securityData, symbol);
+  parseApiProfileData(profileData, securityData, symbol, securityId) {
+    return this.companyScraper.parseApiProfileData(profileData, securityData, symbol, securityId);
   }
 
   // History scraping methods
