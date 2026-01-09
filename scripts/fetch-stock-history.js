@@ -9,6 +9,7 @@
 const path = require('path');
 
 const puppeteer = require('puppeteer');
+const { DateTime } = require('luxon');
 const { pool, saveStockPriceHistory } = require('../src/database/database');
 const logger = require('../src/utils/logger');
 
@@ -19,8 +20,9 @@ const limitArg = args.find(arg => arg.startsWith('--limit='));
 const testLimit = limitArg ? parseInt(limitArg.split('=')[1]) : 3;
 
 // Date range for historical data (MM/DD/YYYY format)
+const nepalNow = DateTime.now().setZone('Asia/Kathmandu');
 const START_DATE = '01/02/2025';
-const END_DATE = '01/02/2026';
+const END_DATE = nepalNow.toFormat('MM/dd/yyyy');
 
 // Flags and Filters
 const symbolsArg = args.find(arg => arg.startsWith('--symbols='));
