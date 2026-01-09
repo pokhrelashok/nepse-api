@@ -4,22 +4,68 @@ const logger = require('../../utils/logger');
 const { DateTime } = require('luxon');
 
 async function getAllSecurityIds() {
+  // Try Redis first as it's the new source of truth for active prices
+  try {
+    const redisPrices = await redis.hgetall('live:stock_prices');
+    if (redisPrices && Object.keys(redisPrices).length > 0) {
+      return Object.values(redisPrices).map(p => {
+        const data = JSON.parse(p);
+        return {
+          security_id: data.security_id || data.securityId,
+          symbol: data.symbol
+        };
+      }).filter(s => s.security_id > 0);
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getAllSecurityIds:', error);
+  }
+
+  // Fallback to MySQL if Redis is empty or fails (deprecated but kept for legacy/safety)
   const [rows] = await pool.execute(
     "SELECT DISTINCT security_id, symbol FROM stock_prices WHERE security_id > 0"
   );
   return rows;
 }
 
+async function getSecurityIdsFromRedis() {
+  try {
+    const redisPrices = await redis.hgetall('live:stock_prices');
+    if (!redisPrices || Object.keys(redisPrices).length === 0) {
+      return [];
+    }
+
+    return Object.values(redisPrices).map(p => {
+      const data = JSON.parse(p);
+      return {
+        security_id: data.security_id || data.securityId,
+        symbol: data.symbol
+      };
+    }).filter(s => s.security_id > 0);
+  } catch (error) {
+    logger.error('❌ Redis error in getSecurityIdsFromRedis:', error);
+    return [];
+  }
+}
+
 async function getSecurityIdsWithoutDetails() {
-  const sql = `
-    SELECT DISTINCT sp.security_id, sp.symbol 
-    FROM stock_prices sp
-    LEFT JOIN company_details cd ON sp.symbol = cd.symbol
-    WHERE sp.security_id > 0 AND cd.symbol IS NULL
-    ORDER BY sp.symbol
-  `;
-  const [rows] = await pool.execute(sql);
-  return rows;
+  let activeSecurities = await getSecurityIdsFromRedis();
+
+  // If Redis is empty, fallback to stock_prices for backward compatibility
+  if (activeSecurities.length === 0) {
+    const [rows] = await pool.execute(
+      "SELECT DISTINCT security_id, symbol FROM stock_prices WHERE security_id > 0"
+    );
+    activeSecurities = rows;
+  }
+
+  if (activeSecurities.length === 0) return [];
+
+  // Get symbols that already have details
+  const [existingDetails] = await pool.execute("SELECT symbol FROM company_details");
+  const existingSymbols = new Set(existingDetails.map(d => d.symbol));
+
+  // Filter out those that already have details
+  return activeSecurities.filter(s => !existingSymbols.has(s.symbol));
 }
 
 async function getSecurityIdsBySymbols(symbols) {
@@ -392,6 +438,7 @@ module.exports = {
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
   getSecurityIdsBySymbols,
+  getSecurityIdsFromRedis,
   searchStocks,
   getScriptDetails,
   getLatestPrices,

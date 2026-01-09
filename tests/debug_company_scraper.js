@@ -23,8 +23,8 @@ async function debugCompanyScraper() {
     const browser = scraper.getBrowser();
     const userAgent = scraper.getUserAgent();
 
-    const securityId = 1; // NABIL
-    const symbol = 'NABIL';
+    const securityId = 133; // Updated ID
+    const symbol = 'ADHS'; // Let's see what 133 is, usually it's a specific company. I'll just label it TEST_133 for now or try to be accurate if I can.
     const url = `https://www.nepalstock.com/company/detail/${securityId}`;
 
     console.log(`📊 Testing scraper for: ${symbol} (ID: ${securityId})`);
@@ -86,11 +86,6 @@ async function debugCompanyScraper() {
         await page.evaluate(el => el.click(), profileTab);
         await new Promise(resolve => setTimeout(resolve, 2000));
         console.log('✅ Profile tab clicked');
-
-        // Take another screenshot
-        const profileScreenshotPath = path.join(debugDir, `${symbol}_profile.png`);
-        await page.screenshot({ path: profileScreenshotPath, fullPage: true });
-        console.log(`📸 Profile screenshot saved: ${profileScreenshotPath}`);
       } else {
         console.log('⚠️ Profile tab not found');
       }
@@ -98,82 +93,78 @@ async function debugCompanyScraper() {
       console.log(`⚠️ Error clicking profile tab: ${err.message}`);
     }
 
-    // Extract data using page.evaluate
-    console.log('\n📊 Extracting data from page...');
-    const pageData = await page.evaluate(() => {
-      const result = {
-        title: document.title,
-        companyName: '',
-        sector: '',
-        tables: [],
-        hasIframe: false,
-        selectors: {}
-      };
+    // Try clicking dividend tab
+    console.log('\n💰 Attempting to click dividend tab...');
+    try {
+      const dividendTab = await page.$('#dividendTab');
+      if (dividendTab) {
+        await page.evaluate(el => el.click(), dividendTab);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('✅ Dividend tab clicked');
 
-      // Check for iframe
-      const iframe = document.querySelector('#company_detail_iframe');
-      result.hasIframe = !!iframe;
-
-      // Check for company title
-      const titleEl = document.querySelector('.company__title--details h1');
-      if (titleEl) {
-        result.companyName = titleEl.innerText.trim();
+        const hasRows = await page.evaluate(() => document.querySelectorAll('#dividend table tbody tr').length > 0);
+        console.log(`📊 Dividend rows found: ${await page.evaluate(() => document.querySelectorAll('#dividend table tbody tr').length)}`);
+      } else {
+        console.log('⚠️ Dividend tab not found');
       }
-
-      // Check for meta items
-      const metaItems = document.querySelectorAll('.company__title--metas li');
-      metaItems.forEach(li => {
-        const text = li.innerText;
-        if (text.includes('Sector:')) {
-          result.sector = text.split('Sector:')[1].trim();
-        }
-      });
-
-      // Find all tables
-      const tables = document.querySelectorAll('table');
-      result.tables = Array.from(tables).map((table, idx) => {
-        const headers = Array.from(table.querySelectorAll('th')).map(th => th.innerText.trim());
-        const rowCount = table.querySelectorAll('tr').length;
-        return { index: idx, headers, rowCount };
-      });
-
-      // Check for key selectors
-      result.selectors = {
-        companyTitle: !!document.querySelector('.company__title--details'),
-        profileTab: !!document.querySelector('#profileTab'),
-        profileSection: !!document.querySelector('#profile_section'),
-        iframe: !!document.querySelector('#company_detail_iframe')
-      };
-
-      return result;
-    });
-
-    console.log('\n📋 Page Data:');
-    console.log('─'.repeat(60));
-    console.log(`Title: ${pageData.title}`);
-    console.log(`Company Name: ${pageData.companyName || 'NOT FOUND'}`);
-    console.log(`Sector: ${pageData.sector || 'NOT FOUND'}`);
-    console.log(`Has Iframe: ${pageData.hasIframe}`);
-    console.log(`\nSelectors Found:`);
-    Object.entries(pageData.selectors).forEach(([key, found]) => {
-      console.log(`  ${key}: ${found ? '✓' : '✗'}`);
-    });
-    console.log(`\nTables Found: ${pageData.tables.length}`);
-    pageData.tables.forEach(table => {
-      console.log(`  Table ${table.index}: ${table.rowCount} rows, Headers: ${table.headers.slice(0, 3).join(', ')}...`);
-    });
-
-    // Save API data if captured
-    if (apiProfileData) {
-      const apiProfilePath = path.join(debugDir, `${symbol}_api_profile.json`);
-      fs.writeFileSync(apiProfilePath, JSON.stringify(apiProfileData, null, 2));
-      console.log(`\n💾 API Profile data saved: ${apiProfilePath}`);
+    } catch (err) {
+      console.log(`⚠️ Error clicking dividend tab: ${err.message}`);
     }
 
-    if (apiSecurityData) {
-      const apiSecurityPath = path.join(debugDir, `${symbol}_api_security.json`);
-      fs.writeFileSync(apiSecurityPath, JSON.stringify(apiSecurityData, null, 2));
-      console.log(`💾 API Security data saved: ${apiSecurityPath}`);
+    // Try clicking financial tab
+    console.log('\n📈 Attempting to click financial tab...');
+    try {
+      let financialTab = await page.$('#financialTab, #financialsTab');
+      if (financialTab) {
+        await page.evaluate(el => el.click(), financialTab);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        console.log('✅ Financial tab clicked');
+        console.log(`📊 Financial rows found: ${await page.evaluate(() => document.querySelectorAll('div[id*="financial"] table tbody tr').length)}`);
+      } else {
+        console.log('⚠️ Financial tab not found');
+      }
+    } catch (err) {
+      console.log(`⚠️ Error clicking financial tab: ${err.message}`);
+    }
+
+    // Extract data using page.evaluate again after clicking all tabs
+    console.log('\n📊 Final data extraction...');
+    const tablesInfo = await page.evaluate(() => {
+      const results = {};
+
+      const dividendTable = document.querySelector('#dividend table');
+      if (dividendTable) {
+        results.dividend = {
+          headers: Array.from(dividendTable.querySelectorAll('thead th')).map(th => th.innerText.trim()),
+          rows: Array.from(dividendTable.querySelectorAll('tbody tr')).map(tr =>
+            Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim())
+          )
+        };
+      }
+
+      const financialTable = document.querySelector('div[id*="financial"] table');
+      if (financialTable) {
+        results.financial = {
+          headers: Array.from(financialTable.querySelectorAll('thead th')).map(th => th.innerText.trim()),
+          rows: Array.from(financialTable.querySelectorAll('tbody tr')).map(tr =>
+            Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim())
+          )
+        };
+      }
+
+      return results;
+    });
+
+    if (tablesInfo.dividend) {
+      console.log(`\n💰 Dividend Table (${tablesInfo.dividend.rows.length} rows):`);
+      console.log('Headers:', tablesInfo.dividend.headers.join(' | '));
+      tablesInfo.dividend.rows.slice(0, 3).forEach(row => console.log('Row:', row.join(' | ')));
+    }
+
+    if (tablesInfo.financial) {
+      console.log(`\n📈 Financial Table (${tablesInfo.financial.rows.length} rows):`);
+      console.log('Headers:', tablesInfo.financial.headers.join(' | '));
+      tablesInfo.financial.rows.slice(0, 3).forEach(row => console.log('Row:', row.join(' | ')));
     }
 
     await page.close();

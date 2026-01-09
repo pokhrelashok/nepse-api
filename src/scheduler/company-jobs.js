@@ -2,6 +2,7 @@ const logger = require('../utils/logger');
 const {
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
+  getSecurityIdsFromRedis,
   insertCompanyDetails,
   insertDividends,
   insertFinancials

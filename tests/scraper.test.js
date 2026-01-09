@@ -36,7 +36,7 @@ class ScraperTester {
   }
 
   async testBasicScraping() {
-    const testCompanies = [{ security_id: 141, symbol: 'NABIL' }];
+    const testCompanies = [{ security_id: 131, symbol: 'NABIL' }];
     const results = await scrapeAllCompanyDetails(testCompanies);
 
     if (results.length === 0) {
@@ -57,7 +57,7 @@ class ScraperTester {
   }
 
   async testLogoExtraction() {
-    const testCompanies = [{ security_id: 141, symbol: 'NABIL' }];
+    const testCompanies = [{ security_id: 131, symbol: 'NABIL' }];
     const results = await scrapeAllCompanyDetails(testCompanies);
 
     if (results.length === 0) {
@@ -85,7 +85,7 @@ class ScraperTester {
   }
 
   async testFinancialData() {
-    const testCompanies = [{ security_id: 141, symbol: 'NABIL' }];
+    const testCompanies = [{ security_id: 131, symbol: 'NABIL' }];
     const results = await scrapeAllCompanyDetails(testCompanies);
 
     if (results.length === 0) {

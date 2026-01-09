@@ -65,6 +65,7 @@ class CompanyScraper {
       if (info.rawLogoData && info.rawLogoData.startsWith('assets/')) {
         info.rawLogoData = `https://www.nepalstock.com/${info.rawLogoData}`;
       }
+      info.isLogoPlaceholder = info.rawLogoData ? (info.rawLogoData.includes('placeholder') || info.rawLogoData.includes('noimage')) : true;
     }
 
     if (securityData) {
@@ -209,7 +210,8 @@ class CompanyScraper {
             if (profileTab) {
               await page.evaluate(el => el.click(), profileTab);
               await new Promise(resolve => setTimeout(resolve, 1500));
-              await page.waitForSelector('#profile_section', { timeout: 3000 }).catch(() => { });
+              // Primary selector is #profile, fallback to #profile_section
+              await page.waitForSelector('#profile, #profile_section', { timeout: 3000 }).catch(() => { });
             }
 
             success = true;
@@ -254,15 +256,15 @@ class CompanyScraper {
                 return parseFloat(text.replace(/,/g, '').replace(/[^0-9.-]/g, '')) || 0;
               };
 
-              let logoImg = document.querySelector('#profile_section .team-member img');
-              if (!logoImg || logoImg.getAttribute('src').includes('placeholder')) {
+              let logoImg = document.querySelector('#profile .team-member img, #profile_section .team-member img');
+              if (!logoImg || (logoImg.getAttribute('src') && logoImg.getAttribute('src').includes('placeholder'))) {
                 logoImg = document.querySelector('.company__title--logo img');
               }
               info.rawLogoData = logoImg ? logoImg.getAttribute('src') : '';
               if (info.rawLogoData && info.rawLogoData.startsWith('assets/')) {
                 info.rawLogoData = `https://www.nepalstock.com/${info.rawLogoData}`;
               }
-              info.isLogoPlaceholder = info.rawLogoData.includes('placeholder');
+              info.isLogoPlaceholder = info.rawLogoData ? info.rawLogoData.includes('placeholder') : true;
 
               const companyNameEl = document.querySelector('.company__title--details h1');
               let companyName = companyNameEl ? clean(companyNameEl.innerText) : '';
@@ -386,7 +388,10 @@ class CompanyScraper {
 
                 try {
                   await page.waitForFunction(
-                    () => document.querySelector('#dividend table tbody tr') !== null,
+                    () => {
+                      const table = document.querySelector('#dividend table tbody tr');
+                      return table !== null;
+                    },
                     { timeout: 3000 }
                   );
                 } catch (e) { /* ignore timeout */ }
@@ -470,7 +475,10 @@ class CompanyScraper {
 
                 try {
                   await page.waitForFunction(
-                    () => document.querySelector('div[id*="financial"] table tbody tr') !== null,
+                    () => {
+                      const table = document.querySelector('div[id*="financial"] table tbody tr');
+                      return table !== null;
+                    },
                     { timeout: 3000 }
                   );
                 } catch (e) { /* ignore */ }
@@ -487,11 +495,11 @@ class CompanyScraper {
 
                   const idxFY = getIdx(['fiscal', 'year']);
                   const idxQ = getIdx(['quart']);
-                  const idxPaidUp = getIdx(['paid', 'capital']);
-                  const idxProfit = getIdx(['net profit', 'profit', 'amount']);
                   const idxEPS = getIdx(['eps', 'earnings']);
                   const idxNetWorth = getIdx(['net worth', 'book value']);
                   const idxPE = getIdx(['p/e', 'price earning', 'p.e', 'ratio']);
+                  const idxPaidUp = getIdx(['paid', 'capital']);
+                  const idxProfit = getIdx(['net profit', 'profit', 'amount']);
 
                   return rows.map(row => {
                     const cells = row.querySelectorAll('td');
