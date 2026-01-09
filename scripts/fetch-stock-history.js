@@ -151,7 +151,7 @@ async function fetchStockHistory(page, securityId, symbol) {
     // Set up API response interception
     let apiResponse = null;
 
-    page.on('response', async (response) => {
+    const onResponse = async (response) => {
       const url = response.url();
       // Intercept the market history API call
       if (url.includes('/api/nots/market/history/security/')) {
@@ -159,18 +159,21 @@ async function fetchStockHistory(page, securityId, symbol) {
           const data = await response.json();
           if (data && data.content && Array.isArray(data.content)) {
             apiResponse = data.content;
-            logger.info(`  � Intercepted API response with ${data.content.length} records`);
+            logger.info(`   Intercepted API response with ${data.content.length} records`);
           }
         } catch (e) {
           // Ignore JSON parse errors
         }
       }
-    });
+    };
+
+    page.on('response', onResponse);
 
     // Fill in the symbol search field
     const symbolInput = await page.$('input.symbol-search');
     if (!symbolInput) {
       logger.error(`  ❌ Could not find symbol search input`);
+      page.off('response', onResponse);
       return [];
     }
 
@@ -252,6 +255,7 @@ async function fetchStockHistory(page, securityId, symbol) {
     const filterButton = await page.$('button.box__filter--search');
     if (!filterButton) {
       logger.error(`  ❌ Could not find Filter button`);
+      page.off('response', onResponse);
       return [];
     }
 
@@ -260,6 +264,8 @@ async function fetchStockHistory(page, securityId, symbol) {
 
     // Wait for the API response
     await sleep(3000);
+
+    page.off('response', onResponse);
 
     if (!apiResponse || apiResponse.length === 0) {
       logger.warn(`  ⚠️  No data received from API for ${symbol}`);
@@ -321,12 +327,12 @@ function transformPriceData(apiData, securityId, symbol) {
     security_id: securityId,
     symbol: symbol,
     business_date: record.businessDate, // Already in YYYY-MM-DD format from API
-    high_price: parseFloat(record.highPrice) || null,
-    low_price: parseFloat(record.lowPrice) || null,
-    close_price: parseFloat(record.closePrice) || null,
-    total_trades: parseInt(record.totalTrades) || null,
-    total_traded_quantity: parseInt(record.totalTradedQuantity) || null,
-    total_traded_value: parseFloat(record.totalTradedValue) || null
+    high_price: parseFloat(record.highPrice) || 0,
+    low_price: parseFloat(record.lowPrice) || 0,
+    close_price: parseFloat(record.closePrice) || 0,
+    total_trades: parseInt(record.totalTrades) || 0,
+    total_traded_quantity: parseInt(record.totalTradedQuantity) || 0,
+    total_traded_value: parseFloat(record.totalTradedValue) || 0
   }));
 }
 
@@ -359,7 +365,7 @@ async function processCompany(page, company, index, total) {
     const transformedData = transformPriceData(tableData, security_id, symbol);
     const savedCount = await saveStockPriceHistory(transformedData);
 
-    logger.info(`  � Saved ${savedCount} records for ${symbol}`);
+    logger.info(`   Saved ${savedCount} records for ${symbol}`);
     return { symbol, success: true, count: savedCount };
 
   } catch (error) {

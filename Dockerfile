@@ -8,7 +8,12 @@ RUN apk add --no-cache \
       harfbuzz \
       ca-certificates \
       ttf-freefont \
-      curl
+      curl \
+      bash \
+      git \
+      gnupg \
+      libstdc++ \
+      libc6-compat
 
 # Tell Puppeteer to skip installing Chrome and use the installed package
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \

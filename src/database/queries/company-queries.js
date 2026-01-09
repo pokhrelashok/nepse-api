@@ -1,6 +1,7 @@
 const { pool, saveCompanyDetails, saveFinancials } = require('../database');
 const redis = require('../../config/redis');
 const logger = require('../../utils/logger');
+const { formatCompanyDetailsForDatabase, formatFinancialsForDatabase } = require('../../utils/formatter');
 
 async function getAllCompanies() {
   const sql = `
@@ -105,11 +106,13 @@ async function getCompanyStats() {
 }
 
 function insertCompanyDetails(details) {
-  return saveCompanyDetails(details);
+  const formatted = formatCompanyDetailsForDatabase(details);
+  return saveCompanyDetails(formatted);
 }
 
 function insertFinancials(financials) {
-  return saveFinancials(financials);
+  const formatted = formatFinancialsForDatabase(financials);
+  return saveFinancials(formatted);
 }
 
 module.exports = {

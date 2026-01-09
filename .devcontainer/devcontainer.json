@@ -1,0 +1,27 @@
+{
+  "name": "Nepse Portfolio API",
+  "dockerComposeFile": "../docker-compose.yml",
+  "service": "backend",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "oven.bun-vscode",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "cweijan.vscode-mysql-client2",
+        "mongodb.mongodb-vscode",
+        "christian-kohler.npm-intellisense",
+        "standard.vscode-standard"
+      ]
+    }
+  },
+  "forwardPorts": [
+    3000,
+    5173,
+    3306,
+    6379
+  ],
+  "postCreateCommand": "bun install && cd frontend && bun install",
+  "remoteUser": "root"
+}

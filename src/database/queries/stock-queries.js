@@ -8,13 +8,22 @@ async function getAllSecurityIds() {
   try {
     const redisPrices = await redis.hgetall('live:stock_prices');
     if (redisPrices && Object.keys(redisPrices).length > 0) {
-      return Object.values(redisPrices).map(p => {
+      const results = Object.values(redisPrices).map(p => {
         const data = JSON.parse(p);
         return {
           security_id: data.security_id || data.securityId,
           symbol: data.symbol
         };
-      }).filter(s => s.security_id > 0);
+      }).filter(s => {
+        // Filter out invalid security_ids and log them
+        if (!s.security_id || s.security_id <= 0) {
+          logger.warn(`⚠️ Skipping ${s.symbol} with invalid security_id: ${s.security_id}`);
+          return false;
+        }
+        return true;
+      });
+      logger.info(`📊 Loaded ${results.length} companies from Redis (${Object.keys(redisPrices).length - results.length} filtered out)`);
+      return results;
     }
   } catch (error) {
     logger.error('❌ Redis error in getAllSecurityIds:', error);

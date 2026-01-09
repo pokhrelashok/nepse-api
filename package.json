@@ -39,6 +39,7 @@
     "migrate:status": "bun src/database/migrate.js status",
     "migrate:dry-run": "bun src/database/migrate.js dry-run",
     "migrate:fresh": "bun src/database/migrate-fresh.js",
+    "db:seed": "bun src/database/seed.js",
     "populate:initial": "./deploy/scripts/populate-initial-data.sh",
     "backup:db": "echo 'Use mysqldump -u nepse -p nepse_db > backup.sql'",
     "restore:db": "echo 'Use mysql -u nepse -p nepse_db < backup.sql'",

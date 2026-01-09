@@ -303,6 +303,16 @@ class PriceScraper {
         const cells = Array.from(row.querySelectorAll('td, th'));
         const rowData = {};
 
+        // Try to find security ID from any link in the row
+        const link = row.querySelector('a[href*="/detail/"]');
+        if (link) {
+          const href = link.getAttribute('href');
+          const match = href.match(/\/detail\/(\d+)/);
+          if (match) {
+            rowData.security_id = match[1];
+          }
+        }
+
         cells.forEach((cell, index) => {
           if (headers[index]) {
             rowData[headers[index]] = cell.textContent.trim();

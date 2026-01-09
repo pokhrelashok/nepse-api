@@ -7,7 +7,7 @@ const { formatPricesForDatabase } = require('../utils/formatter');
  * Updates market index data
  * Called every 20 seconds during market hours
  */
-async function updateMarketIndex(scheduler, scraper, isMarketOpen) {
+async function updateMarketIndex(scheduler, scraper, isMarketOpen, force = false) {
   const jobKey = 'index_update';
 
   // Only update when market is open (check time in Nepal timezone)
@@ -20,7 +20,7 @@ async function updateMarketIndex(scheduler, scraper, isMarketOpen) {
   const isTradingDay = [1, 2, 3, 4, 7].includes(day);
   const isMarketHours = currentTime >= 1100 && currentTime < 1500 && isTradingDay;
 
-  if (!isMarketHours && !isMarketOpen.value) {
+  if (!force && !isMarketHours && !isMarketOpen.value) {
     return;
   }
 
@@ -57,7 +57,7 @@ async function updateMarketIndex(scheduler, scraper, isMarketOpen) {
  * Updates prices and market status
  * Called every 2 minutes during hours, or after close
  */
-async function updatePricesAndStatus(scheduler, scraper, phase) {
+async function updatePricesAndStatus(scheduler, scraper, phase, force = false) {
   const jobKey = phase === 'AFTER_CLOSE' ? 'close_update' : 'price_update';
 
   // Prevent overlapping runs
@@ -97,7 +97,7 @@ async function updatePricesAndStatus(scheduler, scraper, phase) {
 
     let msg = `Market status: ${status}`;
 
-    if (phase === 'DURING_HOURS' && isOpen) {
+    if ((force || (phase === 'DURING_HOURS' && isOpen))) {
       const prices = await scraper.scrapeTodayPrices();
       if (prices && prices.length > 0) {
         const formattedPrices = formatPricesForDatabase(prices);

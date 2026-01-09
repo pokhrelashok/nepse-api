@@ -165,6 +165,13 @@ class CompanyScraper {
       for (const sec of securityIds) {
         count++;
         const { security_id, symbol } = sec;
+
+        // Skip companies with invalid security_id
+        if (!security_id || security_id === 0 || security_id === '0') {
+          console.warn(`⚠️ Skipping ${symbol}: Invalid security_id (${security_id})`);
+          continue;
+        }
+
         const url = `https://www.nepalstock.com/company/detail/${security_id}`;
 
         let apiSecurityData = null;
@@ -357,19 +364,21 @@ class CompanyScraper {
           }
 
           const processImageData = require('../../utils/image-handler').processImageData;
-          const translateToNepali = require('../../services/translation-service').translateToNepali;
+          // const translateToNepali = require('../../services/translation-service').translateToNepali;
 
           const processedLogoUrl = await processImageData(data.rawLogoData, symbol);
 
-          const nepaliCompanyName = await translateToNepali(data.companyName);
-          const nepaliSectorName = await translateToNepali(data.sectorName);
+          // const nepaliCompanyName = await translateToNepali(data.companyName);
+          // const nepaliSectorName = await translateToNepali(data.sectorName);
 
           const item = {
             securityId: security_id,
             symbol: symbol,
             ...data,
-            nepali_company_name: nepaliCompanyName,
-            nepali_sector_name: nepaliSectorName,
+            company_name: data.companyName,
+            sector_name: data.sectorName,
+            nepali_company_name: data.companyName,
+            nepali_sector_name: data.sectorName,
             logoUrl: processedLogoUrl
           };
 
@@ -445,10 +454,7 @@ class CompanyScraper {
 
                 scrapedDividends = dividends;
 
-                if (dividends.length > 0) {
-                  await dividendCallback(dividends);
-                  console.log(`   💰 Saved ${dividends.length} dividend records`);
-                }
+                // Don't save dividends yet - wait until after company details are saved
               }
             } catch (divErr) {
               console.warn(`   ⚠️ Dividend scrape failed for ${symbol}: ${divErr.message}`);
@@ -531,10 +537,7 @@ class CompanyScraper {
 
                 scrapedFinancials = financials;
 
-                if (financials.length > 0) {
-                  await financialCallback(financials);
-                  console.log(`   📈 Saved ${financials.length} financial records`);
-                }
+                // Don't save financials yet - wait until after company details are saved
               }
             } catch (finErr) {
               console.warn(`   ⚠️ Financials scrape failed for ${symbol}: ${finErr.message}`);
@@ -554,12 +557,42 @@ class CompanyScraper {
 
           details.push(item);
 
+          // IMPORTANT: Save company details FIRST before dividends/financials
+          // This ensures the security_id exists before foreign key constraints
           if (saveCallback) {
             try {
+              // Debug: Log the security_id being saved
+              if (!item.securityId || item.securityId === 0) {
+                console.error(`❌ Cannot save ${symbol}: security_id is ${item.securityId}`);
+                continue;
+              }
+
               await saveCallback([item]);
               console.log(`💾 Saved ${symbol} (${count}/${securityIds.length})`);
             } catch (saveErr) {
               console.error(`❌ Failed to save ${symbol}:`, saveErr.message);
+              console.error(`   Debug: security_id=${item.securityId}, has data=${!!item.companyName}`);
+              // Skip dividends/financials if company save failed
+              continue;
+            }
+          }
+
+          // Now save dividends and financials AFTER company details are saved
+          if (dividendCallback && scrapedDividends.length > 0) {
+            try {
+              await dividendCallback(scrapedDividends);
+              console.log(`   💰 Saved ${scrapedDividends.length} dividend records`);
+            } catch (saveErr) {
+              console.error(`❌ Failed to save dividends for ${symbol}: ${saveErr.message}`);
+            }
+          }
+
+          if (financialCallback && scrapedFinancials.length > 0) {
+            try {
+              await financialCallback(scrapedFinancials);
+              console.log(`   📈 Saved ${scrapedFinancials.length} financial records`);
+            } catch (saveErr) {
+              console.error(`❌ Failed to save financials for ${symbol}: ${saveErr.message}`);
             }
           }
 

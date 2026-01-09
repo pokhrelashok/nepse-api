@@ -163,12 +163,12 @@ async function saveCompanyDetails(detailsArray) {
         listing_date, total_listed_shares, paid_up_capital,
         total_paid_up_value, email, website, status, permitted_to_trade,
         promoter_shares, public_shares, market_capitalization,
-        pe_ratio, pb_ratio, dividend_yield,
+        pe_ratio, pb_ratio, dividend_yield, eps,
         logo_url, is_logo_placeholder, last_traded_price,
         open_price, close_price, high_price, low_price, previous_close,
         fifty_two_week_high, fifty_two_week_low, total_traded_quantity,
         total_trades, average_traded_price, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         symbol = VALUES(symbol),
         company_name = VALUES(company_name),
@@ -192,6 +192,7 @@ async function saveCompanyDetails(detailsArray) {
         pe_ratio = VALUES(pe_ratio),
         pb_ratio = VALUES(pb_ratio),
         dividend_yield = VALUES(dividend_yield),
+        eps = VALUES(eps),
         logo_url = VALUES(logo_url),
         is_logo_placeholder = VALUES(is_logo_placeholder),
         last_traded_price = VALUES(last_traded_price),
@@ -209,31 +210,12 @@ async function saveCompanyDetails(detailsArray) {
     `;
 
     for (const d of detailsArray) {
-      // Compute financial metrics
-      const price = d.close_price || d.last_traded_price || 0;
-      const financial = financialData.get(d.symbol);
-      const totalDividend = dividendData.get(d.symbol) || 0;
-
-      let peRatio = null;
-      let pbRatio = null;
-      let dividendYield = null;
-
-      if (financial && price > 0) {
-        // P/E Ratio = Price / EPS
-        if (financial.eps && financial.eps > 0) {
-          peRatio = price / financial.eps;
-        }
-
-        // P/B Ratio = Price / Book Value
-        if (financial.bookValue && financial.bookValue > 0) {
-          pbRatio = price / financial.bookValue;
-        }
-      }
-
-      // Dividend Yield = (Annual Dividend / Price) * 100
-      if (totalDividend > 0 && price > 0) {
-        dividendYield = (totalDividend / price) * 100;
-      }
+      // Use the metrics that were already calculated and passed in
+      // (These come from the scraper which calculates them using the latest data)
+      const peRatio = d.pe_ratio ?? null;
+      const pbRatio = d.pb_ratio ?? null;
+      const dividendYield = d.dividend_yield ?? null;
+      const eps = d.eps ?? null;
 
       await connection.execute(sql, [
         d.security_id || null,
@@ -259,6 +241,7 @@ async function saveCompanyDetails(detailsArray) {
         peRatio,
         pbRatio,
         dividendYield,
+        eps,
         d.logo_url || null,
         d.is_logo_placeholder ? 1 : 0,
         d.last_traded_price ?? 0,
@@ -317,12 +300,12 @@ async function saveDividends(dividends) {
 
     for (const d of dividends) {
       await connection.execute(sql, [
-        d.securityId || null,
-        d.fiscalYear || null,
-        d.bonusShare ?? 0,
-        d.cashDividend ?? 0,
-        d.totalDividend ?? 0,
-        d.publishedDate || null
+        d.security_id || null,
+        d.fiscal_year || null,
+        d.bonus_share ?? 0,
+        d.cash_dividend ?? 0,
+        d.total_dividend ?? 0,
+        d.published_date || null
       ]);
     }
 
@@ -360,14 +343,14 @@ async function saveFinancials(financials) {
 
     for (const f of financials) {
       await connection.execute(sql, [
-        f.securityId || null,
-        f.fiscalYear || null,
+        f.security_id || null,
+        f.fiscal_year || null,
         f.quarter || null,
-        f.paidUpCapital ?? 0,
-        f.netProfit ?? 0,
-        f.earningsPerShare ?? 0,
-        f.netWorthPerShare ?? 0,
-        f.priceEarningsRatio ?? 0
+        f.paid_up_capital ?? 0,
+        f.net_profit ?? 0,
+        f.earnings_per_share ?? 0,
+        f.net_worth_per_share ?? 0,
+        f.price_earnings_ratio ?? 0
       ]);
     }
 

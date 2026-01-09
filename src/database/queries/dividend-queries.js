@@ -1,4 +1,5 @@
 const { pool, saveDividends } = require('../database');
+const { formatDividendsForDatabase } = require('../../utils/formatter');
 
 // Announced Dividend functions
 async function insertAnnouncedDividends(dividendData) {
@@ -128,7 +129,8 @@ async function getRecentBonusForSymbols(symbols) {
 }
 
 function insertDividends(dividends) {
-  return saveDividends(dividends);
+  const formatted = formatDividendsForDatabase(dividends);
+  return saveDividends(formatted);
 }
 
 module.exports = {

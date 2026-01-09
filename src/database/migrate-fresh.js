@@ -1,5 +1,6 @@
 const mysql = require('mysql2/promise');
 const { runMigrations } = require('./migrate');
+const { runSeeds } = require('./seed');
 const logger = require('../utils/logger');
 
 // Database configuration from environment variables
@@ -68,6 +69,10 @@ async function main() {
     // Run migrations
     logger.info('Starting fresh migrations...');
     await runMigrations();
+
+    // Run seeds
+    logger.info('Starting database seeding...');
+    await runSeeds();
 
     logger.info('migrate:fresh completed successfully.');
     process.exit(0);
