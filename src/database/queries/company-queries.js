@@ -19,8 +19,8 @@ async function getAllCompanies() {
       cd.eps,
       cd.dividend_yield,
       cd.market_capitalization,
-      cd.percentage_change,
-      cd.close_price
+      cd.close_price,
+      cd.previous_close
     FROM company_details cd
     ORDER BY cd.company_name
   `;
@@ -42,12 +42,20 @@ async function getAllCompanies() {
 
         // Calculate changes - potentially using DB data if live is missing
         let priceChange = live ? parseFloat(live.change) : 0;
-        let percentageChange = live ? parseFloat(live.percentage_change) : (parseFloat(r.percentage_change) || 0);
+        let percentageChange = 0;
+
+        if (live && live.percentage_change) {
+          percentageChange = parseFloat(live.percentage_change);
+        } else if (ltp && r.previous_close) {
+          // Calculate percentage change from current price and previous close
+          priceChange = ltp - parseFloat(r.previous_close);
+          percentageChange = (priceChange / parseFloat(r.previous_close)) * 100;
+        }
 
         return {
           ...r,
           todays_change: Math.round(percentageChange * 100) / 100,
-          price_change: live ? Math.round(priceChange * 100) / 100 : 0,
+          price_change: Math.round(priceChange * 100) / 100,
           ltp: ltp ? Math.round(ltp * 100) / 100 : null
         };
       });
@@ -56,12 +64,26 @@ async function getAllCompanies() {
     logger.error('❌ Redis error in getAllCompanies:', error);
   }
 
-  return rows.map(r => ({
-    ...r,
-    todays_change: parseFloat(r.percentage_change) || 0,
-    price_change: 0,
-    ltp: parseFloat(r.close_price || r.last_traded_price) || null
-  }));
+  // Fallback when Redis is not available
+  return rows.map(r => {
+    const ltp = parseFloat(r.close_price || r.last_traded_price) || null;
+    const previousClose = parseFloat(r.previous_close) || null;
+
+    let priceChange = 0;
+    let percentageChange = 0;
+
+    if (ltp && previousClose) {
+      priceChange = ltp - previousClose;
+      percentageChange = (priceChange / previousClose) * 100;
+    }
+
+    return {
+      ...r,
+      todays_change: Math.round(percentageChange * 100) / 100,
+      price_change: Math.round(priceChange * 100) / 100,
+      ltp: ltp ? Math.round(ltp * 100) / 100 : null
+    };
+  });
 }
 
 async function getCompaniesBySector(sector, limit = 50) {
