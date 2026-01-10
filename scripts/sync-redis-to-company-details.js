@@ -13,7 +13,7 @@
  */
 
 const redis = require('../src/config/redis');
-const pool = require('../src/config/database');
+const { pool } = require('../src/database/database');
 const logger = require('../src/utils/logger');
 
 // Parse command line arguments
@@ -24,11 +24,11 @@ const targetSymbol = symbolIndex !== -1 && args[symbolIndex + 1] ? args[symbolIn
 
 async function syncRedisToDB() {
   console.log('\n🔄 Syncing Redis prices to company_details table...\n');
-  
+
   if (isDryRun) {
     console.log('🔍 DRY RUN MODE - No changes will be made\n');
   }
-  
+
   if (targetSymbol) {
     console.log(`🎯 Targeting specific symbol: ${targetSymbol}\n`);
   }
@@ -121,7 +121,7 @@ async function syncRedisToDB() {
         } else {
           // Execute update
           const [result] = await pool.execute(updateSql, values);
-          
+
           if (result.affectedRows > 0) {
             successCount++;
             if (targetSymbol) {
