@@ -69,7 +69,25 @@ async function savePrices(prices) {
         created_at = NOW()
     `;
 
+    // Also update company_details table to keep it in sync
+    const updateCdSql = `
+      UPDATE company_details SET
+        last_traded_price = ?,
+        open_price = ?,
+        high_price = ?,
+        low_price = ?,
+        close_price = ?,
+        previous_close = ?,
+        fifty_two_week_high = ?,
+        fifty_two_week_low = ?,
+        total_traded_quantity = ?,
+        average_traded_price = ?,
+        updated_at = NOW()
+      WHERE symbol = ?
+    `;
+
     for (const p of prices) {
+      // Update stock_prices (Legacy)
       await connection.execute(sql, [
         p.business_date || null,
         p.security_id || null,
@@ -88,10 +106,25 @@ async function savePrices(prices) {
         p.fifty_two_week_high ?? 0,
         p.fifty_two_week_low ?? 0
       ]);
+
+      // Update company_details (New source of truth for queries)
+      await connection.execute(updateCdSql, [
+        p.last_traded_price ?? 0,
+        p.open_price ?? 0,
+        p.high_price ?? 0,
+        p.low_price ?? 0,
+        p.close_price ?? 0,
+        p.previous_close ?? 0,
+        p.fifty_two_week_high ?? 0,
+        p.fifty_two_week_low ?? 0,
+        p.total_traded_quantity ?? 0,
+        p.average_traded_price || ((p.total_traded_quantity > 0) ? (p.total_traded_value / p.total_traded_quantity) : 0),
+        p.symbol
+      ]);
     }
 
     await connection.commit();
-    logger.info(`Saved ${prices.length} price records.`);
+    logger.info(`Saved ${prices.length} price records and updated company_details.`);
   } catch (err) {
     await connection.rollback();
     throw err;

@@ -18,7 +18,9 @@ async function getAllCompanies() {
       cd.pb_ratio,
       cd.eps,
       cd.dividend_yield,
-      cd.market_capitalization
+      cd.market_capitalization,
+      cd.percentage_change,
+      cd.close_price
     FROM company_details cd
     ORDER BY cd.company_name
   `;
@@ -32,24 +34,19 @@ async function getAllCompanies() {
       return rows.map(r => {
         const live = livePrices[r.symbol] ? JSON.parse(livePrices[r.symbol]) : null;
 
-        // Use live price if available, otherwise fall back to database (last_traded_price)
-        // If live price is available but close_price is 0/null, also check DB
+        // Use live price if available, otherwise fall back to database
         let ltp = live && live.close_price ? parseFloat(live.close_price) : null;
-        if (!ltp && r.last_traded_price) {
-          ltp = parseFloat(r.last_traded_price);
+        if (!ltp && (r.close_price || r.last_traded_price)) {
+          ltp = parseFloat(r.close_price || r.last_traded_price);
         }
 
         // Calculate changes - potentially using DB data if live is missing
         let priceChange = live ? parseFloat(live.change) : 0;
-        let percentageChange = live ? parseFloat(live.percentage_change) : 0;
-
-        // If we fell back to DB for LTP, we might want to use DB change values too if available
-        // but company_details doesn't have change fields typically, or they might be stale.
-        // For now, let's just ensure LTP is not null.
+        let percentageChange = live ? parseFloat(live.percentage_change) : (parseFloat(r.percentage_change) || 0);
 
         return {
           ...r,
-          todays_change: live ? Math.round(percentageChange * 100) / 100 : 0,
+          todays_change: Math.round(percentageChange * 100) / 100,
           price_change: live ? Math.round(priceChange * 100) / 100 : 0,
           ltp: ltp ? Math.round(ltp * 100) / 100 : null
         };
@@ -59,7 +56,12 @@ async function getAllCompanies() {
     logger.error('❌ Redis error in getAllCompanies:', error);
   }
 
-  return rows;
+  return rows.map(r => ({
+    ...r,
+    todays_change: parseFloat(r.percentage_change) || 0,
+    price_change: 0,
+    ltp: parseFloat(r.close_price || r.last_traded_price) || null
+  }));
 }
 
 async function getCompaniesBySector(sector, limit = 50) {

@@ -53,20 +53,20 @@ async function findPublishedDate(symbol, fiscalYearAD, fiscalYearBS) {
   const sql = `
     SELECT DATE_FORMAT(published_date, '%Y-%m-%d') as published_date 
     FROM dividends d
-    JOIN stock_prices sp ON d.security_id = sp.security_id
-    WHERE sp.symbol = ? AND(
+    JOIN company_details cd ON d.security_id = cd.security_id
+    WHERE cd.symbol = ? AND (
           d.fiscal_year = ? OR d.fiscal_year = ? OR 
       d.fiscal_year = ? OR d.fiscal_year = ? OR
       d.fiscal_year LIKE ? OR d.fiscal_year LIKE ?
     )
     LIMIT 1
-      `;
+  `;
 
   const [rows] = await pool.execute(sql, [
     symbol,
     fiscalYearAD, fyAD_hyphen,
     fiscalYearBS, fyBS_hyphen,
-    `% ${fyAD_hyphen}% `, ` % ${fyBS_hyphen}% `
+    `%${fyAD_hyphen}%`, `%${fyBS_hyphen}%`
   ]);
 
   return rows.length > 0 ? rows[0].published_date : null;

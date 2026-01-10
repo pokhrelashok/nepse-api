@@ -29,9 +29,10 @@ async function getAllSecurityIds() {
     logger.error('❌ Redis error in getAllSecurityIds:', error);
   }
 
-  // Fallback to MySQL if Redis is empty or fails (deprecated but kept for legacy/safety)
+  // Fallback to MySQL - use company_details as the primary source now
+  // stock_prices is being phased out as it contains redundant/duplicate rows
   const [rows] = await pool.execute(
-    "SELECT DISTINCT security_id, symbol FROM stock_prices WHERE security_id > 0"
+    "SELECT DISTINCT security_id, symbol FROM company_details WHERE security_id > 0"
   );
   return rows;
 }
@@ -59,10 +60,10 @@ async function getSecurityIdsFromRedis() {
 async function getSecurityIdsWithoutDetails() {
   let activeSecurities = await getSecurityIdsFromRedis();
 
-  // If Redis is empty, fallback to stock_prices for backward compatibility
+  // If Redis is empty, fallback to company_details for current active securities
   if (activeSecurities.length === 0) {
     const [rows] = await pool.execute(
-      "SELECT DISTINCT security_id, symbol FROM stock_prices WHERE security_id > 0"
+      "SELECT DISTINCT security_id, symbol FROM company_details WHERE security_id > 0"
     );
     activeSecurities = rows;
   }
@@ -85,7 +86,7 @@ async function getSecurityIdsBySymbols(symbols) {
   const placeholders = symbols.map(() => '?').join(',');
   const sql = `
     SELECT DISTINCT security_id, symbol 
-    FROM stock_prices 
+    FROM company_details 
     WHERE security_id > 0 AND symbol IN (${placeholders})
     ORDER BY symbol
   `;
@@ -95,14 +96,15 @@ async function getSecurityIdsBySymbols(symbols) {
 
 async function searchStocks(query) {
   const pattern = `%${query}%`;
+  // Optimized to use company_details directly, eliminating dependency on stock_prices
   const [rows] = await pool.execute(
-    `SELECT DISTINCT sp.symbol, sp.security_name, sp.security_id, 
-            cd.sector_name as sector, cd.nepali_sector_name, 
-            cd.company_name AS name, cd.nepali_company_name, cd.status 
-     FROM stock_prices sp
-     LEFT JOIN company_details cd ON sp.symbol = cd.symbol
-     WHERE sp.symbol LIKE ? OR sp.security_name LIKE ? 
-     ORDER BY sp.symbol LIMIT 20`,
+    `SELECT symbol, company_name AS name, nepali_company_name, 
+            sector_name as sector, nepali_sector_name, 
+            security_id, status, last_traded_price as ltp,
+            percentage_change, close_price
+     FROM company_details
+     WHERE symbol LIKE ? OR company_name LIKE ? 
+     ORDER BY symbol LIMIT 20`,
     [pattern, pattern]
   );
   return rows;
@@ -122,7 +124,7 @@ async function getScriptDetails(symbol) {
     const details = rows[0];
     const securityId = details.security_id;
 
-    // Try Redis first, fallback to MySQL
+    // Try Redis first, then the data already in `details` (from company_details table)
     try {
       const livePriceJson = await redis.hget('live:stock_prices', symbol);
       if (livePriceJson) {
@@ -138,19 +140,10 @@ async function getScriptDetails(symbol) {
         details.total_traded_value = livePrice.total_traded_value;
         details.source = 'REDIS_LIVE';
       } else {
-        const [priceRows] = await pool.execute(
-          "SELECT * FROM stock_prices WHERE symbol = ? ORDER BY business_date DESC LIMIT 1",
-          [symbol]
-        );
-        if (priceRows.length > 0) {
-          const sp = priceRows[0];
-          details.business_date = sp.business_date;
-          details.open_price = sp.open_price;
-          details.ltp = sp.close_price;
-          details.price_change = sp.change;
-          details.percentage_change = sp.percentage_change;
-          details.source = 'MYSQL_CACHE';
-        }
+        // Fallback to the persistent data already in `details` (from company_details)
+        // This is now kept up-to-date by savePrices
+        details.ltp = details.close_price;
+        details.source = 'MYSQL_PERSISTENT';
       }
     } catch (error) {
       logger.error('❌ Redis error in getScriptDetails:', error);
@@ -203,14 +196,27 @@ async function getLatestPrices(symbols, options = {}) {
         allPrices = allPrices.filter(p => symbols.includes(p.symbol));
       }
     } else {
-      source = 'MYSQL_CACHE';
+      source = 'MYSQL_PERSISTENT';
+      // Use company_details as the database source of truth
       let sql = `
-        SELECT sp.* FROM stock_prices sp
-        WHERE sp.business_date = (SELECT MAX(business_date) FROM stock_prices)
+        SELECT 
+          symbol, 
+          company_name AS security_name,
+          close_price,
+          last_traded_price,
+          open_price,
+          high_price,
+          low_price,
+          previous_close,
+          percentage_change,
+          (close_price - previous_close) as \`change\`,
+          total_traded_quantity,
+          updated_at as business_date
+        FROM company_details
       `;
       if (symbols && Array.isArray(symbols) && symbols.length > 0) {
         const placeholders = symbols.map(() => '?').join(',');
-        sql += ` AND sp.symbol IN (${placeholders})`;
+        sql += ` WHERE symbol IN (${placeholders})`;
         const [rows] = await pool.execute(sql, symbols);
         allPrices = rows;
       } else {
