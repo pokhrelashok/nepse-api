@@ -364,12 +364,12 @@ class CompanyScraper {
           }
 
           const processImageData = require('../../utils/image-handler').processImageData;
-          // const translateToNepali = require('../../services/translation-service').translateToNepali;
+          const translateToNepali = require('../../services/translation-service').translateToNepali;
 
           const processedLogoUrl = await processImageData(data.rawLogoData, symbol);
 
-          // const nepaliCompanyName = await translateToNepali(data.companyName);
-          // const nepaliSectorName = await translateToNepali(data.sectorName);
+          const nepaliCompanyName = await translateToNepali(data.companyName);
+          const nepaliSectorName = await translateToNepali(data.sectorName);
 
           const item = {
             securityId: security_id,
@@ -377,8 +377,8 @@ class CompanyScraper {
             ...data,
             company_name: data.companyName,
             sector_name: data.sectorName,
-            nepali_company_name: data.companyName,
-            nepali_sector_name: data.sectorName,
+            nepali_company_name: nepaliCompanyName,
+            nepali_sector_name: nepaliSectorName,
             logoUrl: processedLogoUrl
           };
 
