@@ -246,13 +246,18 @@ IMPORTANT: Respond ONLY in JSON format like this:
       response_format: { type: 'json_object' }
     });
 
-    const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+    const content = response.choices[0]?.message?.content;
+    logger.info(`Raw AI Response for ${portfolioName}: ${content}`);
+
+    const result = JSON.parse(content || '{}');
+    logger.info(`Parsed AI Result for ${portfolioName}: ${JSON.stringify(result)}`);
 
     if (result.summary && result.sentiment_score) {
       logger.info(`✅ Generated AI summary for portfolio: ${portfolioName}`);
       return result;
     }
 
+    logger.warn(`⚠️ AI response missing summary or sentiment_score for ${portfolioName}`);
     return null;
   } catch (error) {
     logger.error(`❌ Portfolio AI summary generation failed for ${portfolioName}:`, error.message);
