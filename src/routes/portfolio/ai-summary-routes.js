@@ -29,27 +29,19 @@ router.post('/:id/ai-summary', async (req, res) => {
     );
     const portfolio = portfolios[0];
 
-    // 3. Check if we need to regenerate
-    // Logic: If summary exists and date is today, return existing. 
-    // Otherwise, or if user "wants" to recompute (POST implies triggering action)
-    // The user request said: "This will be computed only when the user wants to so need a seperate api"
-    // and "if the data is of an old date recompute"
+    // 3. Check if summary exists and is from today - if so, return it immediately
+    if (portfolio.ai_summary && portfolio.ai_summary_updated_at) {
+      const summaryDate = DateTime.fromJSDate(new Date(portfolio.ai_summary_updated_at)).toISODate();
+      const today = DateTime.now().toISODate();
 
-    // For now, let's always recompute if requested via POST, 
-    // OR if it's stale (older than today's trading data)
-
-    // To implement "recompute if old date", we need the latest trading date
-    const [marketIndex] = await pool.execute('SELECT trading_date FROM market_index ORDER BY trading_date DESC LIMIT 1');
-    const latestBusinessDate = marketIndex[0]?.trading_date;
-
-    const summaryDate = portfolio.ai_summary_updated_at
-      ? DateTime.fromJSDate(new Date(portfolio.ai_summary_updated_at)).toISODate()
-      : null;
-
-    if (portfolio.ai_summary && summaryDate === latestBusinessDate) {
-      // If summary is up to date, we could return it, but POST usually means "do it"
-      // User said: "send a new data if old date". 
-      // I'll recompute if summary is null OR summaryDate < latestBusinessDate
+      if (summaryDate === today) {
+        logger.info(`✅ Returning cached AI summary for portfolio ${portfolioId} (generated today)`);
+        const cachedSummary = JSON.parse(portfolio.ai_summary);
+        return res.json({
+          ...cachedSummary,
+          updated_at: portfolio.ai_summary_updated_at
+        });
+      }
     }
 
     // 4. Fetch holdings
