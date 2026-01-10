@@ -6,6 +6,7 @@ const { verifyToken } = require('../../middleware/auth');
 const portfolioRoutes = require('./portfolio-routes');
 const transactionRoutes = require('./transaction-routes');
 const syncRoutes = require('./sync-routes');
+const aiSummaryRoutes = require('./ai-summary-routes');
 
 // Apply authentication middleware to all routes
 router.use(verifyToken);
@@ -14,5 +15,6 @@ router.use(verifyToken);
 router.use('/', portfolioRoutes);
 router.use('/', transactionRoutes);
 router.use('/', syncRoutes);
+router.use('/', aiSummaryRoutes);
 
 module.exports = router;

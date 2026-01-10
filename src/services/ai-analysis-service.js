@@ -189,8 +189,80 @@ async function getOrGenerateSummary(stockData) {
   return existingSummary;
 }
 
+/**
+ * Generate AI-powered portfolio performance summary
+ * @param {string} portfolioName - Name of the portfolio
+ * @param {Array} holdings - Array of holdings with symbols, quantities, and stock data
+ * @returns {Promise<Object|null>} AI-generated summary and sentiment score or null
+ */
+async function generatePortfolioSummary(portfolioName, holdings) {
+  if (!holdings || holdings.length === 0) {
+    return null;
+  }
+
+  const openai = getClient();
+  if (!openai) {
+    return null;
+  }
+
+  try {
+    // Create compact holdings data for the prompt
+    const compactHoldings = holdings.map(h => ({
+      sym: h.symbol,
+      qty: h.quantity,
+      val: h.current_value,
+      chg: h.price_change_pct,
+      sec: h.sector,
+      sum: h.ai_summary ? (h.ai_summary.substring(0, 100) + '...') : 'N/A'
+    }));
+
+    const prompt = `Analyze this Nepal stock portfolio "${portfolioName}" and provide a summary:
+${JSON.stringify(compactHoldings)}
+
+Provide:
+1. A Sentiment Score (1-100) based on overall performance and sector outlook.
+2. A 3-4 sentence performance summary highlighting top performers, laggards, and diversification.
+3. Actionable advice.
+
+IMPORTANT: Respond ONLY in JSON format like this:
+{
+  "sentiment_score": 75,
+  "summary": "Your summary text here..."
+}`;
+
+    const response = await openai.chat.completions.create({
+      model: 'deepseek/deepseek-chat',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a senior portfolio manager for the Nepal Stock Exchange. Provide professional, data-driven portfolio analysis in JSON format. Use "रु" for currency.'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      response_format: { type: 'json_object' }
+    });
+
+    const result = JSON.parse(response.choices[0]?.message?.content || '{}');
+
+    if (result.summary && result.sentiment_score) {
+      logger.info(`✅ Generated AI summary for portfolio: ${portfolioName}`);
+      return result;
+    }
+
+    return null;
+  } catch (error) {
+    logger.error(`❌ Portfolio AI summary generation failed for ${portfolioName}:`, error.message);
+    return null;
+  }
+}
+
 module.exports = {
   generateStockSummary,
   generateBatchSummaries,
-  getOrGenerateSummary
+  getOrGenerateSummary,
+  generatePortfolioSummary
 };
