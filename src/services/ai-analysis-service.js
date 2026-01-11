@@ -155,12 +155,22 @@ async function getOrGenerateSummary(stockData) {
   // Check if we need to regenerate
   // 1. No summary exists
   // 2. Summary timestamp is older than the latest trading data (business_date)
+  // 3. Summary was generated on a previous day (daily refresh)
   let needsGeneration = !existingSummary || !updatedAt;
 
-  if (!needsGeneration && updatedAt && businessDate) {
+  if (!needsGeneration && updatedAt) {
     try {
-      const summaryDate = DateTime.fromJSDate(new Date(updatedAt)).toISODate();
-      if (summaryDate < businessDate) {
+      const nepalNow = DateTime.now().setZone('Asia/Kathmandu');
+      const todayDate = nepalNow.toISODate();
+      const summaryDate = DateTime.fromJSDate(new Date(updatedAt)).setZone('Asia/Kathmandu').toISODate();
+
+      // Check if it's a new day
+      if (summaryDate < todayDate) {
+        needsGeneration = true;
+        logger.info(`🔄 AI summary for ${symbol} is old (${summaryDate} < ${todayDate}), regenerating daily...`);
+      }
+      // Check if business data is newer than summary (fallback)
+      else if (businessDate && summaryDate < businessDate) {
         needsGeneration = true;
         logger.info(`🔄 AI summary for ${symbol} is stale (${summaryDate} < ${businessDate}), regenerating...`);
       }
@@ -248,17 +258,10 @@ IMPORTANT: Respond ONLY in JSON format like this:
     });
 
     const content = response.choices[0]?.message?.content;
-    logger.info(`Raw AI Response for ${portfolioName}: ${content}`);
-
     const result = JSON.parse(content || '{}');
-    logger.info(`Parsed AI Result for ${portfolioName}: ${JSON.stringify(result)}`);
-
     if (result.summary && result.sentiment_score) {
-      logger.info(`✅ Generated AI summary for portfolio: ${portfolioName}`);
       return result;
     }
-
-    logger.warn(`⚠️ AI response missing summary or sentiment_score for ${portfolioName}`);
     return null;
   } catch (error) {
     logger.error(`❌ Portfolio AI summary generation failed for ${portfolioName}:`, error.message);
