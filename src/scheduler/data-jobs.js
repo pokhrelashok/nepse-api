@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const HolidayService = require('../services/holiday-service');
 
 /**
  * Scrapes IPO data
@@ -9,6 +10,14 @@ async function runIpoScrape(scheduler) {
   if (scheduler.isJobRunning.get(jobKey)) return;
 
   scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping IPO scrape: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
   scheduler.updateStatus(jobKey, 'START', 'Starting IPO scrape...');
 
   logger.info('Starting scheduled IPO scrape...');
@@ -35,6 +44,14 @@ async function runFpoScrape(scheduler) {
   if (scheduler.isJobRunning.get(jobKey)) return;
 
   scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping FPO scrape: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
   scheduler.updateStatus(jobKey, 'START', 'Starting FPO scrape...');
 
   logger.info('Starting scheduled FPO scrape...');
@@ -61,6 +78,14 @@ async function runDividendScrape(scheduler) {
   if (scheduler.isJobRunning.get(jobKey)) return;
 
   scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping Dividend scrape: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
   scheduler.updateStatus(jobKey, 'START', 'Starting Dividend scrape...');
 
   logger.info('Starting scheduled Announced Dividend scrape...');

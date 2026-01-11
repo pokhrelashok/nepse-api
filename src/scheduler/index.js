@@ -11,6 +11,8 @@ const { archiveDailyPrices, archiveMarketIndex } = require('./archive-jobs');
 const { runSystemCleanup, runDatabaseBackup, runNotificationCheck } = require('./maintenance-jobs');
 const { generateStockSummaries } = require('./ai-analysis-jobs');
 const { calculateFinancialMetrics } = require('./financial-metrics-jobs');
+const { runHolidaySync } = require('./holiday-jobs');
+const HolidayService = require('../services/holiday-service');
 
 /**
  * Main Scheduler class that orchestrates all scheduled jobs

@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const HolidayService = require('../services/holiday-service');
 
 /**
  * Archives today's stock prices
@@ -9,6 +10,14 @@ async function archiveDailyPrices(scheduler) {
   if (scheduler.isJobRunning.get(jobKey)) return;
 
   scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping price archive: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
   await scheduler.updateStatus(jobKey, 'START', 'Starting daily price archive...');
 
   logger.info('📦 Starting daily price archive...');
@@ -38,6 +47,14 @@ async function archiveMarketIndex(scheduler) {
   if (scheduler.isJobRunning.get(jobKey)) return;
 
   scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping market index archive: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
   await scheduler.updateStatus(jobKey, 'START', 'Starting market index archive...');
 
   logger.info('📊 Starting daily market index archive...');

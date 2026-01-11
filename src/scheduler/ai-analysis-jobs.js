@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const HolidayService = require('../services/holiday-service');
 const { pool } = require('../database/database');
 const { getScriptDetails } = require('../database/queries');
 const { generateBatchSummaries } = require('../services/ai-analysis-service');
@@ -9,6 +10,12 @@ const { generateBatchSummaries } = require('../services/ai-analysis-service');
  */
 async function generateStockSummaries(scheduler) {
   const jobKey = 'ai_summary_generation';
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping AI stock summary generation: Today is a market holiday');
+    return;
+  }
 
   // Prevent overlapping runs
   if (scheduler.isJobRunning.get(jobKey)) {

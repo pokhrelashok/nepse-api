@@ -1,4 +1,5 @@
 const logger = require('../utils/logger');
+const HolidayService = require('../services/holiday-service');
 const {
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
@@ -14,6 +15,12 @@ const {
  */
 async function updateCompanyDetails(scheduler, scraper, fetchAll = false) {
   const jobKey = 'company_details_update';
+
+  // Holiday check
+  if (!fetchAll && await HolidayService.isHoliday()) {
+    logger.info('Skipping company details update: Today is a market holiday');
+    return;
+  }
 
   // Prevent overlapping runs
   if (scheduler.isJobRunning.get(jobKey)) {

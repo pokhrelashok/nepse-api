@@ -2,6 +2,7 @@ const { DateTime } = require('luxon');
 const logger = require('../utils/logger');
 const { saveMarketIndex, saveMarketSummary, insertTodayPrices } = require('../database/queries');
 const { formatPricesForDatabase } = require('../utils/formatter');
+const HolidayService = require('../services/holiday-service');
 
 /**
  * Updates market index data
@@ -21,6 +22,12 @@ async function updateMarketIndex(scheduler, scraper, isMarketOpen, force = false
   const isMarketHours = currentTime >= 1100 && currentTime < 1500 && isTradingDay;
 
   if (!force && !isMarketHours && !isMarketOpen.value) {
+    return;
+  }
+
+  // Holiday check
+  if (!force && await HolidayService.isHoliday()) {
+    logger.info('Skipping market index update: Today is a market holiday');
     return;
   }
 
@@ -59,6 +66,12 @@ async function updateMarketIndex(scheduler, scraper, isMarketOpen, force = false
  */
 async function updatePricesAndStatus(scheduler, scraper, phase, force = false) {
   const jobKey = phase === 'AFTER_CLOSE' ? 'close_update' : 'price_update';
+
+  // Holiday check
+  if (!force && await HolidayService.isHoliday()) {
+    logger.info(`Skipping ${jobKey}: Today is a market holiday`);
+    return;
+  }
 
   // Prevent overlapping runs
   if (scheduler.isJobRunning.get(jobKey)) {

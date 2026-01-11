@@ -1,11 +1,18 @@
 const { updateMetricsForAll } = require('../services/financial-metrics-service');
 const logger = require('../utils/logger');
+const HolidayService = require('../services/holiday-service');
 
 /**
  * Job to calculate financial metrics for all active companies
  * This should run after market close and before AI analysis
  */
 async function calculateFinancialMetrics(scheduler) {
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping financial metrics calculation: Today is a market holiday');
+    return;
+  }
+
   logger.info('🕒 Starting scheduled financial metrics calculation...');
 
   try {

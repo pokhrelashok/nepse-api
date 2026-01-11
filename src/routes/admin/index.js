@@ -17,6 +17,7 @@ router.use('/keys', require('./api-keys'));
 router.use('/dividends', require('./dividends'));
 router.use('/prices', require('./prices'));
 router.use('/users', require('./users'));
+router.use('/holidays', require('./holidays'));
 
 // Scheduler status endpoint
 router.get('/scheduler/status', authMiddleware, async (req, res) => {

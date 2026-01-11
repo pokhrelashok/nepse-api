@@ -177,6 +177,11 @@ class MarketScraper {
         if (indexData.asOf || indexData.date) {
           const dateStr = indexData.asOf || indexData.date;
           result.marketStatusDate = dateStr;
+
+          // Try to set tradingDate if it looks like YYYY-MM-DD
+          if (/^\d{4}-\d{2}-\d{2}/.test(dateStr)) {
+            result.tradingDate = dateStr.split(' ')[0];
+          }
         }
       }
 
@@ -260,7 +265,7 @@ class MarketScraper {
           };
 
           const pageText = document.body.innerText;
-          const dateTimeMatch = pageText.match(/([A-Za-z]+\s+\d{1,2})\s*\|\s*(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/i);
+          const dateTimeMatch = pageText.match(/([A-Za-z]+\s+\d{1,2}(?:\s*,\s*\d{4})?)\s*\|\s*(\d{1,2}:\d{2}\s*(?:AM|PM|am|pm))/i);
           if (dateTimeMatch) {
             result.marketStatusDate = dateTimeMatch[1].trim();
             result.marketStatusTime = dateTimeMatch[2].trim();
@@ -442,6 +447,30 @@ class MarketScraper {
         });
 
         await page.close();
+
+        // Node-side date parsing enrichment
+        if (indexData.marketStatusDate && !indexData.tradingDate) {
+          try {
+            const { DateTime } = require('luxon');
+            let dt;
+            if (indexData.marketStatusDate.includes(',')) {
+              // Format: "Jan 11, 2026"
+              dt = DateTime.fromFormat(indexData.marketStatusDate, 'LLL d, yyyy', { zone: 'Asia/Kathmandu' });
+            } else {
+              // Format: "Jan 11"
+              dt = DateTime.fromFormat(indexData.marketStatusDate, 'LLL d', { zone: 'Asia/Kathmandu' });
+              if (dt.isValid) {
+                dt = dt.set({ year: DateTime.now().setZone('Asia/Kathmandu').year });
+              }
+            }
+
+            if (dt && dt.isValid) {
+              indexData.tradingDate = dt.toISODate();
+            }
+          } catch (e) {
+            // Ignore parsing errors, fallback to system date in DB
+          }
+        }
 
         console.log('✅ Market index data scraped successfully');
         console.log(`📊 Index: ${indexData.nepseIndex}, Change: ${indexData.indexChange} (${indexData.indexPercentageChange}%)`);
