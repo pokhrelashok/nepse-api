@@ -11,7 +11,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
-import { CalendarDays, Plus, Trash2, RefreshCw } from "lucide-react"
+import { Plus, Trash2, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
