@@ -8,7 +8,8 @@ import {
   Megaphone,
   Key,
   MessageSquareText,
-  Users
+  Users,
+  CalendarDays
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -65,6 +66,11 @@ export function AdminSidebar({ className }: SidebarProps) {
       title: "Feedback",
       icon: MessageSquareText,
       href: "/admin/feedback",
+    },
+    {
+      title: "Holidays",
+      icon: CalendarDays,
+      href: "/admin/holidays",
     },
   ]
 

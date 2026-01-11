@@ -58,6 +58,7 @@ import DividendsPage from './pages/admin/Dividends'
 import ApiKeysPage from './pages/admin/ApiKeys'
 import FeedbackPage from './pages/admin/Feedback'
 import UsersPage from './pages/admin/Users'
+import HolidaysPage from './pages/admin/Holidays'
 
 export const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -144,6 +145,12 @@ export const adminFeedbackRoute = createRoute({
   component: FeedbackPage,
 })
 
+export const adminHolidaysRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'holidays',
+  component: HolidaysPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   publicLayoutRoute.addChildren([
     indexRoute,
@@ -163,6 +170,7 @@ export const routeTree = rootRoute.addChildren([
       adminDividendsRoute,
       adminApiKeysRoute,
       adminFeedbackRoute,
+      adminHolidaysRoute,
     ])
   ]),
 ])
