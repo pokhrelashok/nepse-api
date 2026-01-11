@@ -114,4 +114,143 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+/**
+ * @route GET /api/portfolios/:id/sector-breakdown
+ * @desc Get sector-wise breakdown for a portfolio
+ */
+router.get('/:id/sector-breakdown', async (req, res) => {
+  if (!requireUser(req, res)) return;
+
+  const portfolioId = req.params.id;
+
+  try {
+    if (!(await checkPortfolioOwnership(pool, portfolioId, req.currentUser.id))) {
+      return res.status(404).json({ error: 'Portfolio not found' });
+    }
+
+    // 1. Get all transactions for the portfolio and calculate current holdings per stock
+    const [transactions] = await pool.execute(
+      'SELECT stock_symbol, type, quantity, price FROM transactions WHERE portfolio_id = ?',
+      [portfolioId]
+    );
+
+    const holdingsMap = new Map();
+    transactions.forEach(t => {
+      const symbol = t.stock_symbol.toUpperCase();
+      if (!holdingsMap.has(symbol)) {
+        holdingsMap.set(symbol, { units: 0, total_cost: 0 });
+      }
+
+      const holding = holdingsMap.get(symbol);
+      const qty = parseFloat(t.quantity);
+      const price = parseFloat(t.price);
+
+      switch (t.type) {
+        case 'IPO':
+        case 'FPO':
+        case 'AUCTION':
+        case 'SECONDARY_BUY':
+        case 'RIGHTS':
+          holding.units += qty;
+          holding.total_cost += (qty * price);
+          break;
+        case 'SECONDARY_SELL':
+          if (holding.units > 0) {
+            const avgCost = holding.total_cost / holding.units;
+            holding.units -= qty;
+            holding.total_cost -= (qty * avgCost);
+          }
+          break;
+        case 'BONUS':
+          holding.units += qty;
+          break;
+        case 'DIVIDEND':
+          // Dividend doesn't change units or cost basis usually, just cash flow
+          break;
+      }
+    });
+
+    // Filter out stocks with zero units
+    const activeHoldings = Array.from(holdingsMap.entries())
+      .filter(([_, data]) => data.units > 0)
+      .map(([symbol, data]) => ({ symbol, ...data }));
+
+    if (activeHoldings.length === 0) {
+      return res.json({ sectors: [], total_portfolio_value: 0, daily_gain: 0 });
+    }
+
+    // 2. Fetch latest market data for these stocks
+    const symbols = activeHoldings.map(h => h.symbol);
+    const [marketData] = await pool.query(
+      'SELECT symbol, sector_name, last_traded_price, previous_close FROM company_details WHERE symbol IN (?)',
+      [symbols]
+    );
+
+    const marketDataMap = new Map();
+    marketData.forEach(m => marketDataMap.set(m.symbol, m));
+
+    // 3. Aggregate by sector
+    const sectorMap = new Map();
+    let totalPortfolioValue = 0;
+    let totalDailyGain = 0;
+
+    activeHoldings.forEach(holding => {
+      const marketInfo = marketDataMap.get(holding.symbol);
+      const sector = marketInfo?.sector_name || 'Unknown';
+      const latestPrice = parseFloat(marketInfo?.last_traded_price) || 0;
+      const prevClose = parseFloat(marketInfo?.previous_close) || 0;
+
+      const marketValue = holding.units * latestPrice;
+      const dailyGain = holding.units * (latestPrice - prevClose);
+      const totalGain = marketValue - holding.total_cost;
+
+      if (!sectorMap.has(sector)) {
+        sectorMap.set(sector, {
+          sector_name: sector,
+          total_value: 0,
+          total_cost: 0,
+          daily_gain: 0,
+          total_gain: 0,
+          stock_count: 0
+        });
+      }
+
+      const sectorData = sectorMap.get(sector);
+      sectorData.total_value += marketValue;
+      sectorData.total_cost += holding.total_cost;
+      sectorData.daily_gain += dailyGain;
+      sectorData.total_gain += totalGain;
+      sectorData.stock_count += 1;
+
+      totalPortfolioValue += marketValue;
+      totalDailyGain += dailyGain;
+    });
+
+    // 4. Calculate percentages and format result
+    const sectorsResult = Array.from(sectorMap.values()).map(s => ({
+      ...s,
+      percentage: totalPortfolioValue > 0 ? (s.total_value / totalPortfolioValue) * 100 : 0,
+      daily_percentage_change: (s.total_value - s.daily_gain) > 0
+        ? (s.daily_gain / (s.total_value - s.daily_gain)) * 100
+        : 0
+    }));
+
+    // Sort by value descending
+    sectorsResult.sort((a, b) => b.total_value - a.total_value);
+
+    res.json({
+      sectors: sectorsResult,
+      total_portfolio_value: totalPortfolioValue,
+      daily_gain: totalDailyGain,
+      daily_percentage_change: (totalPortfolioValue - totalDailyGain) > 0
+        ? (totalDailyGain / (totalPortfolioValue - totalDailyGain)) * 100
+        : 0,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Sector Breakdown Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 module.exports = router;
