@@ -4,6 +4,7 @@ const { pool } = require('../../database/database');
 const logger = require('../../utils/logger');
 const { generateUuid } = require('../../utils/uuid');
 const { validatePortfolio, checkPortfolioOwnership, requireUser } = require('./validation');
+const { formatResponse } = require('../../utils/formatter');
 
 /**
  * @route GET /api/portfolios
@@ -176,7 +177,12 @@ router.get('/:id/sector-breakdown', async (req, res) => {
       .map(([symbol, data]) => ({ symbol, ...data }));
 
     if (activeHoldings.length === 0) {
-      return res.json({ sectors: [], total_portfolio_value: 0, daily_gain: 0 });
+      return res.json(formatResponse({
+        sectors: [],
+        total_portfolio_value: 0,
+        daily_gain: 0,
+        daily_percentage_change: 0
+      }, 'Portfolio is empty'));
     }
 
     // 2. Fetch latest market data for these stocks
@@ -238,7 +244,7 @@ router.get('/:id/sector-breakdown', async (req, res) => {
     // Sort by value descending
     sectorsResult.sort((a, b) => b.total_value - a.total_value);
 
-    res.json({
+    res.json(formatResponse({
       sectors: sectorsResult,
       total_portfolio_value: totalPortfolioValue,
       daily_gain: totalDailyGain,
@@ -246,7 +252,7 @@ router.get('/:id/sector-breakdown', async (req, res) => {
         ? (totalDailyGain / (totalPortfolioValue - totalDailyGain)) * 100
         : 0,
       timestamp: new Date().toISOString()
-    });
+    }, 'Sector breakdown retrieved successfully'));
   } catch (error) {
     logger.error('Sector Breakdown Error:', error);
     res.status(500).json({ error: 'Server error' });
