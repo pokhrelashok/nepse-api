@@ -166,6 +166,16 @@ class Scheduler extends BaseScheduler {
     this.jobs.set('financial_metrics_calculation', financialMetricsJob);
     financialMetricsJob.start();
 
+    // Holiday Synchronization (Daily at 1:00 AM)
+    const holidayJob = cron.schedule('0 1 * * *', async () => {
+      await runHolidaySync(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('holiday_sync', holidayJob);
+    holidayJob.start();
+
     // Start core market jobs
     indexJob.start();
     priceJob.start();
