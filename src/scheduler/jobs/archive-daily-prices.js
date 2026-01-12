@@ -4,8 +4,8 @@
  * This should run a few minutes after market closes (around 3:05 PM Nepal time)
  */
 
-const { pool } = require('../database/database');
-const logger = require('../utils/logger');
+const { pool } = require('../../database/database');
+const logger = require('../../utils/logger');
 const { DateTime } = require('luxon');
 
 async function archiveTodaysPrices() {
@@ -19,7 +19,7 @@ async function archiveTodaysPrices() {
     logger.info(`📦 Archiving stock prices for ${todayStr} from Redis...`);
 
     // 1. Get data from Redis
-    const redis = require('../config/redis');
+    const redis = require('../../config/redis');
     const livePricesMap = await redis.hgetall('live:stock_prices');
 
     if (!livePricesMap || Object.keys(livePricesMap).length === 0) {

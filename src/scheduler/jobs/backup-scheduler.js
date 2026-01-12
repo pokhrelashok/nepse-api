@@ -8,7 +8,7 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const B2 = require('backblaze-b2');
-const logger = require('../utils/logger');
+const logger = require('../../utils/logger');
 
 // Configuration
 const BACKUP_DIR = process.env.BACKUP_DIR || '/tmp/nepse-backups';
