@@ -58,6 +58,18 @@ app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const apiKeyAuth = require('./middleware/api-key-auth');
 
+// Sitemap (Root Level - Defined early to avoid static file conflicts)
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const sitemap = await sitemapService.generateSitemap();
+    res.header('Content-Type', 'application/xml');
+    res.send(sitemap);
+  } catch (error) {
+    logger.error('Error serving sitemap:', error);
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
 // API Routes
 app.use('/api', (req, res, next) => {
   // Paths to exclude from API Key requirement (public endpoints)
@@ -97,17 +109,7 @@ app.use('/api/portfolios', require('./routes/portfolio'));
 app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/feedback', require('./routes/feedback'));
 
-// Sitemap (Root Level)
-app.get('/sitemap.xml', async (req, res) => {
-  try {
-    const sitemap = await sitemapService.generateSitemap();
-    res.header('Content-Type', 'application/xml');
-    res.send(sitemap);
-  } catch (error) {
-    logger.error('Error serving sitemap:', error);
-    res.status(500).send('Error generating sitemap');
-  }
-});
+
 
 // All non-API routes serve the React app (SPA fallback)
 app.use((req, res, next) => {

@@ -5,8 +5,10 @@ import '../styles/stocks-list.css'
 
 interface Stock {
   symbol: string
-  company_name: string
-  sector_name: string
+  name: string
+  sector: string
+  company_name?: string
+  sector_name?: string
   ltp: number
   close_price: number
   percentage_change: number
@@ -20,6 +22,8 @@ export default function StocksList() {
   const [selectedSector, setSelectedSector] = useState('All')
   const [sortBy, setSortBy] = useState<'symbol' | 'price' | 'change' | 'marketcap'>('symbol')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 50
 
   useEffect(() => {
     const fetchStocks = async () => {
@@ -36,13 +40,15 @@ export default function StocksList() {
     fetchStocks()
   }, [])
 
-  const sectors = ['All', ...Array.from(new Set(stocks.map(s => s.sector_name).filter(Boolean)))]
+  const sectors = ['All', ...Array.from(new Set(stocks.map(s => s.sector || s.sector_name).filter(Boolean)))]
 
   const filteredStocks = stocks
     .filter(stock => {
+      const stockName = stock.name || stock.company_name
+      const stockSector = stock.sector || stock.sector_name
       const matchesSearch = stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        stock.company_name?.toLowerCase().includes(searchQuery.toLowerCase())
-      const matchesSector = selectedSector === 'All' || stock.sector_name === selectedSector
+        stockName?.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesSector = selectedSector === 'All' || stockSector === selectedSector
       return matchesSearch && matchesSector
     })
     .sort((a, b) => {
@@ -63,6 +69,15 @@ export default function StocksList() {
       }
       return sortOrder === 'asc' ? comparison : -comparison
     })
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, selectedSector, sortBy, sortOrder])
+
+  const totalPages = Math.ceil(filteredStocks.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedStocks = filteredStocks.slice(startIndex, startIndex + itemsPerPage)
 
   const formatNumber = (num: number | null | undefined) => {
     if (!num) return 'N/A'
@@ -113,7 +128,7 @@ export default function StocksList() {
               "position": index + 1,
               "item": {
                 "@type": "Corporation",
-                "name": stock.company_name,
+                "name": stock.name,
                 "tickerSymbol": stock.symbol,
                 "url": `https://nepseportfoliotracker.app/script/${stock.symbol}`
               }
@@ -155,7 +170,8 @@ export default function StocksList() {
       ) : (
         <>
           <div className="stocks-count">
-            Showing {filteredStocks.length} of {stocks.length} stocks
+            Showing {filteredStocks.length > 0 ? startIndex + 1 : 0}-{Math.min(startIndex + itemsPerPage, filteredStocks.length)} of {filteredStocks.length} stocks
+            {filteredStocks.length !== stocks.length && <span className="total-badge">(Total: {stocks.length})</span>}
           </div>
 
           <div className="stocks-table-container">
@@ -179,7 +195,7 @@ export default function StocksList() {
                 </tr>
               </thead>
               <tbody>
-                {filteredStocks.map((stock) => {
+                {paginatedStocks.map((stock) => {
                   const price = stock.ltp || stock.close_price || 0
                   const change = stock.percentage_change || 0
                   return (
@@ -189,8 +205,8 @@ export default function StocksList() {
                           {stock.symbol}
                         </Link>
                       </td>
-                      <td className="company-name">{stock.company_name || '--'}</td>
-                      <td className="sector-name">{stock.sector_name || '--'}</td>
+                      <td className="company-name">{stock.name || stock.company_name || '--'}</td>
+                      <td className="sector-name">{stock.sector || stock.sector_name || '--'}</td>
                       <td className="stock-price">Rs. {formatNumber(price)}</td>
                       <td className={`stock-change ${change >= 0 ? 'positive' : 'negative'}`}>
                         {change >= 0 ? '+' : ''}{change.toFixed(2)}%
@@ -202,6 +218,47 @@ export default function StocksList() {
               </tbody>
             </table>
           </div>
+
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <button
+                className="pagination-btn"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              >
+                <i className="fa-solid fa-chevron-left"></i> Previous
+              </button>
+
+              <div className="pagination-numbers">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  // Logic to show window around current page
+                  let pageNum = i + 1
+                  if (totalPages > 5) {
+                    if (currentPage > 3) pageNum = currentPage - 2 + i
+                    if (pageNum > totalPages) pageNum = totalPages - 4 + i
+                  }
+
+                  return (
+                    <button
+                      key={pageNum}
+                      className={`page-number ${currentPage === pageNum ? 'active' : ''}`}
+                      onClick={() => setCurrentPage(pageNum)}
+                    >
+                      {pageNum}
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button
+                className="pagination-btn"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              >
+                Next <i className="fa-solid fa-chevron-right"></i>
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

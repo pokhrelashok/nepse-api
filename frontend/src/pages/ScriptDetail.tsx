@@ -41,6 +41,7 @@ const Chart = ({ data }: { data: HistoryData[] }) => {
     })
 
     areaSeries.setData(data)
+    chart.timeScale().fitContent()
     chartRef.current = chart
 
     window.addEventListener('resize', handleResize)
