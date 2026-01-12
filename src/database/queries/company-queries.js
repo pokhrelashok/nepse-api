@@ -5,6 +5,7 @@ const { formatCompanyDetailsForDatabase, formatFinancialsForDatabase } = require
 
 async function getAllCompanies() {
   const sql = `
+    SELECT 
       cd.symbol,
       cd.company_name AS name,
       cd.nepali_company_name,
