@@ -100,6 +100,51 @@ export default function StocksList() {
     }
   }
 
+  // Scroll to top when page changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [currentPage])
+
+  const paginationControls = totalPages > 1 && (
+    <div className="pagination-controls">
+      <button
+        className="pagination-btn"
+        disabled={currentPage === 1}
+        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+      >
+        <i className="fa-solid fa-chevron-left"></i> Previous
+      </button>
+
+      <div className="pagination-numbers">
+        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+          let pageNum = i + 1
+          if (totalPages > 5) {
+            if (currentPage > 3) pageNum = currentPage - 2 + i
+            if (pageNum > totalPages) pageNum = totalPages - 4 + i
+          }
+
+          return (
+            <button
+              key={pageNum}
+              className={`page-number ${currentPage === pageNum ? 'active' : ''}`}
+              onClick={() => setCurrentPage(pageNum)}
+            >
+              {pageNum}
+            </button>
+          )
+        })}
+      </div>
+
+      <button
+        className="pagination-btn"
+        disabled={currentPage === totalPages}
+        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+      >
+        Next <i className="fa-solid fa-chevron-right"></i>
+      </button>
+    </div>
+  )
+
   return (
     <div className="stocks-list-container">
       <Helmet>
@@ -174,6 +219,8 @@ export default function StocksList() {
             {filteredStocks.length !== stocks.length && <span className="total-badge">(Total: {stocks.length})</span>}
           </div>
 
+          {paginationControls}
+
           <div className="stocks-table-container">
             <table className="stocks-table">
               <thead>
@@ -219,46 +266,7 @@ export default function StocksList() {
             </table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="pagination-controls">
-              <button
-                className="pagination-btn"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-              >
-                <i className="fa-solid fa-chevron-left"></i> Previous
-              </button>
-
-              <div className="pagination-numbers">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  // Logic to show window around current page
-                  let pageNum = i + 1
-                  if (totalPages > 5) {
-                    if (currentPage > 3) pageNum = currentPage - 2 + i
-                    if (pageNum > totalPages) pageNum = totalPages - 4 + i
-                  }
-
-                  return (
-                    <button
-                      key={pageNum}
-                      className={`page-number ${currentPage === pageNum ? 'active' : ''}`}
-                      onClick={() => setCurrentPage(pageNum)}
-                    >
-                      {pageNum}
-                    </button>
-                  )
-                })}
-              </div>
-
-              <button
-                className="pagination-btn"
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-              >
-                Next <i className="fa-solid fa-chevron-right"></i>
-              </button>
-            </div>
-          )}
+          {paginationControls}
         </>
       )}
     </div>
