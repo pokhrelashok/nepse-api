@@ -101,7 +101,7 @@ async function searchStocks(query) {
     `SELECT symbol, company_name AS name, nepali_company_name, 
             sector_name as sector, nepali_sector_name, 
             security_id, status, last_traded_price as ltp,
-            percentage_change, close_price
+            close_price
      FROM company_details
      WHERE symbol LIKE ? OR company_name LIKE ? 
      ORDER BY symbol LIMIT 20`,

@@ -5,6 +5,8 @@ import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { routeTree } from './routes'
 import './index.css'
 
+import { HelmetProvider } from 'react-helmet-async'
+
 const queryClient = new QueryClient()
 
 // Create a new router instance
@@ -14,8 +16,6 @@ const router = createRouter({
     queryClient,
   },
   defaultPreload: 'intent',
-  // Since we're wrapping in QueryClientProvider, we don't need to pass it here 
-  // unless we're using loader/action integration which we might later.
 })
 
 // Register the router instance for type safety
@@ -30,9 +30,11 @@ if (!rootElement.innerHTML) {
   const root = createRoot(rootElement)
   root.render(
     <StrictMode>
-      <QueryClientProvider client={queryClient}>
-        <RouterProvider router={router} />
-      </QueryClientProvider>
+      <HelmetProvider>
+        <QueryClientProvider client={queryClient}>
+          <RouterProvider router={router} />
+        </QueryClientProvider>
+      </HelmetProvider>
     </StrictMode>,
   )
 }

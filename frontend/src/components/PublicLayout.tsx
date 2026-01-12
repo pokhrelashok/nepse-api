@@ -51,6 +51,29 @@ export default function PublicLayout() {
     return { class: '', text: 'Closed' }
   }
 
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[]>([])
+  const [showResults, setShowResults] = useState(false)
+
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([])
+      return
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/search?q=${searchQuery}`)
+        const data = await res.json()
+        setSearchResults(data.data || data)
+      } catch (error) {
+        console.error('Search failed:', error)
+      }
+    }, 300)
+
+    return () => clearTimeout(delayDebounce)
+  }, [searchQuery])
+
   const status = getMarketStatus()
   const idx = marketData?.market_index
 
@@ -59,15 +82,56 @@ export default function PublicLayout() {
       {/* Navigation */}
       <nav className="landing-navbar">
         <div className="landing-nav-container">
-          <Link to="/" className="landing-logo">
+          <Link to="/" className="landing-logo" onClick={() => setShowResults(false)}>
             <span className="landing-logo-mark" aria-hidden="true"></span>
             <span className="landing-logo-text">Nepse Portfolio Tracker</span>
           </Link>
-          <ul className="landing-nav-menu">
-            <li><a href="/#features">Features</a></li>
-            <li><a href="/#market-widget">Widgets</a></li>
-            <li><a href="/#app-showcase">App</a></li>
-          </ul>
+
+          <div className="landing-nav-links">
+            <Link to="/stocks" className="nav-link">Stocks</Link>
+          </div>
+
+          <div className="nav-search-container">
+            <div className="search-input-wrapper">
+              <i className="fa-solid fa-magnifying-glass search-icon"></i>
+              <input
+                type="text"
+                placeholder="Search stocks (NTC, UPPER...)"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setShowResults(true)
+                }}
+                onFocus={() => setShowResults(true)}
+              />
+            </div>
+
+            {showResults && searchResults.length > 0 && (
+              <div className="search-dropdown">
+                {searchResults.map((item) => (
+                  <Link
+                    key={item.symbol}
+                    to="/script/$symbol"
+                    params={{ symbol: item.symbol }}
+                    className="search-result-item"
+                    onClick={() => {
+                      setShowResults(false)
+                      setSearchQuery('')
+                    }}
+                  >
+                    <div className="result-symbol">{item.symbol}</div>
+                    <div className="result-name">{item.name || item.company_name}</div>
+                  </Link>
+                ))}
+              </div>
+            )}
+            {showResults && searchQuery.length >= 2 && searchResults.length === 0 && (
+              <div className="search-dropdown">
+                <div className="search-no-results">No stocks found</div>
+              </div>
+            )}
+          </div>
+
           <div className="landing-market-ticker">
             <span className={`landing-ticker-status ${status.class}`}></span>
             <span className="landing-ticker-value">

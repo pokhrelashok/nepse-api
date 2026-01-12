@@ -60,8 +60,30 @@ const apiKeyAuth = require('./middleware/api-key-auth');
 // API Routes
 app.use('/api', (req, res, next) => {
   // Paths to exclude from API Key requirement (public endpoints)
-  const excludedPaths = ['/health', '/admin/login', '/auth/google', '/feedback'];
-  if (excludedPaths.includes(req.path)) {
+  const exactPaths = [
+    '/health',
+    '/admin/login',
+    '/auth/google',
+    '/feedback',
+    '/updates',
+    '/market/gainers',
+    '/market/losers',
+    '/market/sectors',
+    '/market/status',
+    '/ipos',
+    '/announced-dividends',
+    '/search',
+    '/sitemap.xml',
+    '/today-prices',
+    '/market/indices/history'
+  ];
+
+  const prefixPaths = [
+    '/scripts',
+    '/history'
+  ];
+
+  if (exactPaths.includes(req.path) || prefixPaths.some(p => req.path.startsWith(p))) {
     return next();
   }
   return apiKeyAuth(req, res, next);

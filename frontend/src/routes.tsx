@@ -151,9 +151,26 @@ export const adminHolidaysRoute = createRoute({
   component: HolidaysPage,
 })
 
+import ScriptDetailPage from './pages/ScriptDetail'
+import StocksListPage from './pages/StocksList'
+
+export const scriptDetailRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
+  path: 'script/$symbol',
+  component: ScriptDetailPage,
+})
+
+export const stocksListRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
+  path: 'stocks',
+  component: StocksListPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   publicLayoutRoute.addChildren([
     indexRoute,
+    scriptDetailRoute,
+    stocksListRoute,
     feedbackRoute,
     privacyPolicyRoute,
     termsOfServiceRoute,

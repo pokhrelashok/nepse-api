@@ -7,6 +7,8 @@ const schedulerController = require('../controllers/scheduler-controller');
 const { loginHandler, authMiddleware, verifyToken } = require('../middleware/auth');
 const { formatResponse } = require('../utils/formatter');
 
+const sitemapService = require('../services/sitemap-service');
+
 // API Info
 router.get('/', (req, res) => {
   res.json(formatResponse({
@@ -15,6 +17,17 @@ router.get('/', (req, res) => {
     documentation: 'API specification available in the api-spec directory of the repository',
     github: 'https://github.com/pokhrelashok/nepal-stock-scraper'
   }, 'API Information'));
+});
+
+// Sitemap
+router.get('/sitemap.xml', async (req, res) => {
+  try {
+    const sitemap = await sitemapService.generateSitemap();
+    res.header('Content-Type', 'application/xml');
+    res.send(sitemap);
+  } catch (error) {
+    res.status(500).send('Error generating sitemap');
+  }
 });
 
 // Health check
