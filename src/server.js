@@ -7,6 +7,7 @@ const logger = require('./utils/logger');
 const scheduler = require('./scheduler-instance');
 const apiRoutes = require('./routes/api');
 const { formatError } = require('./utils/formatter');
+const sitemapService = require('./services/sitemap-service');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -95,6 +96,18 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/portfolios', require('./routes/portfolio'));
 app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/feedback', require('./routes/feedback'));
+
+// Sitemap (Root Level)
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const sitemap = await sitemapService.generateSitemap();
+    res.header('Content-Type', 'application/xml');
+    res.send(sitemap);
+  } catch (error) {
+    logger.error('Error serving sitemap:', error);
+    res.status(500).send('Error generating sitemap');
+  }
+});
 
 // All non-API routes serve the React app (SPA fallback)
 app.use((req, res, next) => {

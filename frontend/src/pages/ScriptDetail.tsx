@@ -81,11 +81,18 @@ export default function ScriptDetail() {
           setFinancials(detailsRes.data.financials || [])
         }
 
-        if (Array.isArray(historyRes)) {
+        if (historyRes.success && Array.isArray(historyRes.data)) {
+          const formattedHistory = historyRes.data.map((d: any) => ({
+            time: d.business_date ? d.business_date.split('T')[0] : d.time,
+            value: parseFloat(d.close_price || d.close || d.value)
+          })).sort((a: any, b: any) => a.time.localeCompare(b.time))
+          setHistory(formattedHistory)
+        } else if (Array.isArray(historyRes)) {
+          // Fallback for backward compatibility if API changes
           const formattedHistory = historyRes.map((d: any) => ({
             time: d.business_date ? d.business_date.split('T')[0] : d.time,
-            value: parseFloat(d.close || d.value)
-          })).sort((a, b) => a.time.localeCompare(b.time))
+            value: parseFloat(d.close_price || d.close || d.value)
+          })).sort((a: any, b: any) => a.time.localeCompare(b.time))
           setHistory(formattedHistory)
         }
       } catch (error) {
