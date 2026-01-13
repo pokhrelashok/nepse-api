@@ -1,6 +1,6 @@
 const { insertIpo } = require('../database/queries');
 const logger = require('../utils/logger');
-const { translateToNepali } = require('../services/translation-service');
+const aiService = require('../services/ai-service');
 
 // Headers for Nepali Paisa API
 const HEADERS = {
@@ -88,8 +88,8 @@ async function scrapeFpos(checkAll = false) {
         };
 
         // Translate company name and sector name to Nepali
-        const nepaliCompanyName = await translateToNepali(mappedFpo.companyName);
-        const nepaliSectorName = await translateToNepali(mappedFpo.sectorName);
+        const nepaliCompanyName = await aiService.translateToNepali(mappedFpo.companyName);
+        const nepaliSectorName = await aiService.translateToNepali(mappedFpo.sectorName);
 
         mappedFpo.nepaliCompanyName = nepaliCompanyName;
         mappedFpo.nepaliSectorName = nepaliSectorName;

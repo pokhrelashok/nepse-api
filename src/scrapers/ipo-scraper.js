@@ -1,6 +1,6 @@
 const { insertIpo } = require('../database/queries');
 const logger = require('../utils/logger');
-const { translateToNepali } = require('../services/translation-service');
+const aiService = require('../services/ai-service');
 
 // Headers user provided
 const HEADERS = {
@@ -74,8 +74,8 @@ async function scrapeIpos(checkAll = false) {
         };
 
         // Translate company name and sector name to Nepali
-        const nepaliCompanyName = await translateToNepali(ipo.companyName);
-        const nepaliSectorName = await translateToNepali(ipo.sectorName);
+        const nepaliCompanyName = await aiService.translateToNepali(ipo.companyName);
+        const nepaliSectorName = await aiService.translateToNepali(ipo.sectorName);
 
         cleanedIpo.nepaliCompanyName = nepaliCompanyName;
         cleanedIpo.nepaliSectorName = nepaliSectorName;

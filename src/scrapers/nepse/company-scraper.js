@@ -364,12 +364,17 @@ class CompanyScraper {
           }
 
           const processImageData = require('../../utils/image-handler').processImageData;
-          const translateToNepali = require('../../services/translation-service').translateToNepali;
+          const { translateToNepali, translateCompanyData } = require('../../services/ai-service');
 
           const processedLogoUrl = await processImageData(data.rawLogoData, symbol);
 
-          const nepaliCompanyName = await translateToNepali(data.companyName);
-          const nepaliSectorName = await translateToNepali(data.sectorName);
+          const translationData = await translateCompanyData({
+            companyName: data.companyName,
+            sectorName: data.sectorName
+          });
+
+          const nepaliCompanyName = translationData.nepali_company_name;
+          const nepaliSectorName = translationData.nepali_sector_name;
 
           const item = {
             securityId: security_id,

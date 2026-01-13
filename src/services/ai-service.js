@@ -12,6 +12,9 @@ const logger = require('../utils/logger');
 // Singleton client instance
 let client = null;
 
+// In-memory cache for translations
+const translationCache = new Map();
+
 /**
  * Initialize and get the OpenAI/OpenRouter/Gemini client
  * @returns {OpenAI|null} The OpenAI client instance
@@ -39,7 +42,107 @@ function getClient() {
   return client;
 }
 
-const DEFAULT_MODEL = process.env.AI_MODEL || 'gemini-1.5-flash';
+const DEFAULT_MODEL = process.env.AI_MODEL || 'gemini-2.0-flash';
+
+/**
+ * Translate a single text to Nepali
+ * @param {string} text - English text to translate
+ * @returns {Promise<string|null>} Nepali translation or null if failed
+ */
+async function translateToNepali(text) {
+  if (!text || text.trim() === '') {
+    return null;
+  }
+
+  // Check cache first
+  const cacheKey = text.toLowerCase().trim();
+  if (translationCache.has(cacheKey)) {
+    return translationCache.get(cacheKey);
+  }
+
+  const openai = getClient();
+  if (!openai) {
+    return null;
+  }
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: DEFAULT_MODEL,
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a translator. Translate the given English text to Nepali (Devanagari script). Return ONLY the Nepali translation, nothing else. Do not include any explanations or additional text.'
+        },
+        {
+          role: 'user',
+          content: text
+        }
+      ],
+      temperature: 0.1,
+      max_tokens: 200
+    });
+
+    const translation = response.choices[0]?.message?.content?.trim();
+
+    if (translation) {
+      translationCache.set(cacheKey, translation);
+      return translation;
+    }
+
+    return null;
+  } catch (error) {
+    logger.error(`❌ Translation failed for "${text}":`, error.message);
+    return null;
+  }
+}
+
+/**
+ * Translate multiple texts to Nepali in batch
+ */
+async function translateBatch(texts) {
+  const results = {};
+  const uniqueTexts = [...new Set(texts.filter(t => t && t.trim()))];
+
+  const BATCH_SIZE = 5;
+  const DELAY_MS = 200;
+
+  for (let i = 0; i < uniqueTexts.length; i += BATCH_SIZE) {
+    const batch = uniqueTexts.slice(i, i + BATCH_SIZE);
+    const translations = await Promise.all(
+      batch.map(text => translateToNepali(text))
+    );
+
+    batch.forEach((text, idx) => {
+      results[text] = translations[idx];
+    });
+
+    if (i + BATCH_SIZE < uniqueTexts.length) {
+      await new Promise(resolve => setTimeout(resolve, DELAY_MS));
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Translate company and sector names for a data object
+ */
+async function translateCompanyData(data) {
+  if (!data) return data;
+  const updates = {};
+
+  if (data.company_name || data.companyName) {
+    const companyName = data.company_name || data.companyName;
+    updates.nepali_company_name = await translateToNepali(companyName);
+  }
+
+  if (data.sector_name || data.sectorName) {
+    const sectorName = data.sector_name || data.sectorName;
+    updates.nepali_sector_name = await translateToNepali(sectorName);
+  }
+
+  return { ...data, ...updates };
+}
 
 /**
  * Generate AI-powered stock performance summary
@@ -94,8 +197,7 @@ Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sec
         }
       ],
       temperature: 0.3,
-      max_tokens: 150,
-      response_format: { type: "json_object" }
+      max_tokens: 150
     });
 
     const summary = response.choices[0]?.message?.content?.trim();
@@ -308,7 +410,8 @@ async function generateBlogPost(topic, category) {
       - meta_description: SEO description (under 160 chars)
       
       Ensure the tone is professional yet accessible.
-      IMPORTANT: The whole response must be in English.
+      IMPORTANT: The whole response must be in English. No Nepali characters should be used in the content, except during explicit translations if requested.
+      Make the content engaging, informative, and detailed.
     `;
 
     const completion = await openai.chat.completions.create({
@@ -361,7 +464,8 @@ async function generateDailyMarketSummaryBlog(marketData) {
       - meta_description: SEO description (under 160 chars)
       
       Ensure the tone is analytical yet readable. Use "रु" for currency.
-      The whole response must be in English.
+      IMPORTANT: The whole response, including the title and excerpt, MUST be in English.
+      Provide a deep dive into what the turnover and breadth movements signify for the next trading day.
     `;
 
     const completion = await openai.chat.completions.create({
@@ -380,6 +484,9 @@ async function generateDailyMarketSummaryBlog(marketData) {
 }
 
 module.exports = {
+  translateToNepali,
+  translateBatch,
+  translateCompanyData,
   generateStockSummary,
   generateBatchSummaries,
   getOrGenerateSummary,
