@@ -63,7 +63,7 @@ async function createNewGoal(req, res) {
     }
 
     // Default dates if needed (e.g., for yearly goals)
-    if (data.type.startsWith('yearly_')) {
+    if (data.type.startsWith('yearly_') || data.type === 'dividend_income') {
       const year = data.metadata?.year || new Date().getFullYear();
       if (!data.start_date) data.start_date = `${year}-01-01`;
       if (!data.end_date) data.end_date = `${year}-12-31`;
@@ -331,24 +331,18 @@ async function getSectorCount(userId) {
 }
 
 async function getDividendIncome(userId, goal) {
-  const year = goal.metadata?.year;
-  // This requires a table tracking *received* dividends, effectively transactions of type 'dividend'
-  // OR we estimate based on 'dividends' table and holdings?
-  // Since we don't have a 'user_dividends' table or 'dividend' transactions clearly defined in this context yet,
-  // we'll return 0 or check if transactions table has type 'dividend' (assuming it might).
+  // Default to current year if no year specified
+  const year = goal.metadata?.year || new Date().getFullYear();
 
+  // Calculate dividend income from DIVIDEND type transactions for the specified year
   const sql = `
     SELECT SUM(price * quantity) as total
     FROM transactions t
     JOIN portfolios p ON t.portfolio_id = p.id
-    WHERE p.user_id = ? AND t.type = 'DIVIDEND'
-    ${year ? 'AND YEAR(t.date) = ?' : ''}
+    WHERE p.user_id = ? AND t.type = 'DIVIDEND' AND YEAR(t.date) = ?
   `;
 
-  const params = [userId];
-  if (year) params.push(year);
-
-  const [rows] = await pool.execute(sql, params);
+  const [rows] = await pool.execute(sql, [userId, year]);
   return rows[0].total || 0;
 }
 

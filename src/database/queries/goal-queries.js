@@ -73,7 +73,19 @@ async function updateGoal(goalId, userId, data) {
  */
 async function getGoal(goalId) {
   const [rows] = await pool.execute('SELECT * FROM user_goals WHERE id = ?', [goalId]);
-  return rows.length > 0 ? rows[0] : null;
+  if (rows.length === 0) return null;
+
+  const goal = rows[0];
+  // Parse metadata if it's a string
+  if (goal.metadata && typeof goal.metadata === 'string') {
+    try {
+      goal.metadata = JSON.parse(goal.metadata);
+    } catch (e) {
+      logger.error('Error parsing goal metadata:', e);
+      goal.metadata = {};
+    }
+  }
+  return goal;
 }
 
 /**
@@ -84,7 +96,18 @@ async function getActiveGoals(userId) {
     'SELECT * FROM user_goals WHERE user_id = ? AND status = "active" ORDER BY created_at DESC',
     [userId]
   );
-  return rows;
+  // Parse metadata for each goal
+  return rows.map(goal => {
+    if (goal.metadata && typeof goal.metadata === 'string') {
+      try {
+        goal.metadata = JSON.parse(goal.metadata);
+      } catch (e) {
+        logger.error('Error parsing goal metadata:', e);
+        goal.metadata = {};
+      }
+    }
+    return goal;
+  });
 }
 
 /**
@@ -95,7 +118,18 @@ async function getGoalHistory(userId) {
     'SELECT * FROM user_goals WHERE user_id = ? ORDER BY created_at DESC',
     [userId]
   );
-  return rows;
+  // Parse metadata for each goal
+  return rows.map(goal => {
+    if (goal.metadata && typeof goal.metadata === 'string') {
+      try {
+        goal.metadata = JSON.parse(goal.metadata);
+      } catch (e) {
+        logger.error('Error parsing goal metadata:', e);
+        goal.metadata = {};
+      }
+    }
+    return goal;
+  });
 }
 
 /**
