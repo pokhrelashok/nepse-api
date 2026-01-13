@@ -11,6 +11,7 @@ const dividendQueries = require('./dividend-queries');
 const alertQueries = require('./alert-queries');
 const sectorQueries = require('./sector-queries');
 const blogQueries = require('./blog-queries');
+const goalQueries = require('./goal-queries');
 
 // Re-export all functions
 module.exports = {
@@ -39,5 +40,8 @@ module.exports = {
   ...sectorQueries,
 
   // Blog queries
-  ...blogQueries
+  ...blogQueries,
+
+  // Goal queries
+  ...goalQueries
 };

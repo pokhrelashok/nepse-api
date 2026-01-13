@@ -108,6 +108,7 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/portfolios', require('./routes/portfolio'));
 app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/feedback', require('./routes/feedback'));
+app.use('/api/goals', require('./routes/goal'));
 
 
 
