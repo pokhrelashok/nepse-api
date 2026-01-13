@@ -354,8 +354,15 @@ async function getDividendIncome(userId, goal) {
 
   // Calculate dividend income from DIVIDEND type transactions for the specified year
   // Filter by specific portfolio or all portfolios
+  // Note: For DIVIDEND transactions, if quantity is 0 or 1, use price as the total amount
+  // Otherwise calculate as price * quantity
   const sql = `
-    SELECT SUM(price * quantity) as total
+    SELECT SUM(
+      CASE 
+        WHEN t.quantity = 0 OR t.quantity = 1 THEN t.price
+        ELSE t.price * t.quantity
+      END
+    ) as total
     FROM transactions t
     JOIN portfolios p ON t.portfolio_id = p.id
     WHERE p.user_id = ? 
