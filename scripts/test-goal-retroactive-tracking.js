@@ -72,34 +72,33 @@ async function runTest() {
     // 3. NOW create goals (after data exists)
     console.log('\n🎯 Creating goals AFTER transactions exist...');
 
-    // Create Yearly Investment Goal
+    // Create Yearly Investment Goal - All Portfolios
     const reqInvestment = {
       currentUser: { id: testUserId },
       body: {
         type: 'yearly_investment',
         target_value: 200000,
+        portfolio_id: null, // Track across all portfolios
         metadata: { year: 2026 }
       }
     };
     const resInvestment = mockRes();
     await goalController.createNewGoal(reqInvestment, resInvestment);
-    console.log('✅ Yearly Investment Goal Created (Target: 200,000)');
+    console.log('✅ Yearly Investment Goal Created (Target: 200,000, All Portfolios)');
 
-    // Create Dividend Income Goal
+    // Create Dividend Income Goal - Specific Portfolio
     const reqDividend = {
       currentUser: { id: testUserId },
       body: {
         type: 'dividend_income',
         target_value: 10000,
+        portfolio_id: testPortfolioId, // Track only this portfolio
         metadata: { year: 2026 }
       }
     };
     const resDividend = mockRes();
     await goalController.createNewGoal(reqDividend, resDividend);
-    console.log('✅ Dividend Income Goal Created (Target: 10,000)');
-
-    // 4. Check progress
-    console.log('\n📊 Checking goal progress...\n');
+    console.log('✅ Dividend Income Goal Created (Target: 10,000, Specific Portfolio)');
     const reqGet = { currentUser: { id: testUserId } };
     const resGet = mockRes();
     await goalController.getGoals(reqGet, resGet);

@@ -4,19 +4,22 @@ const { generateUuid } = require('../../utils/uuid');
 
 /**
  * Create a new goal for a user
+ * @param {string} userId - User ID
+ * @param {Object} data - Goal data including portfolio_id (optional, null = all portfolios)
  */
 async function createGoal(userId, data) {
-  const { type, target_value, start_date, end_date, metadata } = data;
+  const { type, target_value, start_date, end_date, metadata, portfolio_id } = data;
   const id = generateUuid();
 
   const sql = `
-    INSERT INTO user_goals (id, user_id, type, target_value, start_date, end_date, metadata)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO user_goals (id, user_id, portfolio_id, type, target_value, start_date, end_date, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `;
 
   await pool.execute(sql, [
     id,
     userId,
+    portfolio_id || null,
     type,
     target_value,
     start_date || null,
@@ -31,11 +34,15 @@ async function createGoal(userId, data) {
  * Update an existing goal
  */
 async function updateGoal(goalId, userId, data) {
-  const { target_value, start_date, end_date, metadata, status } = data;
+  const { target_value, start_date, end_date, metadata, status, portfolio_id } = data;
 
   const updates = [];
   const params = [];
 
+  if (portfolio_id !== undefined) {
+    updates.push('portfolio_id = ?');
+    params.push(portfolio_id || null);
+  }
   if (target_value !== undefined) {
     updates.push('target_value = ?');
     params.push(target_value);

@@ -49,6 +49,7 @@ async function createNewGoal(req, res) {
   const { isValid, error, data } = validate(req.body, {
     type: { type: 'string', required: true },
     target_value: { type: 'number', required: true },
+    portfolio_id: { type: 'string' }, // Optional - null means all portfolios
     start_date: { type: 'string' }, // Optional
     end_date: { type: 'string' }, // Optional
     metadata: { type: 'object' } // Optional
@@ -57,18 +58,38 @@ async function createNewGoal(req, res) {
   if (!isValid) return res.status(400).json({ error });
 
   try {
+    // If portfolio_id is provided, verify user owns it
+    if (data.portfolio_id) {
+      const [portfolios] = await pool.execute(
+        'SELECT id FROM portfolios WHERE id = ? AND user_id = ?',
+        [data.portfolio_id, userId]
+      );
+      if (portfolios.length === 0) {
+        return res.status(404).json({ error: 'Portfolio not found or access denied' });
+      }
+    }
+
     // Validate type-specific requirements
     if (data.type === 'stock_accumulation' && (!data.metadata || !data.metadata.symbol)) {
       return res.status(400).json({ error: 'Symbol is required for stock accumulation goals' });
     }
 
-    // Default dates if needed (e.g., for yearly goals)
-    if (data.type.startsWith('yearly_') || data.type === 'dividend_income') {
+    // Handle yearly goals - set date ranges based on year
+    // This applies to:
+    // 1. Goals with type starting with 'yearly_' (yearly_investment, yearly_profit)
+    // 2. dividend_income (inherently yearly)
+    // 3. Any goal type where user explicitly provides a year in metadata
+    const isYearlyGoal = data.type.startsWith('yearly_') || data.type === 'dividend_income';
+    const hasYearInMetadata = data.metadata?.year !== undefined;
+
+    if (isYearlyGoal || hasYearInMetadata) {
       const year = data.metadata?.year || new Date().getFullYear();
+
+      // Set date range for the year if not already provided
       if (!data.start_date) data.start_date = `${year}-01-01`;
       if (!data.end_date) data.end_date = `${year}-12-31`;
 
-      // Ensure metadata has year
+      // Ensure metadata has year for progress calculations
       data.metadata = { ...data.metadata, year };
     }
 
@@ -139,11 +160,11 @@ async function calculateProgress(userId, goal) {
         break;
 
       case 'portfolio_value':
-        currentValue = await getTotalPortfolioValue(userId);
+        currentValue = await getTotalPortfolioValue(userId, goal);
         break;
 
       case 'diversification':
-        currentValue = await getSectorCount(userId);
+        currentValue = await getSectorCount(userId, goal);
         break;
 
       case 'dividend_income':
@@ -171,18 +192,22 @@ async function getYearlyInvestment(userId, goal) {
   const year = goal.metadata?.year || new Date().getFullYear();
   const startDate = `${year}-01-01`;
   const endDate = `${year}-12-31`;
+  const portfolioId = goal.portfolio_id;
 
   // Sum of BUY transactions (SECONDARY_BUY, IPO, FPO, RIGHTS, AUCTION)
+  // Filter by portfolio_id if specified, otherwise all portfolios
   const sql = `
     SELECT SUM(price * quantity) as total 
     FROM transactions t
     JOIN portfolios p ON t.portfolio_id = p.id
     WHERE p.user_id = ? 
+      ${portfolioId ? 'AND t.portfolio_id = ?' : ''}
       AND t.type IN ('SECONDARY_BUY', 'IPO', 'FPO', 'RIGHTS', 'AUCTION')
       AND t.date BETWEEN ? AND ?
   `;
 
-  const [rows] = await pool.execute(sql, [userId, startDate, endDate]);
+  const params = portfolioId ? [userId, portfolioId, startDate, endDate] : [userId, startDate, endDate];
+  const [rows] = await pool.execute(sql, params);
   return rows[0].total || 0;
 }
 
@@ -221,31 +246,30 @@ async function getYearlyProfit(userId, goal) {
 async function getStockHoldings(userId, goal) {
   const symbol = goal.metadata?.symbol;
   if (!symbol) return 0;
+  const portfolioId = goal.portfolio_id;
 
-  // Sum quantity of specific stock across all portfolios (Buy - Sell + Bonus)
+  // Sum quantity of specific stock across all or specific portfolio (Buy - Sell + Bonus)
   const sql = `
     SELECT 
       SUM(CASE WHEN type IN ('SECONDARY_BUY', 'IPO', 'FPO', 'RIGHTS', 'AUCTION', 'BONUS') THEN quantity ELSE 0 END) - 
       SUM(CASE WHEN type = 'SECONDARY_SELL' THEN quantity ELSE 0 END) as net_qty
     FROM transactions t
     JOIN portfolios p ON t.portfolio_id = p.id
-    WHERE p.user_id = ? AND t.stock_symbol = ?
+    WHERE p.user_id = ? 
+      ${portfolioId ? 'AND t.portfolio_id = ?' : ''}
+      AND t.stock_symbol = ?
   `;
 
-  const [rows] = await pool.execute(sql, [userId, symbol]);
+  const params = portfolioId ? [userId, portfolioId, symbol] : [userId, symbol];
+  const [rows] = await pool.execute(sql, params);
   return rows[0].net_qty || 0;
 }
 
-async function getTotalPortfolioValue(userId) {
+async function getTotalPortfolioValue(userId, goal) {
+  const portfolioId = goal?.portfolio_id;
+
   // Sum of (Current Price * Quantity) for all holdings
-  // This requires fetching current prices. 
-  // For MVP speed, let's query the cached portfolio summaries if available or do a quick calculation
-  /*
-    Optimized:
-    1. Get all current holdings (Buy - Sell)
-    2. Get latest price for each symbol
-    3. Sum
-  */
+  // Filter by specific portfolio or all portfolios
 
   // 1. Get holdings
   const sql = `
@@ -256,10 +280,13 @@ async function getTotalPortfolioValue(userId) {
     FROM transactions t
     JOIN portfolios p ON t.portfolio_id = p.id
     WHERE p.user_id = ?
+      ${portfolioId ? 'AND t.portfolio_id = ?' : ''}
     GROUP BY t.stock_symbol
     HAVING quantity > 0
   `;
-  const [holdings] = await pool.execute(sql, [userId]);
+
+  const params = portfolioId ? [userId, portfolioId] : [userId];
+  const [holdings] = await pool.execute(sql, params);
 
   if (holdings.length === 0) return 0;
 
@@ -287,36 +314,26 @@ async function getTotalPortfolioValue(userId) {
   return totalval;
 }
 
-async function getSectorCount(userId) {
+async function getSectorCount(userId, goal) {
+  const portfolioId = goal?.portfolio_id;
+
   // Count unique sectors in holdings
-  const sql = `
-    SELECT COUNT(DISTINCT c.sector_name) as cnt
-    FROM transactions t
-    JOIN portfolios p ON t.portfolio_id = p.id
-    JOIN company_details c ON t.stock_symbol = c.symbol
-    WHERE p.user_id = ?
-    GROUP BY t.stock_symbol
-    HAVING SUM(CASE WHEN t.type = 'buy' THEN t.quantity ELSE -t.quantity END) > 0
-  `;
-
-  // The query above is slightly wrong because HAVING is per group.
-  // We want count of sectors of ACTIVE holdings.
-
-  // Simplified:
-  // 1. Get active symbols
-  // 2. Count distinct sectors
+  // Filter by specific portfolio or all portfolios
 
   const holdingsSql = `
     SELECT t.stock_symbol
     FROM transactions t
     JOIN portfolios p ON t.portfolio_id = p.id
     WHERE p.user_id = ?
+      ${portfolioId ? 'AND t.portfolio_id = ?' : ''}
     GROUP BY t.stock_symbol
     HAVING SUM(CASE WHEN t.type IN ('SECONDARY_BUY', 'IPO', 'FPO', 'RIGHTS', 'AUCTION', 'BONUS') THEN t.quantity 
                     WHEN t.type = 'SECONDARY_SELL' THEN -t.quantity 
                     ELSE 0 END) > 0
   `;
-  const [rows] = await pool.execute(holdingsSql, [userId]);
+
+  const params = portfolioId ? [userId, portfolioId] : [userId];
+  const [rows] = await pool.execute(holdingsSql, params);
   if (rows.length === 0) return 0;
 
   const symbols = rows.map(r => r.stock_symbol);
@@ -333,16 +350,22 @@ async function getSectorCount(userId) {
 async function getDividendIncome(userId, goal) {
   // Default to current year if no year specified
   const year = goal.metadata?.year || new Date().getFullYear();
+  const portfolioId = goal.portfolio_id;
 
   // Calculate dividend income from DIVIDEND type transactions for the specified year
+  // Filter by specific portfolio or all portfolios
   const sql = `
     SELECT SUM(price * quantity) as total
     FROM transactions t
     JOIN portfolios p ON t.portfolio_id = p.id
-    WHERE p.user_id = ? AND t.type = 'DIVIDEND' AND YEAR(t.date) = ?
+    WHERE p.user_id = ? 
+      ${portfolioId ? 'AND t.portfolio_id = ?' : ''}
+      AND t.type = 'DIVIDEND' 
+      AND YEAR(t.date) = ?
   `;
 
-  const [rows] = await pool.execute(sql, [userId, year]);
+  const params = portfolioId ? [userId, portfolioId, year] : [userId, year];
+  const [rows] = await pool.execute(sql, params);
   return rows[0].total || 0;
 }
 
