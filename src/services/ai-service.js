@@ -21,16 +21,20 @@ const translationCache = new Map();
  */
 function getClient() {
   if (!client) {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
 
     if (!apiKey) {
-      logger.warn('AI API Key (GEMINI or OPENAI) not set. AI service will return null.');
+      logger.warn('AI API Key (DEEPSEEK, GEMINI or OPENAI) not set. AI service will return null.');
       return null;
     }
 
     let baseURL = process.env.OPENAI_BASE_URL;
+    // Default to OpenRouter if using DeepSeek key
+    if (process.env.DEEPSEEK_API_KEY) {
+      baseURL = 'https://openrouter.ai/api/v1';
+    }
     // Default to Google's OpenAI-compatible endpoint if using Gemini key
-    if (process.env.GEMINI_API_KEY) {
+    else if (process.env.GEMINI_API_KEY) {
       baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
     }
 
@@ -44,7 +48,7 @@ function getClient() {
   return client;
 }
 
-const DEFAULT_MODEL = process.env.AI_MODEL || 'gemini-2.5-flash';
+const DEFAULT_MODEL = process.env.AI_MODEL || 'deepseek/deepseek-chat';
 
 /**
  * Translate a single text to Nepali
@@ -188,17 +192,17 @@ async function generateStockSummary(stockData) {
     };
 
     // Compact prompt optimized for minimal tokens
-    const prompt = `Analyze this Nepal stock data and provide a comprehensive performance summary:
+    const prompt = `Analyze this Nepal stock data and provide a concise performance summary:
 ${JSON.stringify(compactData)}
 
-Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sector context. Provide 4-6 sentences with actionable insights.`;
+Provide exactly 3-4 sentences covering: price trend vs 52-week range, valuation metrics (P/E, P/B), dividend yield, and investment outlook.`;
 
     const response = await openai.chat.completions.create({
       model: process.env.AI_MODEL || DEFAULT_MODEL,
       messages: [
         {
           role: 'system',
-          content: 'You are a financial analyst specializing in Nepal Stock Exchange. Provide comprehensive, actionable stock summaries in 4-6 sentences covering price trends, valuations, sector performance, and investment outlook. IMPORTANT: Always use "रु" (not ₹ or Rs) when mentioning Nepali Rupee currency.'
+          content: 'You are a financial analyst for Nepal Stock Exchange. Provide concise, actionable stock summaries in exactly 3-4 sentences. Always use "रु" (not ₹ or Rs) for Nepali Rupee currency.'
         },
         {
           role: 'user',
@@ -206,7 +210,7 @@ Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sec
         }
       ],
       temperature: 0.3,
-      max_tokens: 400
+      max_tokens: 500
     });
 
     const summary = response.choices[0]?.message?.content?.trim();
@@ -348,18 +352,17 @@ async function generatePortfolioSummary(portfolioName, holdings) {
       sum: h.ai_summary ? (h.ai_summary.substring(0, 100) + '...') : 'N/A'
     }));
 
-    const prompt = `Analyze this Nepal stock portfolio "${portfolioName}" and provide a summary:
+    const prompt = `Analyze this Nepal stock portfolio "${portfolioName}":
 ${JSON.stringify(compactHoldings)}
 
-Provide:
-1. A Sentiment Score (1-100) based on overall performance and sector outlook.
-2. A 3-4 sentence performance summary highlighting top performers, laggards, and diversification.
-3. Actionable advice.
+Provide JSON with:
+1. sentiment_score (1-100): Overall portfolio health
+2. summary (3-4 sentences): Top performers, laggards, diversification, and actionable advice
 
-IMPORTANT: Respond ONLY in JSON format like this:
+Respond ONLY in JSON:
 {
   "sentiment_score": 75,
-  "summary": "Your summary text here..."
+  "summary": "Your 3-4 sentence summary here..."
 }`;
 
     const response = await openai.chat.completions.create({
@@ -367,7 +370,7 @@ IMPORTANT: Respond ONLY in JSON format like this:
       messages: [
         {
           role: 'system',
-          content: 'You are a senior portfolio manager for the Nepal Stock Exchange. Provide professional, data-driven portfolio analysis in JSON format. Use "रु" for currency.'
+          content: 'You are a portfolio manager for Nepal Stock Exchange. Provide concise portfolio analysis in JSON format. Use "रु" for currency.'
         },
         {
           role: 'user',
@@ -375,7 +378,7 @@ IMPORTANT: Respond ONLY in JSON format like this:
         }
       ],
       temperature: 0.3,
-      max_tokens: 300,
+      max_tokens: 400,
       response_format: { type: 'json_object' }
     });
 
