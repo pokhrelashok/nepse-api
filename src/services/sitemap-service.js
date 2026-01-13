@@ -49,7 +49,7 @@ async function generateSitemap() {
     const blogs = await getAllPublishedBlogs();
     blogs.forEach(blog => {
       sitemap += '  <url>\n';
-      sitemap += `    <loc>${baseUrl}/insights/${blog.slug}</loc>\n`;
+      sitemap += `    <loc>${baseUrl}/blogs/${blog.slug}</loc>\n`;
       sitemap += '    <changefreq>weekly</changefreq>\n';
       sitemap += '    <priority>0.7</priority>\n';
       sitemap += '  </url>\n';
