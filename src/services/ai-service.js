@@ -188,17 +188,17 @@ async function generateStockSummary(stockData) {
     };
 
     // Compact prompt optimized for minimal tokens
-    const prompt = `Analyze this Nepal stock data and provide a 2-3 sentence performance summary:
+    const prompt = `Analyze this Nepal stock data and provide a comprehensive performance summary:
 ${JSON.stringify(compactData)}
 
-Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sector context. Be concise and actionable.`;
+Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sector context. Provide 4-6 sentences with actionable insights.`;
 
     const response = await openai.chat.completions.create({
       model: process.env.AI_MODEL || DEFAULT_MODEL,
       messages: [
         {
           role: 'system',
-          content: 'You are a financial analyst specializing in Nepal Stock Exchange. Provide concise, actionable stock summaries. Max 3 sentences. IMPORTANT: Always use "रु" (not ₹ or Rs) when mentioning Nepali Rupee currency.'
+          content: 'You are a financial analyst specializing in Nepal Stock Exchange. Provide comprehensive, actionable stock summaries in 4-6 sentences covering price trends, valuations, sector performance, and investment outlook. IMPORTANT: Always use "रु" (not ₹ or Rs) when mentioning Nepali Rupee currency.'
         },
         {
           role: 'user',
@@ -206,7 +206,7 @@ Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sec
         }
       ],
       temperature: 0.3,
-      max_tokens: 150
+      max_tokens: 400
     });
 
     const summary = response.choices[0]?.message?.content?.trim();
