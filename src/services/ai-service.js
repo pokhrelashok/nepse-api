@@ -36,7 +36,9 @@ function getClient() {
 
     client = new OpenAI({
       baseURL: baseURL,
-      apiKey: apiKey
+      apiKey: apiKey,
+      maxRetries: 5, // Increased retries for rate limit handling
+      timeout: 30000 // 30 second timeout
     });
   }
   return client;
@@ -129,16 +131,23 @@ async function translateBatch(texts) {
  */
 async function translateCompanyData(data) {
   if (!data) return data;
+
   const updates = {};
 
-  if (data.company_name || data.companyName) {
+  // Only translate company name if it's missing or empty
+  if ((data.company_name || data.companyName) && !data.nepali_company_name && !data.nepaliCompanyName) {
     const companyName = data.company_name || data.companyName;
     updates.nepali_company_name = await translateToNepali(companyName);
+  } else if (data.nepali_company_name || data.nepaliCompanyName) {
+    updates.nepali_company_name = data.nepali_company_name || data.nepaliCompanyName;
   }
 
-  if (data.sector_name || data.sectorName) {
+  // Only translate sector name if it's missing or empty
+  if ((data.sector_name || data.sectorName) && !data.nepali_sector_name && !data.nepaliSectorName) {
     const sectorName = data.sector_name || data.sectorName;
     updates.nepali_sector_name = await translateToNepali(sectorName);
+  } else if (data.nepali_sector_name || data.nepaliSectorName) {
+    updates.nepali_sector_name = data.nepali_sector_name || data.nepaliSectorName;
   }
 
   return { ...data, ...updates };
