@@ -52,9 +52,23 @@ export default {
           '3': 'hsl(var(--chart-3))',
           '4': 'hsl(var(--chart-4))',
           '5': 'hsl(var(--chart-5))'
+        },
+        nepse: {
+          primary: '#1a472a',
+          secondary: '#2d6a4f',
+          accent: '#52b788',
+          success: '#2d9f6f',
+          danger: '#d62828',
+          warning: '#f77f00',
+          'light-bg': '#f5f7fa',
+          'text-dark': '#1a1a2e',
+          'text-light': '#6b7280',
         }
       }
     }
   },
-  plugins: [require("tailwindcss-animate")],
+  plugins: [
+    require("tailwindcss-animate"),
+    require("@tailwindcss/typography")
+  ],
 }

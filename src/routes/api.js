@@ -4,6 +4,7 @@ const companyController = require('../controllers/company-controller');
 const marketController = require('../controllers/market-controller');
 const alertController = require('../controllers/alert-controller');
 const schedulerController = require('../controllers/scheduler-controller');
+const blogController = require('../controllers/blogController');
 const { loginHandler, authMiddleware, verifyToken } = require('../middleware/auth');
 const { formatResponse } = require('../utils/formatter');
 
@@ -94,5 +95,17 @@ router.get('/alerts', verifyToken, alertController.getAlerts);
 router.post('/alerts', verifyToken, alertController.createAlert);
 router.put('/alerts/:id', verifyToken, alertController.updateAlert);
 router.delete('/alerts/:id', verifyToken, alertController.deleteAlert);
+
+// Blogs
+router.get('/blogs', blogController.getBlogs);
+router.get('/blogs/:slug', blogController.getPublicBlogBySlug);
+
+// Admin Blog Routes
+router.get('/admin/blogs', authMiddleware, blogController.getBlogs); // reuse controller, auth middleware allows seeing non-published
+router.get('/admin/blogs/:id', authMiddleware, blogController.getBlogById);
+router.post('/admin/blogs', authMiddleware, blogController.createBlog);
+router.put('/admin/blogs/:id', authMiddleware, blogController.updateBlog);
+router.delete('/admin/blogs/:id', authMiddleware, blogController.deleteBlog);
+router.post('/admin/blogs/generate', authMiddleware, blogController.generateBlogContent);
 
 module.exports = router;

@@ -60,7 +60,7 @@ async function testAISummary() {
       }
     } else {
       console.error('\n❌ Failed to generate AI summary');
-      console.log('Check that DEEPSEEK_API_KEY is set in .env');
+      console.log('Check that GEMINI_API_KEY is set in .env');
     }
 
   } catch (error) {

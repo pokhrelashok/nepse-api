@@ -9,7 +9,8 @@ import {
   Key,
   MessageSquareText,
   Users,
-  CalendarDays
+  CalendarDays,
+  FileText
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -41,6 +42,11 @@ export function AdminSidebar({ className }: SidebarProps) {
       title: "Companies",
       icon: Building2,
       href: "/admin/companies",
+    },
+    {
+      title: "Blogs",
+      icon: FileText,
+      href: "/admin/blogs",
     },
     {
       title: "Prices",

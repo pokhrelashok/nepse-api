@@ -2,7 +2,7 @@ const logger = require('../utils/logger');
 const HolidayService = require('../services/holiday-service');
 const { pool } = require('../database/database');
 const { getScriptDetails } = require('../database/queries');
-const { generateBatchSummaries } = require('../services/ai-analysis-service');
+const aiService = require('../services/ai-service');
 
 /**
  * Generate AI summaries for active stocks
@@ -58,7 +58,7 @@ async function generateStockSummaries(scheduler) {
     }
 
     // Generate summaries in batches
-    const summaries = await generateBatchSummaries(stocksData);
+    const summaries = await aiService.generateBatchSummaries(stocksData);
 
     // Update database with generated summaries
     let successCount = 0;

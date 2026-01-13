@@ -1,4 +1,4 @@
-const { getAllCompanies } = require('../database/queries');
+const { getAllCompanies, getAllPublishedBlogs } = require('../database/queries');
 const logger = require('../utils/logger');
 
 /**
@@ -42,6 +42,16 @@ async function generateSitemap() {
       sitemap += `    <loc>${baseUrl}/script/${company.symbol}</loc>\n`;
       sitemap += '    <changefreq>daily</changefreq>\n';
       sitemap += '    <priority>0.8</priority>\n';
+      sitemap += '  </url>\n';
+    });
+
+    // Add blog articles
+    const blogs = await getAllPublishedBlogs();
+    blogs.forEach(blog => {
+      sitemap += '  <url>\n';
+      sitemap += `    <loc>${baseUrl}/insights/${blog.slug}</loc>\n`;
+      sitemap += '    <changefreq>weekly</changefreq>\n';
+      sitemap += '    <priority>0.7</priority>\n';
       sitemap += '  </url>\n';
     });
 

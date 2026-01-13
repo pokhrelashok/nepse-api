@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react'
-import '../styles/landing.css'
 
 interface UploadedFile {
   file: File

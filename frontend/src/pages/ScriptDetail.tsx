@@ -2,7 +2,8 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams } from '@tanstack/react-router'
 import { Helmet } from 'react-helmet-async'
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts'
-import '../styles/script-detail.css'
+import { DashboardCard } from '../components/DashboardCard'
+// import '../styles/script-detail.css'
 
 interface HistoryData {
   time: string
@@ -30,7 +31,7 @@ const Chart = ({ data }: { data: HistoryData[] }) => {
         horzLines: { color: 'rgba(197, 203, 206, 0.1)' },
       },
       width: chartContainerRef.current.clientWidth,
-      height: 400,
+      height: window.innerWidth < 768 ? 300 : 400,
     })
 
     const areaSeries = chart.addSeries(AreaSeries, {
@@ -152,8 +153,25 @@ export default function ScriptDetail() {
   const pctChange = details.percentage_change || 0
   const companyName = details.company_name || details.name || symbol
 
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `${symbol} - ${companyName} | Nepse Portfolio`,
+          text: `Check out ${companyName} (${symbol}) stock price and AI analysis on Nepse Portfolio Tracker.`,
+          url: window.location.href,
+        });
+      } else {
+        await navigator.clipboard.writeText(window.location.href);
+        alert('Link copied to clipboard!');
+      }
+    } catch (err) {
+      console.error('Share failed:', err);
+    }
+  }
+
   return (
-    <div className="script-detail-container">
+    <div className="min-h-screen bg-gray-50/50 pb-20">
       <Helmet>
         {/* Primary Meta Tags */}
         <title>{`${symbol} Stock Price - ${companyName} Live Chart, Analysis & Financials | NEPSE`}</title>
@@ -245,172 +263,186 @@ export default function ScriptDetail() {
         </script>
       </Helmet>
       {/* Header */}
-      <header className="script-header">
-        <div className="script-title-area">
-          <h1>{symbol}</h1>
-          <div className="script-subtitle">{companyName}</div>
-        </div>
-        <div className="script-price-area">
-          <div className="script-ltp">Rs. {formatNumber(ltp)}</div>
-          <div className={`script-change ${change >= 0 ? 'positive' : 'negative'}`}>
-            {change >= 0 ? '↑' : '↓'} {Math.abs(change).toFixed(2)} ({Math.abs(pctChange).toFixed(2)}%)
+      <div className="bg-white border-b border-gray-100 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 md:w-16 md:h-16 bg-nepse-primary/5 rounded-2xl flex items-center justify-center text-nepse-primary text-xl md:text-2xl font-black">
+              {symbol?.substring(0, 2).toUpperCase()}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-2xl md:text-3xl font-black text-nepse-primary tracking-tight">{symbol}</h1>
+                <button
+                  onClick={handleShare}
+                  className="p-2 text-gray-400 hover:text-nepse-primary transition-colors"
+                  title="Share"
+                >
+                  <i className="fa-solid fa-share-nodes"></i>
+                </button>
+              </div>
+              <div className="text-sm font-bold text-gray-400 uppercase tracking-widest leading-none">{companyName}</div>
+            </div>
+          </div>
+
+          <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-center gap-2">
+            <div className="text-2xl md:text-4xl font-black text-nepse-primary tracking-tighter">
+              Rs. {formatNumber(ltp)}
+            </div>
+            <div className={`flex items-center gap-1.5 md:gap-2 px-3 py-1 rounded-full text-xs md:text-sm font-black ${change >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+              <i className={`fa-solid ${change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'}`}></i>
+              {Math.abs(change).toFixed(2)} ({Math.abs(pctChange).toFixed(2)}%)
+            </div>
           </div>
         </div>
-      </header>
+      </div>
 
       {/* Main Grid */}
-      <div className="script-main-grid">
-        <div className="dashboard-main">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-8">
           {/* Chart Card */}
-          <div className="dashboard-card script-chart-card">
-            <div className="card-header">
-              <h3><i className="fa-solid fa-chart-line"></i> Technical Chart</h3>
-              <div className="chart-ranges">
+          <DashboardCard
+            title="Technical Chart"
+            icon="fa-solid fa-chart-line"
+            noPadding
+            extraHeader={
+              <div className="flex gap-1 bg-white/10 p-1 rounded-xl">
                 {['1W', '1M', '3M', '6M', '1Y'].map((r) => (
                   <button
                     key={r}
-                    className={`range-btn ${range === r ? 'active' : ''}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${range === r ? 'bg-white text-nepse-primary' : 'text-white/70 hover:text-white'}`}
                     onClick={() => setRange(r)}
                   >
                     {r}
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="card-body">
+            }
+          >
+            <div className="w-full">
               <Chart data={history} />
             </div>
-          </div>
+          </DashboardCard>
+
+          {/* AI Analysis */}
+          <DashboardCard
+            title="AI Analysis"
+            icon="fa-solid fa-wand-magic-sparkles"
+          >
+            <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed">
+              {aiSummary ? (
+                <div style={{ whiteSpace: 'pre-wrap' }}>{aiSummary}</div>
+              ) : (
+                <div className="flex flex-col gap-4 animate-pulse">
+                  <div className="h-4 bg-gray-100 rounded w-3/4"></div>
+                  <div className="h-4 bg-gray-100 rounded w-full"></div>
+                  <div className="h-4 bg-gray-100 rounded w-5/6"></div>
+                </div>
+              )}
+            </div>
+          </DashboardCard>
 
           {/* Financial Performance */}
           {financials.length > 0 && (
-            <div className="dashboard-card financials-card" style={{ marginTop: '2rem' }}>
-              <div className="card-header">
-                <h3><i className="fa-solid fa-table"></i> Financial Performance</h3>
-              </div>
-              <div className="card-body">
-                <div className="financials-grouped">
-                  {Array.from(new Set(financials.map((f: any) => f.fiscal_year))).sort().reverse().map((year: any) => (
-                    <div key={year} className="year-group">
-                      <h4 className="year-title">{year}</h4>
-                      <div className="table-responsive">
-                        <table className="financial-table">
-                          <thead>
-                            <tr>
-                              <th>Quarter</th>
-                              <th>EPS</th>
-                              <th>NWPS</th>
-                              <th>Profit</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {financials
-                              .filter((f: any) => f.fiscal_year === year)
-                              .sort((a: any, b: any) => {
-                                const quarters = { 'First Quarter': 1, 'Second Quarter': 2, 'Third Quarter': 3, 'Fourth Quarter': 4 };
-                                return (quarters[a.quarter as keyof typeof quarters] || 0) - (quarters[b.quarter as keyof typeof quarters] || 0);
-                              })
-                              .map((report: any, i: number) => (
-                                <tr key={i}>
-                                  <td>{report.quarter?.replace(' Quarter', '')}</td>
-                                  <td>{report.earnings_per_share || '--'}</td>
-                                  <td>{report.net_worth_per_share || '--'}</td>
-                                  <td>{formatCurrency(report.net_profit)}</td>
-                                </tr>
-                              ))}
-                          </tbody>
-                        </table>
-                      </div>
+            <DashboardCard
+              title="Financial Performance"
+              icon="fa-solid fa-table"
+              noPadding
+            >
+              <div className="divide-y divide-gray-100">
+                {Array.from(new Set(financials.map((f: any) => f.fiscal_year))).sort().reverse().map((year: any) => (
+                  <div key={year} className="p-6 md:p-8">
+                    <h4 className="text-sm font-black text-nepse-primary uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="w-2 h-2 bg-nepse-accent rounded-full"></span> {year}
+                    </h4>
+                    <div className="overflow-x-auto -mx-6 md:-mx-8">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50/50">
+                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Quarter</th>
+                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">EPS</th>
+                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">NWPS</th>
+                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Profit</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {financials
+                            .filter((f: any) => f.fiscal_year === year)
+                            .sort((a: any, b: any) => {
+                              const quarters = { 'First Quarter': 1, 'Second Quarter': 2, 'Third Quarter': 3, 'Fourth Quarter': 4 };
+                              return (quarters[a.quarter as keyof typeof quarters] || 0) - (quarters[b.quarter as keyof typeof quarters] || 0);
+                            })
+                            .map((report: any, i: number) => (
+                              <tr key={i} className="hover:bg-gray-50/50 transition-colors">
+                                <td className="px-6 md:px-8 py-4 text-xs font-bold text-gray-600 truncate max-w-[100px]">{report.quarter?.replace(' Quarter', '')}</td>
+                                <td className="px-6 md:px-8 py-4 text-xs font-black text-nepse-primary">{report.earnings_per_share || '--'}</td>
+                                <td className="px-6 md:px-8 py-4 text-xs font-black text-nepse-primary">{report.net_worth_per_share || '--'}</td>
+                                <td className="px-6 md:px-8 py-4 text-xs font-black text-nepse-primary">{formatCurrency(report.net_profit)}</td>
+                              </tr>
+                            ))}
+                        </tbody>
+                      </table>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* AI Summary */}
-          <div className="dashboard-card ai-summary-card" style={{ marginTop: '2rem' }}>
-            <div className="card-header">
-              <h3><i className="fa-solid fa-wand-magic-sparkles"></i> AI Analysis</h3>
-            </div>
-            <div className="card-body">
-              <div className="ai-summary-content">
-                {aiSummary ? (
-                  <div style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{aiSummary}</div>
-                ) : (
-                  <div className="ai-loading-placeholder">
-                    <div className="ai-pulse-text"><i className="fa-solid fa-wand-magic-sparkles"></i> AI is analyzing {details?.symbol || 'stock'}...</div>
-                    <div className="ai-skeleton-line"></div>
-                    <div className="ai-skeleton-line short"></div>
                   </div>
-                )}
+                ))}
               </div>
-            </div>
-          </div>
+            </DashboardCard>
+          )}
         </div>
 
         {/* Sidebar */}
-        <div className="script-info-sidebar">
+        <div className="space-y-8">
           {/* Key Metrics */}
-          <div className="dashboard-card info-card">
-            <div className="card-header">
-              <h3><i className="fa-solid fa-circle-info"></i> Key Metrics</h3>
+          <DashboardCard
+            title="Key Metrics"
+            icon="fa-solid fa-circle-info"
+            noPadding
+          >
+            <div className="divide-y divide-gray-50">
+              {[
+                { label: 'Market Cap', value: formatCurrency(details.market_capitalization) },
+                { label: 'Sector', value: details.sector_name || details.nepali_sector_name || '--' },
+                { label: 'Open Price', value: `Rs. ${formatNumber(details.open_price)}` },
+                { label: 'Day\'s High', value: `Rs. ${formatNumber(details.high_price)}` },
+                { label: 'Day\'s Low', value: `Rs. ${formatNumber(details.low_price)}` },
+                { label: 'Total Volume', value: formatNumber(details.total_traded_quantity || details.volume) },
+                { label: 'Prev Close', value: `Rs. ${formatNumber(details.previous_close || details.prev_close)}` },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center justify-between p-4 md:p-6 hover:bg-gray-50/50 transition-colors">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{item.label}</span>
+                  <span className="text-sm font-black text-nepse-primary">{item.value}</span>
+                </div>
+              ))}
             </div>
-            <div className="card-body">
-              <div className="data-row">
-                <span className="data-label">Market Cap</span>
-                <span className="data-value">{formatCurrency(details.market_capitalization)}</span>
-              </div>
-              <div className="data-row">
-                <span className="data-label">Sector</span>
-                <span className="data-value">{details.sector_name || details.nepali_sector_name || '--'}</span>
-              </div>
-              <div className="data-row">
-                <span className="data-label">Open Price</span>
-                <span className="data-value">Rs. {formatNumber(details.open_price)}</span>
-              </div>
-              <div className="data-row">
-                <span className="data-label">Days High</span>
-                <span className="data-value">Rs. {formatNumber(details.high_price)}</span>
-              </div>
-              <div className="data-row">
-                <span className="data-label">Days Low</span>
-                <span className="data-value">Rs. {formatNumber(details.low_price)}</span>
-              </div>
-              <div className="data-row">
-                <span className="data-label">Total Vol</span>
-                <span className="data-value">{formatNumber(details.total_traded_quantity || details.volume)}</span>
-              </div>
-              <div className="data-row">
-                <span className="data-label">Prev Close</span>
-                <span className="data-value">Rs. {formatNumber(details.previous_close || details.prev_close)}</span>
-              </div>
-            </div>
-          </div>
+          </DashboardCard>
 
           {/* Dividends */}
-          <div className="dashboard-card info-card" style={{ marginTop: '2rem' }}>
-            <div className="card-header">
-              <h3><i className="fa-solid fa-bullhorn"></i> Dividends</h3>
-            </div>
-            <div className="card-body">
-              {dividends.length > 0 ? (
-                <div className="dividend-list">
-                  {dividends.map((div: any, i: number) => (
-                    <div key={i} className="dividend-item">
-                      <div className="div-year">{div.fiscal_year}</div>
-                      <div className="div-values">
-                        {parseFloat(div.bonus_shares || 0) > 0 && <span>B: {div.bonus_shares}%</span>}
-                        {parseFloat(div.cash_dividend || 0) > 0 && <span>C: {div.cash_dividend}%</span>}
-                      </div>
+          <DashboardCard
+            title="Dividends"
+            icon="fa-solid fa-bullhorn"
+            noPadding
+          >
+            {dividends.length > 0 ? (
+              <div className="divide-y divide-gray-50">
+                {dividends.map((div: any, i: number) => (
+                  <div key={i} className="p-4 md:p-6 hover:bg-gray-50/50 transition-colors flex items-center justify-between">
+                    <div className="text-sm font-black text-nepse-primary">{div.fiscal_year}</div>
+                    <div className="flex gap-2">
+                      {parseFloat(div.bonus_shares || 0) > 0 && (
+                        <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-lg">B: {div.bonus_shares}%</span>
+                      )}
+                      {parseFloat(div.cash_dividend || 0) > 0 && (
+                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">C: {div.cash_dividend}%</span>
+                      )}
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-msg">No dividend data recorded.</p>
-              )}
-            </div>
-          </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-8 text-center">
+                <p className="text-xs text-gray-400 font-bold uppercase tracking-widest italic leading-relaxed">No dividend data recorded.</p>
+              </div>
+            )}
+          </DashboardCard>
         </div>
       </div>
     </div>

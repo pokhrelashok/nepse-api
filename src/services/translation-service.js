@@ -14,18 +14,14 @@ let client = null;
 
 function getClient() {
   if (!client) {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      logger.warn('DEEPSEEK_API_KEY not set. Translation service will return null for translations.');
+      logger.warn('GEMINI_API_KEY not set. Translation service will return null for translations.');
       return null;
     }
     client = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: apiKey,
-      defaultHeaders: {
-        'HTTP-Referer': 'https://nepse-portfolio.com', // Optional: for OpenRouter tracking
-        'X-Title': 'NEPSE Portfolio API'
-      }
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      apiKey: apiKey
     });
   }
   return client;
@@ -54,7 +50,7 @@ async function translateToNepali(text) {
 
   try {
     const response = await openai.chat.completions.create({
-      model: 'deepseek/deepseek-chat',  // OpenRouter model format
+      model: 'gemini-1.5-flash',
       messages: [
         {
           role: 'system',

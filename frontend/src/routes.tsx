@@ -59,6 +59,8 @@ import ApiKeysPage from './pages/admin/ApiKeys'
 import FeedbackPage from './pages/admin/Feedback'
 import UsersPage from './pages/admin/Users'
 import HolidaysPage from './pages/admin/Holidays'
+import BlogManager from './pages/admin/BlogManager'
+import BlogEditor from './pages/admin/BlogEditor'
 
 export const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -151,8 +153,28 @@ export const adminHolidaysRoute = createRoute({
   component: HolidaysPage,
 })
 
+export const adminBlogsRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'blogs',
+  component: BlogManager,
+})
+
+export const adminBlogCreateRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'blogs/new',
+  component: BlogEditor,
+})
+
+export const adminBlogEditRoute = createRoute({
+  getParentRoute: () => adminAuthenticatedRoute,
+  path: 'blogs/$id/edit',
+  component: BlogEditor,
+})
+
 import ScriptDetailPage from './pages/ScriptDetail'
 import StocksListPage from './pages/StocksList'
+import BlogListPage from './pages/blogs/BlogList'
+import BlogDetailPage from './pages/blogs/BlogDetail'
 
 export const scriptDetailRoute = createRoute({
   getParentRoute: () => publicLayoutRoute,
@@ -166,11 +188,25 @@ export const stocksListRoute = createRoute({
   component: StocksListPage,
 })
 
+export const blogsListRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
+  path: 'blogs',
+  component: BlogListPage,
+})
+
+export const blogDetailRoute = createRoute({
+  getParentRoute: () => publicLayoutRoute,
+  path: 'blogs/$slug',
+  component: BlogDetailPage,
+})
+
 export const routeTree = rootRoute.addChildren([
   publicLayoutRoute.addChildren([
     indexRoute,
     scriptDetailRoute,
     stocksListRoute,
+    blogsListRoute,
+    blogDetailRoute,
     feedbackRoute,
     privacyPolicyRoute,
     termsOfServiceRoute,
@@ -188,6 +224,9 @@ export const routeTree = rootRoute.addChildren([
       adminApiKeysRoute,
       adminFeedbackRoute,
       adminHolidaysRoute,
+      adminBlogsRoute,
+      adminBlogCreateRoute,
+      adminBlogEditRoute,
     ])
   ]),
 ])

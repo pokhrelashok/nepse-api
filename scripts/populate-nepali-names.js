@@ -4,7 +4,7 @@
  * Backfill Script: Populate Nepali Company Names
  * 
  * This script translates existing company names and sector names to Nepali
- * using the DeepSeek API for records that don't have Nepali translations yet.
+ * using the Gemini API for records that don't have Nepali translations yet.
  * 
  * Usage:
  *   node scripts/populate-nepali-names.js [--all] [--table=TABLE_NAME]
@@ -222,13 +222,13 @@ async function main() {
   logger.info('=== Nepali Names Backfill Script ===');
   logger.info(`Mode: ${processAll ? 'Process ALL records' : 'Process missing translations only'}`);
 
-  if (!process.env.DEEPSEEK_API_KEY) {
-    logger.error('DEEPSEEK_API_KEY environment variable is not set!');
+  if (!process.env.GEMINI_API_KEY) {
+    logger.error('GEMINI_API_KEY environment variable is not set!');
     logger.error('Please set it in your .env file and try again.');
     process.exit(1);
   }
 
-  logger.info('DeepSeek API key found. Starting translation...\n');
+  logger.info('Gemini API key found. Starting translation...\n');
 
   let totalUpdated = 0;
 

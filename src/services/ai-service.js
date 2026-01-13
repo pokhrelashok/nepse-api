@@ -1,7 +1,7 @@
 /**
- * AI Analysis Service using OpenRouter API
- * Generates stock performance summaries using DeepSeek LLM via OpenRouter
- * Optimized for minimal token usage with compact data format
+ * Unified AI Service
+ * Handles all AI-related operations: Stock Summaries, Portfolio Analysis, and Blog Generation.
+ * Uses OpenRouter API with DeepSeek LLM for optimal performance and cost.
  */
 
 const OpenAI = require('openai');
@@ -9,27 +9,37 @@ const { pool } = require('../database/database');
 const { DateTime } = require('luxon');
 const logger = require('../utils/logger');
 
-// Reuse client initialization from translation service
+// Singleton client instance
 let client = null;
 
+/**
+ * Initialize and get the OpenAI/OpenRouter/Gemini client
+ * @returns {OpenAI|null} The OpenAI client instance
+ */
 function getClient() {
   if (!client) {
-    const apiKey = process.env.DEEPSEEK_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+
     if (!apiKey) {
-      logger.warn('DEEPSEEK_API_KEY not set. AI analysis service will return null.');
+      logger.warn('AI API Key (GEMINI or OPENAI) not set. AI service will return null.');
       return null;
     }
+
+    let baseURL = process.env.OPENAI_BASE_URL;
+    // Default to Google's OpenAI-compatible endpoint if using Gemini key
+    if (process.env.GEMINI_API_KEY) {
+      baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
+    }
+
     client = new OpenAI({
-      baseURL: 'https://openrouter.ai/api/v1',
-      apiKey: apiKey,
-      defaultHeaders: {
-        'HTTP-Referer': 'https://nepse-portfolio.com',
-        'X-Title': 'NEPSE Portfolio API'
-      }
+      baseURL: baseURL,
+      apiKey: apiKey
     });
   }
   return client;
 }
+
+const DEFAULT_MODEL = process.env.AI_MODEL || 'gemini-1.5-flash';
 
 /**
  * Generate AI-powered stock performance summary
@@ -72,7 +82,7 @@ ${JSON.stringify(compactData)}
 Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sector context. Be concise and actionable.`;
 
     const response = await openai.chat.completions.create({
-      model: 'deepseek/deepseek-chat',
+      model: process.env.AI_MODEL || DEFAULT_MODEL,
       messages: [
         {
           role: 'system',
@@ -84,7 +94,8 @@ Focus on: price trend vs 52w range, valuation (PE if avail), dividend yield, sec
         }
       ],
       temperature: 0.3,
-      max_tokens: 150
+      max_tokens: 150,
+      response_format: { type: "json_object" }
     });
 
     const summary = response.choices[0]?.message?.content?.trim();
@@ -241,7 +252,7 @@ IMPORTANT: Respond ONLY in JSON format like this:
 }`;
 
     const response = await openai.chat.completions.create({
-      model: 'deepseek/deepseek-chat',
+      model: process.env.AI_MODEL || DEFAULT_MODEL,
       messages: [
         {
           role: 'system',
@@ -269,9 +280,56 @@ IMPORTANT: Respond ONLY in JSON format like this:
   }
 }
 
+/**
+ * Generate a blog post using AI
+ * @param {string} topic - The topic or title of the blog
+ * @param {string} category - The category of the blog
+ * @returns {Promise<Object>} - Generated blog content
+ */
+async function generateBlogPost(topic, category) {
+  const openai = getClient();
+  if (!openai) {
+    throw new Error('AI Service not configured');
+  }
+
+  try {
+    const prompt = `
+      Write a comprehensive, SEO-optimized blog post for a Nepali audience about: "${topic}".
+      Category: ${category}.
+      
+      The content should be educational, easy to understand, and relevant to the Nepal Stock Exchange (NEPSE) if applicable.
+      
+      Return the response strictly as a JSON object with the following fields:
+      - title: The blog title
+      - content: The full blog content in Markdown format (use headers, lists, etc.)
+      - excerpt: A short summary (2-3 sentences)
+      - tags: An array of 5-8 relevant tags
+      - meta_title: SEO title (under 60 chars)
+      - meta_description: SEO description (under 160 chars)
+      
+      Ensure the tone is professional yet accessible.
+    `;
+
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      response_format: { type: "json_object" },
+    });
+
+    let content = completion.choices[0].message.content;
+    // Strip markdown code blocks if present (e.g. ```json ... ```)
+    content = content.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(content);
+  } catch (error) {
+    logger.error('Error generating blog post:', error);
+    throw new Error('Failed to generate blog content');
+  }
+}
+
 module.exports = {
   generateStockSummary,
   generateBatchSummaries,
   getOrGenerateSummary,
-  generatePortfolioSummary
+  generatePortfolioSummary,
+  generateBlogPost
 };

@@ -10,6 +10,7 @@ const ipoQueries = require('./ipo-queries');
 const dividendQueries = require('./dividend-queries');
 const alertQueries = require('./alert-queries');
 const sectorQueries = require('./sector-queries');
+const blogQueries = require('./blog-queries');
 
 // Re-export all functions
 module.exports = {
@@ -35,5 +36,8 @@ module.exports = {
   ...alertQueries,
 
   // Sector queries
-  ...sectorQueries
+  ...sectorQueries,
+
+  // Blog queries
+  ...blogQueries
 };

@@ -1,4 +1,4 @@
-import '../styles/landing.css'
+// import '../styles/landing.css'
 
 export default function PrivacyPolicyPage() {
   const styles = {

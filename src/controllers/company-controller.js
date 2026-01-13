@@ -9,7 +9,7 @@ const {
   getAnnouncedDividends,
   getStockHistory
 } = require('../database/queries');
-const aiAnalysisService = require('../services/ai-analysis-service');
+const aiService = require('../services/ai-service');
 const { formatResponse, formatError } = require('../utils/formatter');
 
 // Helper to calculate start date based on range
@@ -88,7 +88,7 @@ exports.getAIStockSummary = async (req, res) => {
     }
 
     // On-demand AI summary generation (now in dedicated endpoint)
-    const aiSummary = await aiAnalysisService.getOrGenerateSummary(details);
+    const aiSummary = await aiService.getOrGenerateSummary(details);
 
     res.json(formatResponse({ symbol, ai_summary: aiSummary }));
   } catch (e) {

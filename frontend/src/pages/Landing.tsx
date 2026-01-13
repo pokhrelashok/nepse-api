@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useEffect, useState, useRef } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts'
-import '../styles/landing.css'
+import { DashboardCard } from '../components/DashboardCard'
 
 interface MarketData {
   status: string
@@ -18,6 +18,16 @@ interface MarketData {
     unchanged: number
     trading_date: string
   }
+}
+
+interface Article {
+  id: number;
+  title: string;
+  slug: string;
+  excerpt: string;
+  category: string;
+  published_at: string;
+  featured_image: string;
 }
 
 interface StockItem {
@@ -125,13 +135,14 @@ export default function LandingPage() {
   const [sectors, setSectors] = useState<Sector[]>([])
   const [ipos, setIpos] = useState<IPO[]>([])
   const [dividends, setDividends] = useState<Dividend[]>([])
+  const [articles, setArticles] = useState<Article[]>([])
   const [activeTab, setActiveTab] = useState<'gainers' | 'losers'>('gainers')
   const [showBetaModal, setShowBetaModal] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [marketRes, historyRes, gainersRes, losersRes, sectorsRes, iposRes, dividendsRes] = await Promise.all([
+        const [marketRes, historyRes, gainersRes, losersRes, sectorsRes, iposRes, dividendsRes, blogsRes] = await Promise.all([
           fetch('/api/updates', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -142,7 +153,8 @@ export default function LandingPage() {
           fetch('/api/market/losers?limit=5'),
           fetch('/api/market/sectors'),
           fetch('/api/ipos?limit=5'),
-          fetch('/api/announced-dividends?limit=5')
+          fetch('/api/announced-dividends?limit=5'),
+          fetch('/api/blogs?limit=3')
         ])
 
         const marketResult = await marketRes.json()
@@ -152,6 +164,7 @@ export default function LandingPage() {
         const sectorsResult = await sectorsRes.json()
         const iposResult = await iposRes.json()
         const dividendsResult = await dividendsRes.json()
+        const blogsResult = await blogsRes.json()
 
         setMarketData(marketResult.data || marketResult)
 
@@ -166,6 +179,9 @@ export default function LandingPage() {
         setSectors(sectorsResult.data?.sectors || sectorsResult.sectors || [])
         setIpos(iposResult.data || iposResult)
         setDividends(dividendsResult.data || dividendsResult)
+        if (blogsResult.success) {
+          setArticles(blogsResult.data.blogs || [])
+        }
       } catch (error) {
         console.error('Failed to fetch market data:', error)
       }
@@ -208,7 +224,7 @@ export default function LandingPage() {
   const keywords = 'NEPSE, Nepal Stock Exchange, stock portfolio tracker, NEPSE live data, Nepal stocks, share market Nepal, NEPSE index, stock analysis Nepal, dividend tracker, IPO Nepal, sector analysis NEPSE, real-time stock prices Nepal, Nepali share market'
 
   return (
-    <div className="landing-page-container">
+    <div className="min-h-screen bg-white">
       <Helmet>
         {/* Primary Meta Tags */}
         <title>NEPSE Portfolio Tracker - Real-Time Nepal Stock Market Data & Analysis</title>
@@ -303,29 +319,31 @@ export default function LandingPage() {
       </Helmet>
       {/* Beta Installation Modal */}
       {showBetaModal && (
-        <div className="beta-modal-overlay" onClick={() => setShowBetaModal(false)}>
-          <div className="beta-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="beta-modal-header">
-              <h2><i className="fa-brands fa-android"></i> Android Release (Beta)</h2>
-              <button className="beta-modal-close" onClick={() => setShowBetaModal(false)}>
-                <i className="fa-solid fa-xmark"></i>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowBetaModal(false)}>
+          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-6 border-b border-gray-100">
+              <h2 className="text-xl font-bold flex items-center gap-3 text-nepse-primary">
+                <i className="fa-brands fa-android text-2xl"></i> Android Release (Beta)
+              </h2>
+              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" onClick={() => setShowBetaModal(false)}>
+                <i className="fa-solid fa-xmark text-lg text-gray-400"></i>
               </button>
             </div>
-            <div className="beta-modal-content">
-              <p className="beta-modal-intro">
+            <div className="p-6 space-y-6">
+              <p className="text-gray-600">
                 Follow these steps to join the closed beta testing and install the app:
               </p>
 
-              <div className="beta-step">
-                <div className="beta-step-number">1</div>
-                <div className="beta-step-content">
-                  <h3>Join the Google Group</h3>
-                  <p>Request access to the closed testers group</p>
+              <div className="flex gap-4 group">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">1</div>
+                <div className="space-y-2">
+                  <h3 className="font-bold text-gray-900">Join the Google Group</h3>
+                  <p className="text-sm text-gray-500">Request access to the closed testers group</p>
                   <a
                     href="https://groups.google.com/search?q=nepse-portfolio-closed-testers"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="beta-step-link"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all group-hover:bg-nepse-primary group-hover:text-white"
                   >
                     <i className="fa-solid fa-arrow-up-right-from-square"></i>
                     Open Google Group
@@ -333,16 +351,16 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="beta-step">
-                <div className="beta-step-number">2</div>
-                <div className="beta-step-content">
-                  <h3>Become a Tester</h3>
-                  <p>Accept the tester invitation on the web</p>
+              <div className="flex gap-4 group">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">2</div>
+                <div className="space-y-2">
+                  <h3 className="font-bold text-gray-900">Become a Tester</h3>
+                  <p className="text-sm text-gray-500">Accept the tester invitation on the web</p>
                   <a
                     href="https://play.google.com/apps/testing/com.ashok.nepseportfoliotracker"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="beta-step-link"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all"
                   >
                     <i className="fa-solid fa-arrow-up-right-from-square"></i>
                     Join Beta Program
@@ -350,16 +368,16 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="beta-step">
-                <div className="beta-step-number">3</div>
-                <div className="beta-step-content">
-                  <h3>Download the App</h3>
-                  <p>Install from Play Store after becoming a tester</p>
+              <div className="flex gap-4 group">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">3</div>
+                <div className="space-y-2">
+                  <h3 className="font-bold text-gray-900">Download the App</h3>
+                  <p className="text-sm text-gray-500">Install from Play Store after becoming a tester</p>
                   <a
                     href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="beta-step-link"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all"
                   >
                     <i className="fa-brands fa-google-play"></i>
                     Open Play Store
@@ -367,16 +385,16 @@ export default function LandingPage() {
                 </div>
               </div>
 
-              <div className="beta-step">
-                <div className="beta-step-number">4</div>
-                <div className="beta-step-content">
-                  <h3>Leave a Review</h3>
-                  <p>Help us improve by sharing your feedback</p>
+              <div className="flex gap-4 group">
+                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">4</div>
+                <div className="space-y-2">
+                  <h3 className="font-bold text-gray-900">Leave a Review</h3>
+                  <p className="text-sm text-gray-500">Help us improve by sharing your feedback</p>
                   <a
                     href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="beta-step-link"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all"
                   >
                     <i className="fa-solid fa-star"></i>
                     Rate the App
@@ -388,243 +406,356 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* Market Data & Dashboard Section - NOW AT TOP */}
-      <section id="market-dashboard" className="market-dashboard-section">
-        <div className="dashboard-grid">
-          {/* Main Column - Left */}
-          <div className="dashboard-main">
-            {/* Market Overview Card */}
-            <div className="dashboard-card market-overview-card">
-              <div className="card-header">
-                <h3><i className="fa-solid fa-chart-line"></i> Market Overview</h3>
-                <div className="market-status-indicator">
-                  <span className={`status-dot ${status.class}`}></span>
-                  <span className="status-text">{status.text}</span>
-                </div>
-              </div>
-              <div className="card-body">
-                <div className="market-overview-content">
-                  <div className="index-main-display">
-                    <div className="index-value">
-                      {idx ? formatNumber(idx.nepse_index) : '--'}
-                    </div>
-                    <div className={`index-change ${(idx?.change || 0) >= 0 ? 'positive' : 'negative'}`}>
-                      {idx ? `${idx.change >= 0 ? '↑' : '↓'} ${Math.abs(idx.change).toFixed(2)} (${Math.abs(idx.percentage_change).toFixed(2)}%)` : '--'}
+      {/* Market Data & Dashboard Section */}
+      <section id="market-dashboard" className="py-12 bg-gray-50/50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+
+            {/* Main Column - Left */}
+            <div className="lg:col-span-2 space-y-8">
+
+              {/* Market Overview Card */}
+              <DashboardCard
+                title="Market Overview"
+                icon="fa-solid fa-chart-line"
+                noPadding
+                extraHeader={
+                  <div className="flex items-center gap-2 px-3 py-1 bg-white/10 rounded-full border border-white/20 backdrop-blur-sm">
+                    <span className={`w-2 h-2 rounded-full ${status.class === 'open' ? 'bg-green-400 animate-pulse' : status.class === 'pre-open' ? 'bg-yellow-400' : 'bg-red-400'}`}></span>
+                    <span className="text-xs font-bold text-white uppercase tracking-wider">{status.text}</span>
+                  </div>
+                }
+                footer={`Last updated: ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`}
+              >
+                <div className="p-6 md:p-8">
+                  <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+                    <div>
+                      <div className="text-4xl md:text-5xl font-black text-nepse-primary tracking-tight">
+                        {idx ? formatNumber(idx.nepse_index) : '--'}
+                      </div>
+                      <div className={`mt-2 flex items-center gap-2 text-lg font-bold ${(idx?.change || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {idx ? (
+                          <>
+                            <i className={`fa-solid ${idx.change >= 0 ? 'fa-arrow-up' : 'fa-arrow-down'}`}></i>
+                            {Math.abs(idx.change).toFixed(2)} ({Math.abs(idx.percentage_change).toFixed(2)}%)
+                          </>
+                        ) : '--'}
+                      </div>
                     </div>
                   </div>
+                </div>
+
+                <div className="h-[200px] mb-8 bg-gray-50/30">
                   <MarketChart data={marketHistory} />
                 </div>
-                <div className="market-stats-grid">
-                  <div className="stat-item">
-                    <span className="stat-label">Turnover</span>
-                    <span className="stat-value">{idx ? formatCurrency(idx.total_turnover) : '--'}</span>
-                  </div>
-                  <div className="stat-item">
-                    <span className="stat-label">Shares Traded</span>
-                    <span className="stat-value">{idx ? formatNumber(idx.total_traded_shares) : '--'}</span>
-                  </div>
-                  <div className="stat-item stat-success">
-                    <span className="stat-label">Advanced</span>
-                    <span className="stat-value">{idx?.advanced || '--'}</span>
-                  </div>
-                  <div className="stat-item stat-danger">
-                    <span className="stat-label">Declined</span>
-                    <span className="stat-value">{idx?.declined || '--'}</span>
-                  </div>
-                </div>
-                <div className="last-updated">
-                  Last updated: {new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                </div>
-              </div>
-            </div>
 
-            {/* Sector Performance - Heatmap Design */}
-            <div className="dashboard-card sectors-card">
-              <div className="card-header">
-                <h3><i className="fa-solid fa-layer-group"></i> Sector Heatmap</h3>
-              </div>
-              <div className="card-body">
-                <div className="sector-heatmap-grid">
+                <div className="p-6 md:p-8 pt-0">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="p-4 bg-gray-50 rounded-2xl">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Turnover</div>
+                      <div className="text-sm font-black text-nepse-primary">{idx ? formatCurrency(idx.total_turnover) : '--'}</div>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-2xl">
+                      <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Shares Traded</div>
+                      <div className="text-sm font-black text-nepse-primary tracking-tight">{idx ? formatNumber(idx.total_traded_shares) : '--'}</div>
+                    </div>
+                    <div className="p-4 bg-green-50 border border-green-100 rounded-2xl">
+                      <div className="text-[10px] font-bold text-green-600/60 uppercase tracking-widest mb-1">Advanced</div>
+                      <div className="text-sm font-black text-green-600">{idx?.advanced || '--'} <i className="fa-solid fa-arrow-trend-up ml-1 opacity-50"></i></div>
+                    </div>
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-2xl">
+                      <div className="text-[10px] font-bold text-red-600/60 uppercase tracking-widest mb-1">Declined</div>
+                      <div className="text-sm font-black text-red-600">{idx?.declined || '--'}</div>
+                    </div>
+                  </div>
+                </div>
+              </DashboardCard>
+
+              {/* Sector Performance */}
+              <DashboardCard
+                title="Sector Heatmap"
+                icon="fa-solid fa-layer-group"
+              >
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                   {sectors.map((sector, i) => {
                     const change = sector.sector_percentage_change || 0;
-                    const intensity = Math.min(Math.abs(change) * 0.4, 0.9);
-                    const bgColor = change >= 0
-                      ? `rgba(45, 159, 111, ${0.1 + intensity})`
-                      : `rgba(214, 40, 40, ${0.1 + intensity})`;
-
+                    const isPositive = change >= 0;
                     return (
-                      <div key={i} className="heatmap-block" style={{ backgroundColor: bgColor }}>
-                        <span className="heatmap-name">{sector.sector_name}</span>
-                        <span className="heatmap-val">{change >= 0 ? '+' : ''}{change.toFixed(2)}%</span>
+                      <div
+                        key={i}
+                        className={`p-4 rounded-xl flex flex-col justify-between min-h-[100px] transition-transform hover:scale-[1.02] cursor-default border ${isPositive ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}
+                      >
+                        <span className="text-[10px] font-bold text-gray-500 line-clamp-2 leading-tight uppercase tracking-tight mb-2">
+                          {sector.sector_name}
+                        </span>
+                        <span className={`text-lg font-black ${isPositive ? 'text-green-600' : 'text-red-600'}`}>
+                          {isPositive ? '+' : ''}{change.toFixed(2)}%
+                        </span>
                       </div>
                     );
                   })}
                 </div>
-              </div>
+              </DashboardCard>
             </div>
-          </div>
 
-          {/* Side Column - Right */}
-          <div className="dashboard-sidebar">
-            <div className="dashboard-card movers-card">
-              <div className="tab-switcher">
-                <button
-                  className={activeTab === 'gainers' ? 'active' : ''}
-                  onClick={() => setActiveTab('gainers')}
-                >
-                  <i className="fa-solid fa-arrow-trend-up"></i> Top Gainers
-                </button>
-                <button
-                  className={activeTab === 'losers' ? 'active' : ''}
-                  onClick={() => setActiveTab('losers')}
-                >
-                  <i className="fa-solid fa-arrow-trend-down"></i> Top Losers
-                </button>
-              </div>
-              <div className="card-body no-padding">
-                {(activeTab === 'gainers' ? gainers : losers).map((stock, i) => (
-                  <Link
-                    key={i}
-                    to="/script/$symbol"
-                    params={{ symbol: stock.symbol }}
-                    className="mover-item"
-                  >
-                    <div className="mover-symbol">{stock.symbol}</div>
-                    <div className="mover-details">
-                      <span className="mover-price">Rs. {formatNumber(stock.close_price || stock.closePrice || stock.ltp || 0)}</span>
-                      <span className={`mover-change ${activeTab === 'gainers' ? 'positive' : 'negative'}`}>
+            {/* Side Column - Right */}
+            <div className="space-y-8">
+              {/* Movers Card */}
+              <DashboardCard
+                title="Market Movers"
+                icon="fa-solid fa-bolt"
+                noPadding
+                extraHeader={
+                  <div className="flex gap-1 bg-white/10 p-1 rounded-xl">
+                    <button
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeTab === 'gainers' ? 'bg-white text-green-600' : 'text-white/70 hover:text-white'}`}
+                      onClick={() => setActiveTab('gainers')}
+                    >
+                      Gainers
+                    </button>
+                    <button
+                      className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeTab === 'losers' ? 'bg-white text-red-600' : 'text-white/70 hover:text-white'}`}
+                      onClick={() => setActiveTab('losers')}
+                    >
+                      Losers
+                    </button>
+                  </div>
+                }
+              >
+                <div className="divide-y divide-gray-50">
+                  {(activeTab === 'gainers' ? gainers : losers).map((stock, i) => (
+                    <Link
+                      key={i}
+                      to="/script/$symbol"
+                      params={{ symbol: stock.symbol }}
+                      className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
+                    >
+                      <div>
+                        <div className="font-black text-nepse-primary group-hover:text-nepse-accent transition-colors">{stock.symbol}</div>
+                        <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                          Rs. {formatNumber(stock.close_price || stock.closePrice || stock.ltp || 0)}
+                        </div>
+                      </div>
+                      <div className={`text-sm font-black px-3 py-1 rounded-lg ${activeTab === 'gainers' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
                         {activeTab === 'gainers' ? '↑' : '↓'} {Math.abs(stock.percentage_change || stock.percentageChange || 0).toFixed(2)}%
-                      </span>
-                    </div>
-                  </Link>
-                ))}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </DashboardCard>
+
+              {/* Data Cards: IPOs & Dividends */}
+              <div className="space-y-4">
+                <DashboardCard
+                  title="Recent IPOs"
+                  icon="fa-solid fa-calendar-check"
+                  noPadding
+                  className="p-0"
+                >
+                  <div className="p-4 space-y-3">
+                    {ipos.length > 0 ? ipos.slice(0, 3).map((ipo, i) => (
+                      <div key={i} className="group p-3 hover:bg-nepse-primary/5 rounded-xl transition-colors border border-transparent hover:border-nepse-primary/10">
+                        <div className="font-bold text-sm text-nepse-primary line-clamp-1">{ipo.company_name}</div>
+                        <div className="flex items-center justify-between mt-1">
+                          <span className="text-[10px] font-black text-nepse-accent uppercase tracking-widest">{ipo.offering_type}</span>
+                          <span className="text-[10px] font-bold text-gray-400">{ipo.opening_date}</span>
+                        </div>
+                      </div>
+                    )) : <div className="p-4 text-center text-xs text-gray-400 italic">No IPOs found</div>}
+                  </div>
+                </DashboardCard>
+
+                <DashboardCard
+                  title="Latest Dividends"
+                  icon="fa-solid fa-coins"
+                  noPadding
+                  className="p-0"
+                >
+                  <div className="p-4 space-y-3">
+                    {dividends.length > 0 ? dividends.slice(0, 3).map((div, i) => (
+                      <div key={i} className="group p-3 hover:bg-nepse-primary/5 rounded-xl transition-colors border border-transparent hover:border-nepse-primary/10">
+                        <div className="font-bold text-sm text-nepse-primary">{div.symbol} ({div.fiscal_year})</div>
+                        <div className="flex gap-2 mt-1">
+                          {div.bonus_share > 0 && <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-0.5 rounded-full">B: {div.bonus_share}%</span>}
+                          {div.cash_dividend > 0 && <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">C: {div.cash_dividend}%</span>}
+                        </div>
+                      </div>
+                    )) : <div className="p-4 text-center text-xs text-gray-400 italic">No dividends found</div>}
+                  </div>
+                </DashboardCard>
               </div>
             </div>
 
-            <div className="dashboard-card data-card">
-              <div className="card-header">
-                <h3><i className="fa-solid fa-calendar-check"></i> Recent IPOs</h3>
-              </div>
-              <div className="card-body no-padding">
-                {ipos.length > 0 ? ipos.slice(0, 3).map((ipo, i) => (
-                  <div key={i} className="list-item">
-                    <div className="item-title">{ipo.company_name}</div>
-                    <div className="item-meta">
-                      <span className="badge">{ipo.offering_type.toUpperCase()}</span>
-                      <span className="date">{ipo.opening_date}</span>
-                    </div>
-                  </div>
-                )) : <div className="empty-state">No IPO data available</div>}
-              </div>
-            </div>
-
-            {/* Latest Dividends Widget */}
-            <div className="dashboard-card data-card">
-              <div className="card-header">
-                <h3><i className="fa-solid fa-coins"></i> Latest Dividends</h3>
-              </div>
-              <div className="card-body no-padding">
-                {dividends.length > 0 ? dividends.slice(0, 3).map((div, i) => (
-                  <div key={i} className="list-item">
-                    <div className="item-title">{div.symbol} ({div.fiscal_year})</div>
-                    <div className="item-meta">
-                      <span className="dividend-val bonus">B: {div.bonus_share}%</span>
-                      <span className="dividend-val cash">C: {div.cash_dividend}%</span>
-                    </div>
-                  </div>
-                )) : <div className="empty-state">No dividend data available</div>}
-              </div>
-            </div>
           </div>
         </div>
       </section>
 
 
-      {/* Hero Section - NOW SECONDARY */}
-      <section className="landing-hero secondary">
-        <div className="landing-hero-content">
-          <h1 className="landing-hero-title">Track Like a Pro</h1>
-          <p className="landing-hero-subtitle">
-            While you're here, why not check our mobile app? It's the simplest way to track your portfolio on the go.
-          </p>
-          <div className="landing-store-links">
-            <button className="landing-store-link beta" onClick={() => setShowBetaModal(true)}>
-              <span className="landing-store-icon"><i className="fa-brands fa-google-play"></i></span>
-              <div>
-                <div className="landing-store-label">Join Beta</div>
-                <div className="landing-store-name">Google Play</div>
-              </div>
-            </button>
+      {/* Hero Section - Secondary */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#1a472a] to-[#2d6a4f] text-white py-20 px-4">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12">
+          <div className="flex-1 space-y-6 text-center md:text-left">
+            <h1 className="text-4xl md:text-6xl font-black leading-tight">
+              Track Like a PRO
+            </h1>
+            <p className="text-lg md:text-xl text-gray-200 max-w-xl mx-auto md:mx-0">
+              Join thousands of investors using our platform to monitor their NEPSE portfolios with precision and ease.
+            </p>
+            <div className="flex flex-wrap justify-center md:justify-start gap-4">
+              <button
+                onClick={() => setShowBetaModal(true)}
+                className="group flex items-center gap-3 bg-white text-[#1a472a] px-8 py-4 rounded-2xl font-bold text-lg hover:bg-nepse-accent hover:text-white transition-all transform hover:-translate-y-1 shadow-xl hover:shadow-nepse-accent/20"
+              >
+                <div className="shrink-0 bg-[#1a472a] group-hover:bg-white p-2 rounded-lg transition-colors">
+                  <i className="fa-brands fa-google-play text-white group-hover:text-[#1a472a]"></i>
+                </div>
+                <div className="text-left leading-none">
+                  <div className="text-[10px] uppercase tracking-wider opacity-60">Get Beta on</div>
+                  <div className="text-lg font-black tracking-tight">Play Store</div>
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="landing-hero-visual">
-          <div className="landing-floating-card card-1">
-            <div className="landing-card-header">Live Updates</div>
-            <div className="landing-card-value">Instant</div>
-            <div className="landing-card-change positive">No Refresh</div>
-          </div>
-          <div className="landing-floating-card card-2">
-            <div className="landing-card-header">Simple UX</div>
-            <div className="landing-card-value">Minimal</div>
-            <div className="landing-card-change">Bloatware Free</div>
-          </div>
-          <div className="landing-floating-card card-3">
-            <div className="landing-card-header">Join Testing</div>
-            <div className="landing-card-value">Beta</div>
-            <div className="landing-card-change positive">Open Access</div>
+          <div className="flex-1 relative w-full max-w-lg aspect-square">
+            <div className="absolute top-1/4 -left-4 bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl animate-bounce-slow transform -rotate-6">
+              <div className="text-xs font-bold text-gray-300 mb-1">Live Updates</div>
+              <div className="text-2xl font-black">Instant</div>
+              <div className="text-[10px] font-bold text-green-400 mt-1">No Refresh</div>
+            </div>
+            <div className="absolute bottom-1/4 -right-4 bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl animate-bounce-slow delay-700 transform rotate-6">
+              <div className="text-xs font-bold text-gray-300 mb-1">Simple UX</div>
+              <div className="text-2xl font-black">Minimal</div>
+              <div className="text-[10px] font-bold text-gray-300 mt-1">Bloatware Free</div>
+            </div>
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-3xl border border-white/20 p-8 rounded-[32px] shadow-2xl scale-125">
+              <div className="text-xs font-bold text-gray-300 mb-1">Join Testing</div>
+              <div className="text-4xl font-black">BETA</div>
+              <div className="text-[10px] font-bold text-green-400 mt-2 uppercase tracking-widest">Open Access</div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section id="features" className="landing-features">
-        <div className="landing-section-header">
-          <h2>Simplicity That Matters</h2>
-          <p>Everything you need, nothing you don't</p>
-        </div>
-        <div className="landing-features-grid">
-          <div className="landing-feature-card">
-            <div className="landing-feature-icon"><i className="fa-solid fa-chart-column"></i></div>
-            <h3>Quick Glance</h3>
-            <p>See your portfolio value, gains, and holdings at a quick glance. No clutter, just clarity.</p>
+      <section id="features" className="py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+            <h2 className="text-3xl md:text-5xl font-black text-nepse-primary tracking-tight">Simplicity That Matters</h2>
+            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-sm">Everything you need, nothing you don't</p>
           </div>
-          <div className="landing-feature-card">
-            <div className="landing-feature-icon"><i className="fa-solid fa-briefcase"></i></div>
-            <h3>Multiple Portfolios</h3>
-            <p>Organize your investments across different portfolios and track them all in one place.</p>
-          </div>
-          <div className="landing-feature-card">
-            <div className="landing-feature-icon"><i className="fa-solid fa-wand-magic-sparkles"></i></div>
-            <h3>Beautiful Widgets</h3>
-            <p>Use beautiful in-app widgets to monitor your portfolio at a glance.</p>
-          </div>
-          <div className="landing-feature-card">
-            <div className="landing-feature-icon"><i className="fa-solid fa-mobile-screen-button"></i></div>
-            <h3>Mobile & Web</h3>
-            <p>Access your portfolios seamlessly on mobile and web. Synchronized in real-time.</p>
-          </div>
-          <div className="landing-feature-card">
-            <div className="landing-feature-icon"><i className="fa-solid fa-bell"></i></div>
-            <h3>Stay Informed</h3>
-            <p>Get notifications on your portfolio performance without the noise of market data.</p>
-          </div>
-          <div className="landing-feature-card">
-            <div className="landing-feature-icon"><i className="fa-solid fa-bolt"></i></div>
-            <h3>Lightning Fast</h3>
-            <p>Minimal design means lightning-fast load times. Your data, instantly.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <div className="p-8 bg-gray-50/50 rounded-3xl border border-gray-100 hover:border-nepse-accent/20 transition-all group">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-nepse-accent text-2xl shadow-sm mb-6 group-hover:bg-nepse-accent group-hover:text-white transition-all">
+                <i className="fa-solid fa-chart-column"></i>
+              </div>
+              <h3 className="text-xl font-black text-nepse-primary mb-3">Quick Glance</h3>
+              <p className="text-gray-600 leading-relaxed">See your portfolio value, gains, and holdings at a quick glance. No clutter, just clarity.</p>
+            </div>
+            <div className="p-8 bg-gray-50/50 rounded-3xl border border-gray-100 hover:border-nepse-accent/20 transition-all group">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-nepse-accent text-2xl shadow-sm mb-6 group-hover:bg-nepse-accent group-hover:text-white transition-all">
+                <i className="fa-solid fa-briefcase"></i>
+              </div>
+              <h3 className="text-xl font-black text-nepse-primary mb-3">Multiple Portfolios</h3>
+              <p className="text-gray-600 leading-relaxed">Organize your investments across different portfolios and track them all in one place.</p>
+            </div>
+            <div className="p-8 bg-gray-50/50 rounded-3xl border border-gray-100 hover:border-nepse-accent/20 transition-all group">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-nepse-accent text-2xl shadow-sm mb-6 group-hover:bg-nepse-accent group-hover:text-white transition-all">
+                <i className="fa-solid fa-wand-magic-sparkles"></i>
+              </div>
+              <h3 className="text-xl font-black text-nepse-primary mb-3">Beautiful Widgets</h3>
+              <p className="text-gray-600 leading-relaxed">Use beautiful in-app widgets to monitor your portfolio at a glance.</p>
+            </div>
+            <div className="p-8 bg-gray-50/50 rounded-3xl border border-gray-100 hover:border-nepse-accent/20 transition-all group">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-nepse-accent text-2xl shadow-sm mb-6 group-hover:bg-nepse-accent group-hover:text-white transition-all">
+                <i className="fa-solid fa-mobile-screen-button"></i>
+              </div>
+              <h3 className="text-xl font-black text-nepse-primary mb-3">Mobile & Web</h3>
+              <p className="text-gray-600 leading-relaxed">Access your portfolios seamlessly on mobile and web. Synchronized in real-time.</p>
+            </div>
+            <div className="p-8 bg-gray-50/50 rounded-3xl border border-gray-100 hover:border-nepse-accent/20 transition-all group">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-nepse-accent text-2xl shadow-sm mb-6 group-hover:bg-nepse-accent group-hover:text-white transition-all">
+                <i className="fa-solid fa-bell"></i>
+              </div>
+              <h3 className="text-xl font-black text-nepse-primary mb-3">Stay Informed</h3>
+              <p className="text-gray-600 leading-relaxed">Get notifications on your portfolio performance without the noise of market data.</p>
+            </div>
+            <div className="p-8 bg-gray-50/50 rounded-3xl border border-gray-100 hover:border-nepse-accent/20 transition-all group">
+              <div className="w-14 h-14 bg-white rounded-2xl flex items-center justify-center text-nepse-accent text-2xl shadow-sm mb-6 group-hover:bg-nepse-accent group-hover:text-white transition-all">
+                <i className="fa-solid fa-bolt"></i>
+              </div>
+              <h3 className="text-xl font-black text-nepse-primary mb-3">Lightning Fast</h3>
+              <p className="text-gray-600 leading-relaxed">Minimal design means lightning-fast load times. Your data, instantly.</p>
+            </div>
           </div>
         </div>
       </section>
 
+      {/* Latest Insights Section */}
+      {articles.length > 0 && (
+        <section className="py-16 bg-gray-50">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+              <h2 className="text-3xl md:text-5xl font-black text-nepse-primary tracking-tight">Market Insights</h2>
+              <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-sm">Latest news, analysis, and tutorials</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {articles.map((article) => (
+                <Link
+                  key={article.id}
+                  to="/blogs/$slug"
+                  params={{ slug: article.slug }}
+                  className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex flex-col"
+                >
+                  <div className="h-48 overflow-hidden relative">
+                    {article.featured_image ? (
+                      <img
+                        src={article.featured_image}
+                        alt={article.title}
+                        className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
+                        <i className="fa-solid fa-newspaper text-3xl text-blue-200"></i>
+                      </div>
+                    )}
+                    <span className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 text-xs font-bold rounded-full text-blue-800 uppercase tracking-wider">
+                      {article.category}
+                    </span>
+                  </div>
+                  <div className="p-6 flex-grow flex flex-col">
+                    <div className="text-gray-400 text-xs mb-2">
+                      {new Date(article.published_at).toLocaleDateString()}
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{article.title}</h3>
+                    <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow">{article.excerpt}</p>
+                    <div className="text-blue-600 font-semibold text-sm flex items-center mt-auto">
+                      Read More <i className="fa-solid fa-arrow-right ml-2 text-xs"></i>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <div className="text-center mt-10">
+              <Link
+                to="/blogs"
+                className="inline-flex items-center px-6 py-3 border border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors"
+              >
+                View All Articles
+              </Link>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* App Showcase */}
-      <section id="app-showcase" style={{ padding: '5rem 2rem', overflow: 'hidden' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div className="landing-section-header">
-            <h2>Experience the App</h2>
-            <p>Clean, intuitive interface designed for simplicity</p>
+      <section id="app-showcase" className="py-24 bg-white overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+            <h2 className="text-3xl md:text-5xl font-black text-nepse-primary tracking-tight">Experience the App</h2>
+            <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-sm">Clean, intuitive interface designed for simplicity</p>
           </div>
 
-          <div className="landing-showcase-container">
+          <div className="flex overflow-x-auto gap-8 pb-12 snap-x no-scrollbar">
             {[
               { img: 'Portfolio.webp', label: 'Portfolio Overview' },
               { img: 'Profit.webp', label: 'Profit & Loss' },
@@ -635,16 +766,16 @@ export default function LandingPage() {
               { img: 'Backup.webp', label: 'Secure Backup' },
               { img: 'Widget Screen.webp', label: 'Live Widgets' }
             ].map((item, i) => (
-              <div key={i} className="landing-showcase-item">
-                <div className="landing-showcase-phone">
+              <div key={i} className="shrink-0 w-[240px] snap-center">
+                <div className="bg-gray-50 rounded-3xl p-4 border border-gray-100 shadow-sm transition-transform hover:scale-[1.05]">
                   <img
                     src={`/screens/${item.img}`}
                     alt={item.label}
-                    className="landing-showcase-image"
+                    className="w-full h-auto rounded-2xl"
                     loading="lazy"
                   />
                 </div>
-                <div className="landing-showcase-caption">{item.label}</div>
+                <div className="mt-4 text-center text-xs font-black text-gray-400 uppercase tracking-widest">{item.label}</div>
               </div>
             ))}
           </div>

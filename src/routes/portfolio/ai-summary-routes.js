@@ -3,7 +3,7 @@ const router = express.Router();
 const { pool } = require('../../database/database');
 const logger = require('../../utils/logger');
 const { checkPortfolioOwnership, requireUser } = require('./validation');
-const { generatePortfolioSummary } = require('../../services/ai-analysis-service');
+const aiService = require('../../services/ai-service');
 const { DateTime } = require('luxon');
 
 /**
@@ -91,7 +91,7 @@ router.post('/:id/ai-summary', async (req, res) => {
     }
 
     // 5. Generate AI Summary
-    const aiResult = await generatePortfolioSummary(portfolio.name, holdings);
+    const aiResult = await aiService.generatePortfolioSummary(portfolio.name, holdings);
 
     if (aiResult) {
       // 6. Save and Return
