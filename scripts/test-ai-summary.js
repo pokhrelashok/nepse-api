@@ -5,7 +5,7 @@
  */
 
 const { getScriptDetails } = require('../src/database/queries');
-const { generateStockSummary } = require('../src/services/ai-analysis-service');
+const { generateStockSummary } = require('../src/services/ai-service');
 const { pool } = require('../src/database/database');
 
 async function testAISummary() {

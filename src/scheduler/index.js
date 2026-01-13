@@ -9,7 +9,7 @@ const { updateCompanyDetails } = require('./company-jobs');
 const { runIpoScrape, runFpoScrape, runDividendScrape, runMarketIndicesHistoryScrape } = require('./data-jobs');
 const { archiveDailyPrices, archiveMarketIndex } = require('./archive-jobs');
 const { runSystemCleanup, runDatabaseBackup, runNotificationCheck } = require('./maintenance-jobs');
-const { generateStockSummaries } = require('./ai-analysis-jobs');
+const { generateStockSummaries, generateDailyMarketBlog } = require('./ai-analysis-jobs');
 const { calculateFinancialMetrics } = require('./financial-metrics-jobs');
 const { runHolidaySync } = require('./holiday-jobs');
 const HolidayService = require('../services/holiday-service');
@@ -147,14 +147,17 @@ class Scheduler extends BaseScheduler {
     marketIndexArchiveJob.start();
 
     // AI Stock Summary Generation (at 4:00 PM, after all data archiving is complete)
-    const aiSummaryJob = cron.schedule('0 16 * * 0-4', async () => {
-      await generateStockSummaries(this);
+    // aiSummaryJob.start(); // Disabled in favor of on-demand generation
+
+    // Daily Market Summary Blog Generation (at 4:30 PM, after all data archiving and stock summaries)
+    const dailyMarketBlogJob = cron.schedule('30 16 * * 0-4', async () => {
+      await generateDailyMarketBlog(this);
     }, {
       scheduled: false,
       timezone: 'Asia/Kathmandu'
     });
-    this.jobs.set('ai_summary_generation', aiSummaryJob);
-    // aiSummaryJob.start(); // Disabled in favor of on-demand generation
+    this.jobs.set('daily_market_blog_generation', dailyMarketBlogJob);
+    dailyMarketBlogJob.start();
 
     // Financial Metrics Calculation (at 3:30 PM, after market close, before AI summary)
     const financialMetricsJob = cron.schedule('30 15 * * 0-4', async () => {

@@ -294,7 +294,7 @@ async function generateBlogPost(topic, category) {
 
   try {
     const prompt = `
-      Write a comprehensive, SEO-optimized blog post for a Nepali audience about: "${topic}".
+      Write a comprehensive, SEO-optimized blog post in English for a global and Nepali audience about: "${topic}".
       Category: ${category}.
       
       The content should be educational, easy to understand, and relevant to the Nepal Stock Exchange (NEPSE) if applicable.
@@ -308,6 +308,7 @@ async function generateBlogPost(topic, category) {
       - meta_description: SEO description (under 160 chars)
       
       Ensure the tone is professional yet accessible.
+      IMPORTANT: The whole response must be in English.
     `;
 
     const completion = await openai.chat.completions.create({
@@ -326,10 +327,63 @@ async function generateBlogPost(topic, category) {
   }
 }
 
+/**
+ * Generate a daily market summary blog post
+ * @param {Object} marketData - Object containing index data and top movers
+ * @returns {Promise<Object>} - Generated blog content
+ */
+async function generateDailyMarketSummaryBlog(marketData) {
+  const openai = getClient();
+  if (!openai) {
+    throw new Error('AI Service not configured');
+  }
+
+  try {
+    const { index, gainers, losers } = marketData;
+
+    const prompt = `
+      Write a daily market summary blog post in English for the Nepal Stock Exchange (NEPSE) based on the following data:
+      
+      Market Index: ${index.nepse_index} (${index.index_change > 0 ? '+' : ''}${index.index_change}, ${index.index_percentage_change}%)
+      Total Turnover: रु ${index.total_turnover}
+      Total Traded Shares: ${index.total_traded_shares}
+      Market Breadth: ${index.advanced} Advanced, ${index.declined} Declined, ${index.unchanged} Unchanged
+      
+      Top Gainers: ${gainers.slice(0, 5).map(g => `${g.symbol} (+${g.percentage_change}%)`).join(', ')}
+      Top Losers: ${losers.slice(0, 5).map(l => `${l.symbol} (${l.percentage_change}%)`).join(', ')}
+      
+      Return the response strictly as a JSON object with the following fields:
+      - title: A compelling title for today's market summary
+      - content: The full market summary in Markdown format (including analysis of index movement, turnover, and top stocks)
+      - excerpt: A short summary (2-3 sentences)
+      - tags: An array of 5-8 relevant tags (e.g. #NEPSE, #MarketSummary, #StocksNepal)
+      - meta_title: SEO title (under 60 chars)
+      - meta_description: SEO description (under 160 chars)
+      
+      Ensure the tone is analytical yet readable. Use "रु" for currency.
+      The whole response must be in English.
+    `;
+
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      response_format: { type: "json_object" },
+    });
+
+    let content = completion.choices[0].message.content;
+    content = content.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(content);
+  } catch (error) {
+    logger.error('Error generating daily market summary blog:', error);
+    throw new Error('Failed to generate daily market summary content');
+  }
+}
+
 module.exports = {
   generateStockSummary,
   generateBatchSummaries,
   getOrGenerateSummary,
   generatePortfolioSummary,
-  generateBlogPost
+  generateBlogPost,
+  generateDailyMarketSummaryBlog
 };
