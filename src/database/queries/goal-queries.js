@@ -1,0 +1,116 @@
+const { pool } = require('../database');
+const logger = require('../../utils/logger');
+const { generateUuid } = require('../../utils/uuid');
+
+/**
+ * Create a new goal for a user
+ */
+async function createGoal(userId, data) {
+  const { type, target_value, start_date, end_date, metadata } = data;
+  const id = generateUuid();
+
+  const sql = `
+    INSERT INTO user_goals (id, user_id, type, target_value, start_date, end_date, metadata)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  await pool.execute(sql, [
+    id,
+    userId,
+    type,
+    target_value,
+    start_date || null,
+    end_date || null,
+    metadata ? JSON.stringify(metadata) : null
+  ]);
+
+  return getGoal(id);
+}
+
+/**
+ * Update an existing goal
+ */
+async function updateGoal(goalId, userId, data) {
+  const { target_value, start_date, end_date, metadata, status } = data;
+
+  const updates = [];
+  const params = [];
+
+  if (target_value !== undefined) {
+    updates.push('target_value = ?');
+    params.push(target_value);
+  }
+  if (start_date !== undefined) {
+    updates.push('start_date = ?');
+    params.push(start_date);
+  }
+  if (end_date !== undefined) {
+    updates.push('end_date = ?');
+    params.push(end_date);
+  }
+  if (metadata !== undefined) {
+    updates.push('metadata = ?');
+    params.push(JSON.stringify(metadata));
+  }
+  if (status !== undefined) {
+    updates.push('status = ?');
+    params.push(status);
+  }
+
+  if (updates.length === 0) return getGoal(goalId);
+
+  params.push(goalId);
+  params.push(userId); // Security check
+
+  const sql = `UPDATE user_goals SET ${updates.join(', ')} WHERE id = ? AND user_id = ?`;
+  await pool.execute(sql, params);
+
+  return getGoal(goalId);
+}
+
+/**
+ * Get a specific goal by ID
+ */
+async function getGoal(goalId) {
+  const [rows] = await pool.execute('SELECT * FROM user_goals WHERE id = ?', [goalId]);
+  return rows.length > 0 ? rows[0] : null;
+}
+
+/**
+ * Get all active goals for a user
+ */
+async function getActiveGoals(userId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM user_goals WHERE user_id = ? AND status = "active" ORDER BY created_at DESC',
+    [userId]
+  );
+  return rows;
+}
+
+/**
+ * Get goal history for a user
+ */
+async function getGoalHistory(userId) {
+  const [rows] = await pool.execute(
+    'SELECT * FROM user_goals WHERE user_id = ? ORDER BY created_at DESC',
+    [userId]
+  );
+  return rows;
+}
+
+/**
+ * Delete a goal (or cancel it)
+ */
+async function deleteGoal(goalId, userId) {
+  const [result] = await pool.execute('DELETE FROM user_goals WHERE id = ? AND user_id = ?', [goalId, userId]);
+  return result.affectedRows > 0;
+}
+
+module.exports = {
+  createGoal,
+  updateGoal,
+  getGoal,
+  getActiveGoals,
+  getGoalHistory,
+  deleteGoal
+};
