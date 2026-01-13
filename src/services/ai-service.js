@@ -9,46 +9,61 @@ const { pool } = require('../database/database');
 const { DateTime } = require('luxon');
 const logger = require('../utils/logger');
 
-// Singleton client instance
-let client = null;
+// Singleton client instances
+let deepseekClient = null;
+let geminiClient = null;
 
 // In-memory cache for translations
 const translationCache = new Map();
 
 /**
- * Initialize and get the OpenAI/OpenRouter/Gemini client
- * @returns {OpenAI|null} The OpenAI client instance
+ * Initialize and get the DeepSeek client (for stock/portfolio summaries)
+ * @returns {OpenAI|null} The DeepSeek client instance
  */
-function getClient() {
-  if (!client) {
-    const apiKey = process.env.DEEPSEEK_API_KEY || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
+function getDeepSeekClient() {
+  if (!deepseekClient) {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
 
     if (!apiKey) {
-      logger.warn('AI API Key (DEEPSEEK, GEMINI or OPENAI) not set. AI service will return null.');
+      logger.warn('DEEPSEEK_API_KEY not set. Stock/Portfolio summaries will not work.');
       return null;
     }
 
-    let baseURL = process.env.OPENAI_BASE_URL;
-    // Default to OpenRouter if using DeepSeek key
-    if (process.env.DEEPSEEK_API_KEY) {
-      baseURL = 'https://openrouter.ai/api/v1';
-    }
-    // Default to Google's OpenAI-compatible endpoint if using Gemini key
-    else if (process.env.GEMINI_API_KEY) {
-      baseURL = 'https://generativelanguage.googleapis.com/v1beta/openai/';
-    }
-
-    client = new OpenAI({
-      baseURL: baseURL,
+    deepseekClient = new OpenAI({
+      baseURL: 'https://openrouter.ai/api/v1',
       apiKey: apiKey,
-      maxRetries: 5, // Increased retries for rate limit handling
-      timeout: 30000 // 30 second timeout
+      maxRetries: 5,
+      timeout: 30000
     });
   }
-  return client;
+  return deepseekClient;
 }
 
-const DEFAULT_MODEL = process.env.AI_MODEL || 'deepseek/deepseek-chat';
+/**
+ * Initialize and get the Gemini client (for blog generation)
+ * @returns {OpenAI|null} The Gemini client instance
+ */
+function getGeminiClient() {
+  if (!geminiClient) {
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      logger.warn('GEMINI_API_KEY not set. Blog generation will not work.');
+      return null;
+    }
+
+    geminiClient = new OpenAI({
+      baseURL: 'https://generativelanguage.googleapis.com/v1beta/openai/',
+      apiKey: apiKey,
+      maxRetries: 5,
+      timeout: 30000
+    });
+  }
+  return geminiClient;
+}
+
+const DEEPSEEK_MODEL = 'deepseek/deepseek-chat';
+const GEMINI_MODEL = 'gemini-2.0-flash-exp';
 
 /**
  * Translate a single text to Nepali
@@ -66,14 +81,14 @@ async function translateToNepali(text) {
     return translationCache.get(cacheKey);
   }
 
-  const openai = getClient();
+  const openai = getGeminiClient();
   if (!openai) {
     return null;
   }
 
   try {
     const response = await openai.chat.completions.create({
-      model: DEFAULT_MODEL,
+      model: GEMINI_MODEL,
       messages: [
         {
           role: 'system',
@@ -167,7 +182,7 @@ async function generateStockSummary(stockData) {
     return null;
   }
 
-  const openai = getClient();
+  const openai = getDeepSeekClient();
   if (!openai) {
     return null;
   }
@@ -195,14 +210,14 @@ async function generateStockSummary(stockData) {
     const prompt = `Analyze this Nepal stock data and provide a concise performance summary:
 ${JSON.stringify(compactData)}
 
-Provide exactly 3-4 sentences covering: price trend vs 52-week range, valuation metrics (P/E, P/B), dividend yield, and investment outlook.`;
+Provide exactly 2-3 sentences covering: price trend vs 52-week range, valuation metrics (P/E, P/B), dividend yield, and investment outlook.`;
 
     const response = await openai.chat.completions.create({
-      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      model: DEEPSEEK_MODEL,
       messages: [
         {
           role: 'system',
-          content: 'You are a financial analyst for Nepal Stock Exchange. Provide concise, actionable stock summaries in exactly 3-4 sentences. Always use "रु" (not ₹ or Rs) for Nepali Rupee currency.'
+          content: 'You are a financial analyst for Nepal Stock Exchange. Provide concise, actionable stock summaries in exactly 2-3 sentences. Always use "रु" (not ₹ or Rs) for Nepali Rupee currency.'
         },
         {
           role: 'user',
@@ -210,7 +225,7 @@ Provide exactly 3-4 sentences covering: price trend vs 52-week range, valuation 
         }
       ],
       temperature: 0.3,
-      max_tokens: 500
+      max_tokens: 100
     });
 
     const summary = response.choices[0]?.message?.content?.trim();
@@ -336,7 +351,7 @@ async function generatePortfolioSummary(portfolioName, holdings) {
     return null;
   }
 
-  const openai = getClient();
+  const openai = getDeepSeekClient();
   if (!openai) {
     return null;
   }
@@ -357,16 +372,16 @@ ${JSON.stringify(compactHoldings)}
 
 Provide JSON with:
 1. sentiment_score (1-100): Overall portfolio health
-2. summary (3-4 sentences): Top performers, laggards, diversification, and actionable advice
+2. summary (2-3 sentences): Top performers, laggards, and advice
 
 Respond ONLY in JSON:
 {
   "sentiment_score": 75,
-  "summary": "Your 3-4 sentence summary here..."
+  "summary": "Your 2-3 sentence summary here..."
 }`;
 
     const response = await openai.chat.completions.create({
-      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      model: DEEPSEEK_MODEL,
       messages: [
         {
           role: 'system',
@@ -378,7 +393,7 @@ Respond ONLY in JSON:
         }
       ],
       temperature: 0.3,
-      max_tokens: 400,
+      max_tokens: 100,
       response_format: { type: 'json_object' }
     });
 
@@ -401,7 +416,7 @@ Respond ONLY in JSON:
  * @returns {Promise<Object>} - Generated blog content
  */
 async function generateBlogPost(topic, category) {
-  const openai = getClient();
+  const openai = getGeminiClient();
   if (!openai) {
     throw new Error('AI Service not configured');
   }
@@ -428,7 +443,7 @@ async function generateBlogPost(topic, category) {
 
     const completion = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      model: GEMINI_MODEL,
       response_format: { type: "json_object" },
     });
 
@@ -448,7 +463,7 @@ async function generateBlogPost(topic, category) {
  * @returns {Promise<Object>} - Generated blog content
  */
 async function generateDailyMarketSummaryBlog(marketData) {
-  const openai = getClient();
+  const openai = getGeminiClient();
   if (!openai) {
     throw new Error('AI Service not configured');
   }
@@ -482,7 +497,7 @@ async function generateDailyMarketSummaryBlog(marketData) {
 
     const completion = await openai.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: process.env.AI_MODEL || DEFAULT_MODEL,
+      model: GEMINI_MODEL,
       response_format: { type: "json_object" },
     });
 
