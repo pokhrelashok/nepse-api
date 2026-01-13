@@ -44,7 +44,7 @@ function getClient() {
   return client;
 }
 
-const DEFAULT_MODEL = process.env.AI_MODEL || 'gemini-2.0-flash';
+const DEFAULT_MODEL = process.env.AI_MODEL || 'gemini-2.5-flash';
 
 /**
  * Translate a single text to Nepali
