@@ -36,7 +36,7 @@ async function runTest() {
 
     // Create dividend transactions with different scenarios
     console.log('💰 Creating dividend transactions with different formats...\n');
-    
+
     // Scenario 1: quantity = 0, price = total amount (YOUR CASE)
     await pool.execute(
       `INSERT INTO transactions (id, portfolio_id, stock_symbol, type, quantity, price, date)
@@ -81,7 +81,7 @@ async function runTest() {
     await goalController.getGoals({ currentUser: { id: testUserId } }, resGet);
     const goal = resGet.data.goals[0];
 
-    console.log('=' .repeat(60));
+    console.log('='.repeat(60));
     console.log('📈 Result:');
     console.log(`   Current Value: ${goal.current_value.toLocaleString()}`);
     console.log(`   Target: ${goal.target_value.toLocaleString()}`);
@@ -109,7 +109,7 @@ async function runTest() {
     await pool.execute('DELETE FROM user_goals WHERE user_id = ?', [testUserId]);
     await pool.execute('DELETE FROM users WHERE id = ?', [testUserId]);
     console.log('✅ Done\n');
-    
+
     await pool.end();
   }
 }

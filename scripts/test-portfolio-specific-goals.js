@@ -134,16 +134,36 @@ async function runTest() {
     console.log('📊 Verifying goal calculations...\n');
     const resGet = mockRes();
     await goalController.getGoals({ currentUser: { id: testUserId } }, resGet);
-    const goals = resGet.data.goals;
+    const portfolios = resGet.data.portfolios;
+
+    // Flatten goals from all portfolios
+    const allGoals = portfolios.flatMap(p => p.goals);
 
     // Find goals
-    const allInvestment = goals.find(g => g.type === 'yearly_investment' && !g.portfolio_id);
-    const portfolioAInvestment = goals.find(g => g.type === 'yearly_investment' && g.portfolio_id === portfolio1Id);
-    const portfolioBInvestment = goals.find(g => g.type === 'yearly_investment' && g.portfolio_id === portfolio2Id);
-    const allDividend = goals.find(g => g.type === 'dividend_income' && !g.portfolio_id);
-    const portfolioADividend = goals.find(g => g.type === 'dividend_income' && g.portfolio_id === portfolio1Id);
+    const allInvestment = allGoals.find(g => g.type === 'yearly_investment' && !g.portfolio_id);
+    const portfolioAInvestment = allGoals.find(g => g.type === 'yearly_investment' && g.portfolio_id === portfolio1Id);
+    const portfolioBInvestment = allGoals.find(g => g.type === 'yearly_investment' && g.portfolio_id === portfolio2Id);
+    const allDividend = allGoals.find(g => g.type === 'dividend_income' && !g.portfolio_id);
+    const portfolioADividend = allGoals.find(g => g.type === 'dividend_income' && g.portfolio_id === portfolio1Id);
+
+    // Find portfolio groups
+    const allPortfoliosGroup = portfolios.find(p => p.id === null);
+    const portfolioAGroup = portfolios.find(p => p.id === portfolio1Id);
+    const portfolioBGroup = portfolios.find(p => p.id === portfolio2Id);
 
     console.log('='.repeat(60));
+    console.log('Portfolio Grouping:\n');
+
+    console.log(`📁 ${allPortfoliosGroup.name} - Overall: ${allPortfoliosGroup.overall_percentage}%`);
+    console.log(`   Goals: ${allPortfoliosGroup.goals.length}`);
+
+    console.log(`📁 ${portfolioAGroup.name} - Overall: ${portfolioAGroup.overall_percentage}%`);
+    console.log(`   Goals: ${portfolioAGroup.goals.length}`);
+
+    console.log(`📁 ${portfolioBGroup.name} - Overall: ${portfolioBGroup.overall_percentage}%`);
+    console.log(`   Goals: ${portfolioBGroup.goals.length}`);
+
+    console.log('\n' + '='.repeat(60));
     console.log('Investment Goals:\n');
 
     // Test 1: All portfolios investment

@@ -11,7 +11,7 @@ const logger = require('../utils/logger');
 const { validate } = require('../utils/validator');
 
 /**
- * Get all active goals with current progress
+ * Get all active goals with current progress, grouped by portfolio
  */
 async function getGoals(req, res) {
   const userId = req.currentUser.id;
@@ -24,16 +24,67 @@ async function getGoals(req, res) {
       const progress = await calculateProgress(userId, goal);
       return {
         ...goal,
-        current_value: progress.current_value,
-        percentage: progress.percentage,
+        current_value: Math.round(progress.current_value * 100) / 100, // Round to 2 decimals
+        percentage: Math.round(progress.percentage * 100) / 100, // Round to 2 decimals
         is_completed: progress.is_completed,
         milestones: progress.milestones || []
       };
     }));
 
+    // Get all portfolios for this user
+    const [portfolios] = await pool.execute(
+      'SELECT id, name FROM portfolios WHERE user_id = ? ORDER BY name',
+      [userId]
+    );
+
+    // Create portfolio map
+    const portfolioMap = {};
+    portfolios.forEach(p => {
+      portfolioMap[p.id] = {
+        id: p.id,
+        name: p.name,
+        goals: [],
+        overall_percentage: 0
+      };
+    });
+
+    // Add "All Portfolios" group for goals without portfolio_id
+    portfolioMap['null'] = {
+      id: null,
+      name: 'All Portfolios',
+      goals: [],
+      overall_percentage: 0
+    };
+
+    // Group goals by portfolio
+    goalsWithProgress.forEach(goal => {
+      const key = goal.portfolio_id || 'null';
+      if (portfolioMap[key]) {
+        portfolioMap[key].goals.push(goal);
+      }
+    });
+
+    // Calculate overall percentage for each portfolio (average of all goals)
+    Object.values(portfolioMap).forEach(portfolio => {
+      if (portfolio.goals.length > 0) {
+        const totalPercentage = portfolio.goals.reduce((sum, goal) => sum + goal.percentage, 0);
+        portfolio.overall_percentage = Math.round((totalPercentage / portfolio.goals.length) * 100) / 100;
+      }
+    });
+
+    // Convert to array and filter out portfolios with no goals
+    const groupedGoals = Object.values(portfolioMap)
+      .filter(p => p.goals.length > 0)
+      .sort((a, b) => {
+        // Sort "All Portfolios" first, then alphabetically
+        if (a.id === null) return -1;
+        if (b.id === null) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
     res.json({
       success: true,
-      goals: goalsWithProgress
+      portfolios: groupedGoals
     });
   } catch (error) {
     logger.error('Error fetching goals:', error);
