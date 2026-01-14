@@ -153,6 +153,7 @@ export default function StocksList() {
         <meta name="description" content="Browse complete list of all stocks trading on Nepal Stock Exchange (NEPSE). Filter by sector, search companies, view live prices, market cap, and performance. Updated in real-time." />
         <meta name="keywords" content="NEPSE stocks list, Nepal stocks, all NEPSE companies, Nepal share market list, NEPSE sectors, stock screener Nepal, Nepal stock exchange companies" />
         <link rel="canonical" href="https://nepseportfoliotracker.app/stocks" />
+        <meta name="robots" content="index, follow" />
 
         {/* Open Graph */}
         <meta property="og:type" content="website" />

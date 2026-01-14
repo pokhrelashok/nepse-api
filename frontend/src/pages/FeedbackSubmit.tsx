@@ -171,74 +171,74 @@ export default function FeedbackPage() {
           <p style={styles.subtitle}>Help us improve by sharing your thoughts, suggestions, or reporting issues.</p>
         </div>
 
-      <div style={styles.card}>
-        <div style={styles.cardHeader}>
-          <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>Your Feedback</h2>
-          <p style={{ fontSize: '0.9rem', opacity: 0.9, margin: '0.25rem 0 0' }}>Fields marked with * are required.</p>
+        <div style={styles.card}>
+          <div style={styles.cardHeader}>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0 }}>Your Feedback</h2>
+            <p style={{ fontSize: '0.9rem', opacity: 0.9, margin: '0.25rem 0 0' }}>Fields marked with * are required.</p>
+          </div>
+
+          <form style={styles.form} onSubmit={handleSubmit}>
+            {error && <div style={styles.error}>{error}</div>}
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Title <span style={styles.required}>*</span></label>
+              <input style={styles.input} type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Brief summary of your feedback" required maxLength={255} />
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Description <span style={styles.required}>*</span></label>
+              <textarea style={styles.textarea} value={body} onChange={e => setBody(e.target.value)} placeholder="Please provide detailed information about your feedback, suggestion, or issue..." required rows={5} />
+            </div>
+
+            <div style={styles.row}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Name <span style={styles.optional}>(optional)</span></label>
+                <input style={styles.input} type="text" value={userName} onChange={e => setUserName(e.target.value)} placeholder="Your name" />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Email <span style={styles.optional}>(optional)</span></label>
+                <input style={styles.input} type="email" value={userEmail} onChange={e => setUserEmail(e.target.value)} placeholder="your@email.com" />
+              </div>
+            </div>
+
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Attachments <span style={styles.optional}>(optional, max 5 images)</span></label>
+              {files.length === 0 && (
+                <div
+                  style={{ ...styles.uploadArea, ...(dragActive ? styles.uploadAreaActive : {}) }}
+                  onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
+                >
+                  <input type="file" accept="image/*" multiple onChange={handleFileChange} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
+                  <div style={{ fontSize: '2rem', color: '#52b788', marginBottom: '0.75rem' }}><i className="fa-solid fa-cloud-arrow-up"></i></div>
+                  <div style={{ color: '#6b7280', fontSize: '0.95rem' }}>Drag & drop images here, or <span style={{ color: '#52b788', fontWeight: 600 }}>browse</span></div>
+                  <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.5rem' }}>PNG, JPG, GIF, or WebP (max 5MB each)</div>
+                </div>
+              )}
+              {files.length > 0 && (
+                <div style={styles.previewGrid}>
+                  {files.map((f, i) => (
+                    <div key={i} style={styles.previewItem}>
+                      <img src={f.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button type="button" style={styles.removeBtn} onClick={() => removeFile(i)}><i className="fa-solid fa-xmark"></i></button>
+                    </div>
+                  ))}
+                  {files.length < 5 && (
+                    <label style={{ ...styles.previewItem, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#f5f7fa' }}>
+                      <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
+                      <i className="fa-solid fa-plus" style={{ color: '#6b7280', fontSize: '1.25rem' }}></i>
+                    </label>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <button type="submit" style={{ ...styles.submitBtn, opacity: isSubmitting ? 0.6 : 1 }} disabled={isSubmitting}>
+              {isSubmitting ? <><i className="fa-solid fa-spinner fa-spin"></i> Submitting...</> : <><i className="fa-solid fa-paper-plane"></i> Submit Feedback</>}
+            </button>
+          </form>
         </div>
 
-        <form style={styles.form} onSubmit={handleSubmit}>
-          {error && <div style={styles.error}>{error}</div>}
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Title <span style={styles.required}>*</span></label>
-            <input style={styles.input} type="text" value={title} onChange={e => setTitle(e.target.value)} placeholder="Brief summary of your feedback" required maxLength={255} />
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Description <span style={styles.required}>*</span></label>
-            <textarea style={styles.textarea} value={body} onChange={e => setBody(e.target.value)} placeholder="Please provide detailed information about your feedback, suggestion, or issue..." required rows={5} />
-          </div>
-
-          <div style={styles.row}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Name <span style={styles.optional}>(optional)</span></label>
-              <input style={styles.input} type="text" value={userName} onChange={e => setUserName(e.target.value)} placeholder="Your name" />
-            </div>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Email <span style={styles.optional}>(optional)</span></label>
-              <input style={styles.input} type="email" value={userEmail} onChange={e => setUserEmail(e.target.value)} placeholder="your@email.com" />
-            </div>
-          </div>
-
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Attachments <span style={styles.optional}>(optional, max 5 images)</span></label>
-            {files.length === 0 && (
-              <div
-                style={{ ...styles.uploadArea, ...(dragActive ? styles.uploadAreaActive : {}) }}
-                onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
-              >
-                <input type="file" accept="image/*" multiple onChange={handleFileChange} style={{ position: 'absolute', inset: 0, opacity: 0, cursor: 'pointer' }} />
-                <div style={{ fontSize: '2rem', color: '#52b788', marginBottom: '0.75rem' }}><i className="fa-solid fa-cloud-arrow-up"></i></div>
-                <div style={{ color: '#6b7280', fontSize: '0.95rem' }}>Drag & drop images here, or <span style={{ color: '#52b788', fontWeight: 600 }}>browse</span></div>
-                <div style={{ fontSize: '0.8rem', color: '#6b7280', marginTop: '0.5rem' }}>PNG, JPG, GIF, or WebP (max 5MB each)</div>
-              </div>
-            )}
-            {files.length > 0 && (
-              <div style={styles.previewGrid}>
-                {files.map((f, i) => (
-                  <div key={i} style={styles.previewItem}>
-                    <img src={f.preview} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <button type="button" style={styles.removeBtn} onClick={() => removeFile(i)}><i className="fa-solid fa-xmark"></i></button>
-                  </div>
-                ))}
-                {files.length < 5 && (
-                  <label style={{ ...styles.previewItem, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: '#f5f7fa' }}>
-                    <input type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
-                    <i className="fa-solid fa-plus" style={{ color: '#6b7280', fontSize: '1.25rem' }}></i>
-                  </label>
-                )}
-              </div>
-            )}
-          </div>
-
-          <button type="submit" style={{ ...styles.submitBtn, opacity: isSubmitting ? 0.6 : 1 }} disabled={isSubmitting}>
-            {isSubmitting ? <><i className="fa-solid fa-spinner fa-spin"></i> Submitting...</> : <><i className="fa-solid fa-paper-plane"></i> Submit Feedback</>}
-          </button>
-        </form>
-      </div>
-
-      <p style={styles.footer}>Your feedback helps us make the app better for everyone.</p>
-    </section>
-  )
+        <p style={styles.footer}>Your feedback helps us make the app better for everyone.</p>
+      </section>
+      )
 }
