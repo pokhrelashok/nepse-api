@@ -1,6 +1,6 @@
 const logger = require('../../utils/logger');
 const { checkAndSendPriceAlerts } = require('./price-alerts');
-const { processNewIpos, processIpoOpeningReminders } = require('./ipo-alerts');
+const { processIpoOpeningReminders, processIpoClosingReminders } = require('./ipo-alerts');
 const { processNewDividends, processNewRightShares } = require('./dividend-alerts');
 
 /**
@@ -11,8 +11,8 @@ async function checkAndSendNotifications() {
   logger.info('🔔 Starting daily notification check...');
 
   try {
-    await processNewIpos();
     await processIpoOpeningReminders();
+    await processIpoClosingReminders();
     await processNewDividends();
     await processNewRightShares();
     logger.info('✅ Daily notification check completed and sent.');

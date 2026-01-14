@@ -92,6 +92,50 @@ async function sendIpoOpeningNotification(ipo, tokens) {
 }
 
 /**
+ * Send broadcast notification for an IPO closing reminder
+ */
+async function sendIpoClosingNotification(ipo, tokens) {
+  const offeringType = (ipo.offering_type || 'ipo').toUpperCase();
+  const title = `${offeringType} Closing Today: ${ipo.company_name}`;
+  const formattedType = formatShareType(ipo.share_type);
+  const body = `${formattedType} for ${ipo.company_name} closes today! Apply via Meroshare before banking hours.`;
+
+  const message = {
+    notification: { title, body },
+    android: {
+      notification: {
+        icon: 'ic_notification',
+        color: '#1976D2'
+      }
+    },
+    data: {
+      type: `${offeringType.toLowerCase()}_closing`,
+      route: 'ipo_calendar',
+      symbol: ipo.symbol || '',
+      id: ipo.id.toString()
+    },
+    tokens: tokens
+  };
+
+  try {
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+      const batchTokens = tokens.slice(i, i + BATCH_SIZE);
+      const batchMessage = { ...message, tokens: batchTokens };
+
+      const response = await admin.messaging().sendEachForMulticast(batchMessage);
+      logger.info(`Sent IPO Closing reminder for ${ipo.symbol} to ${response.successCount} devices.`);
+
+      if (response.failureCount > 0) {
+        await handleFailedTokens(response.responses, batchTokens);
+      }
+    }
+  } catch (error) {
+    logger.error(`Failed to send IPO Closing reminder for ${ipo.symbol}:`, error);
+  }
+}
+
+/**
  * Send targeted notification for a dividend announcement
  */
 async function sendDividendNotification(dividend) {
@@ -292,8 +336,8 @@ async function handleFailedTokens(responses, tokens) {
 }
 
 module.exports = {
-  sendIpoNotification,
   sendIpoOpeningNotification,
+  sendIpoClosingNotification,
   sendDividendNotification,
   sendRightShareNotification,
   sendPriceAlertNotification
