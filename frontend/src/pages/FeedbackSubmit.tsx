@@ -240,5 +240,6 @@ export default function FeedbackPage() {
 
         <p style={styles.footer}>Your feedback helps us make the app better for everyone.</p>
       </section>
-      )
+    </div>
+  )
 }
