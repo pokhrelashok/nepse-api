@@ -157,7 +157,7 @@ function getBlogAIClient() {
 }
 
 const DEEPSEEK_MODEL = 'deepseek/deepseek-chat';
-const GEMINI_MODEL = 'gemini-2.0-flash-exp';
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 /**
  * Get the appropriate model name based on the provider
@@ -175,7 +175,7 @@ function getBlogAIModel(provider) {
     case 'openai':
       return 'gpt-4o-mini';
     case 'gemini':
-      return 'gemini-2.0-flash-exp';
+      return 'gemini-2.0-flash';
     case 'deepseek':
       return 'deepseek/deepseek-chat';
     default:
