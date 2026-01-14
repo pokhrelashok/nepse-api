@@ -207,10 +207,10 @@ async function generateStockSummary(stockData) {
     };
 
     // Compact prompt optimized for minimal tokens
-    const prompt = `Analyze this Nepal stock data and provide a concise performance summary:
+    const prompt = `Analyze Nepal stock:
 ${JSON.stringify(compactData)}
 
-Provide exactly 2-3 sentences covering: price trend vs 52-week range, valuation metrics (P/E, P/B), dividend yield, and investment outlook.`;
+Provide 2 sentences: price trend, valuation, outlook.`;
 
     const response = await openai.chat.completions.create({
       model: DEEPSEEK_MODEL,
@@ -225,7 +225,7 @@ Provide exactly 2-3 sentences covering: price trend vs 52-week range, valuation 
         }
       ],
       temperature: 0.3,
-      max_tokens: 100
+      max_tokens: 70
     });
 
     const summary = response.choices[0]?.message?.content?.trim();
@@ -367,18 +367,11 @@ async function generatePortfolioSummary(portfolioName, holdings) {
       sum: h.ai_summary ? (h.ai_summary.substring(0, 100) + '...') : 'N/A'
     }));
 
-    const prompt = `Analyze this Nepal stock portfolio "${portfolioName}":
+    const prompt = `Portfolio "${portfolioName}":
 ${JSON.stringify(compactHoldings)}
 
-Provide JSON with:
-1. sentiment_score (1-100): Overall portfolio health
-2. summary (2-3 sentences): Top performers, laggards, and advice
-
-Respond ONLY in JSON:
-{
-  "sentiment_score": 75,
-  "summary": "Your 2-3 sentence summary here..."
-}`;
+JSON format:
+{"sentiment_score": 1-100, "summary": "2 sentences: top movers, advice"}`;
 
     const response = await openai.chat.completions.create({
       model: DEEPSEEK_MODEL,
@@ -393,7 +386,7 @@ Respond ONLY in JSON:
         }
       ],
       temperature: 0.3,
-      max_tokens: 100,
+      max_tokens: 70,
       response_format: { type: 'json_object' }
     });
 
