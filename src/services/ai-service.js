@@ -12,15 +12,16 @@ const logger = require('../utils/logger');
 // Singleton client instances
 let deepseekClient = null;
 let geminiClient = null;
-let openaiClient = null;
 let blogAIClient = null;
+let activeBlogProvider = null;  // Track which provider is actually being used
 
 // In-memory cache for translations
 const translationCache = new Map();
 
 // Configuration for blog generation AI
-const BLOG_AI_PROVIDER = process.env.BLOG_AI_PROVIDER || 'openai'; // 'openai', 'gemini', 'deepseek'
-const BLOG_AI_MODEL = process.env.BLOG_AI_MODEL || 'gpt-4o-mini';
+// Default to deepseek, with fallback to gemini
+const BLOG_AI_PROVIDER = process.env.BLOG_AI_PROVIDER || 'deepseek'; // 'gemini', 'deepseek'
+const BLOG_AI_MODEL = process.env.BLOG_AI_MODEL || 'deepseek/deepseek-chat';
 
 /**
  * Initialize and get the DeepSeek client (for stock/portfolio summaries)
@@ -68,27 +69,7 @@ function getGeminiClient() {
   return geminiClient;
 }
 
-/**
- * Initialize and get the OpenAI client (for blog generation)
- * @returns {OpenAI|null} The OpenAI client instance
- */
-function getOpenAIClient() {
-  if (!openaiClient) {
-    const apiKey = process.env.OPENAI_API_KEY;
 
-    if (!apiKey) {
-      logger.warn('OPENAI_API_KEY not set. OpenAI blog generation will not work.');
-      return null;
-    }
-
-    openaiClient = new OpenAI({
-      apiKey: apiKey,
-      maxRetries: 5,
-      timeout: 60000
-    });
-  }
-  return openaiClient;
-}
 
 /**
  * Get the configured AI client for blog generation with fallback support
@@ -104,9 +85,6 @@ function getBlogAIClient() {
   let actualProvider = BLOG_AI_PROVIDER;
 
   switch (BLOG_AI_PROVIDER.toLowerCase()) {
-    case 'openai':
-      client = getOpenAIClient();
-      break;
     case 'gemini':
       client = getGeminiClient();
       break;
@@ -114,24 +92,16 @@ function getBlogAIClient() {
       client = getDeepSeekClient();
       break;
     default:
-      logger.warn(`Unknown BLOG_AI_PROVIDER: ${BLOG_AI_PROVIDER}, trying OpenAI as default`);
-      client = getOpenAIClient();
-      actualProvider = 'openai';
+      logger.warn(`Unknown BLOG_AI_PROVIDER: ${BLOG_AI_PROVIDER}, trying DeepSeek as default`);
+      client = getDeepSeekClient();
+      actualProvider = 'deepseek';
   }
 
-  // Fallback chain: OpenAI -> DeepSeek -> Gemini
+  // Fallback chain: DeepSeek -> Gemini
   if (!client) {
     logger.warn(`${actualProvider} client not available, trying fallback providers...`);
 
-    if (actualProvider !== 'openai') {
-      client = getOpenAIClient();
-      if (client) {
-        actualProvider = 'openai';
-        logger.info('Using OpenAI as fallback for blog generation');
-      }
-    }
-
-    if (!client && actualProvider !== 'deepseek') {
+    if (actualProvider !== 'deepseek') {
       client = getDeepSeekClient();
       if (client) {
         actualProvider = 'deepseek';
@@ -150,6 +120,7 @@ function getBlogAIClient() {
 
   if (client) {
     blogAIClient = client;
+    activeBlogProvider = actualProvider;  // Store the actual provider being used
     logger.info(`Blog AI initialized with provider: ${actualProvider}, model: ${BLOG_AI_MODEL}`);
   }
 
@@ -172,14 +143,12 @@ function getBlogAIModel(provider) {
 
   // Default models for each provider
   switch (provider.toLowerCase()) {
-    case 'openai':
-      return 'gpt-4o-mini';
     case 'gemini':
       return 'gemini-2.0-flash';
     case 'deepseek':
       return 'deepseek/deepseek-chat';
     default:
-      return 'gpt-4o-mini';
+      return 'deepseek/deepseek-chat';
   }
 }
 
@@ -529,10 +498,11 @@ JSON format:
 async function generateBlogPost(topic, category, blogType = 'informative') {
   const client = getBlogAIClient();
   if (!client) {
-    throw new Error('No AI service configured. Please set OPENAI_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY in environment variables.');
+    throw new Error('No AI service configured. Please set GEMINI_API_KEY or DEEPSEEK_API_KEY in environment variables.');
   }
 
-  const provider = BLOG_AI_PROVIDER.toLowerCase();
+  // Use the actual provider that was determined by getBlogAIClient
+  const provider = activeBlogProvider || BLOG_AI_PROVIDER.toLowerCase();
   const model = getBlogAIModel(provider);
 
   // Define blog type instructions
@@ -578,8 +548,8 @@ async function generateBlogPost(topic, category, blogType = 'informative') {
       model: model,
     };
 
-    // Only add response_format for models that support it (OpenAI and Gemini)
-    if (provider === 'openai' || provider === 'gemini') {
+    // Only add response_format for models that support it (DeepSeek and Gemini)
+    if (provider === 'deepseek' || provider === 'gemini') {
       requestOptions.response_format = { type: "json_object" };
     }
 
@@ -610,9 +580,20 @@ async function generateBlogPost(topic, category, blogType = 'informative') {
  * @returns {Promise<Object>} - Generated blog content
  */
 async function generateDailyMarketSummaryBlog(marketData) {
-  const openai = getGeminiClient();
-  if (!openai) {
-    throw new Error('AI Service not configured');
+  // Use DeepSeek as primary, with Gemini as fallback
+  let client = getDeepSeekClient();
+  let provider = 'deepseek';
+  let model = DEEPSEEK_MODEL;
+
+  if (!client) {
+    logger.warn('DeepSeek not available for market summary blog, trying Gemini fallback...');
+    client = getGeminiClient();
+    provider = 'gemini';
+    model = GEMINI_MODEL;
+  }
+
+  if (!client) {
+    throw new Error('AI Service not configured. Please set DEEPSEEK_API_KEY or GEMINI_API_KEY in environment variables.');
   }
 
   try {
@@ -642,9 +623,11 @@ async function generateDailyMarketSummaryBlog(marketData) {
       Provide a deep dive into what the turnover and breadth movements signify for the next trading day.
     `;
 
-    const completion = await openai.chat.completions.create({
+    logger.info(`Generating daily market summary with ${provider} using model: ${model}`);
+
+    const completion = await client.chat.completions.create({
       messages: [{ role: "user", content: prompt }],
-      model: GEMINI_MODEL,
+      model: model,
       response_format: { type: "json_object" },
     });
 
