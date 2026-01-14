@@ -48,13 +48,13 @@ async function sendIpoNotification(ipo, tokens) {
 }
 
 /**
- * Send broadcast notification for an IPO closing reminder
+ * Send broadcast notification for an IPO opening reminder
  */
-async function sendIpoClosingNotification(ipo, tokens) {
+async function sendIpoOpeningNotification(ipo, tokens) {
   const offeringType = (ipo.offering_type || 'ipo').toUpperCase();
-  const title = `${offeringType} Closing Today: ${ipo.company_name}`;
+  const title = `${offeringType} Opening Today: ${ipo.company_name}`;
   const formattedType = formatShareType(ipo.share_type);
-  const body = `${formattedType} for ${ipo.company_name} closes today! Apply via Meroshare before banking hours.`;
+  const body = `${formattedType} for ${ipo.company_name} opens today! Apply now via Meroshare until ${formatDate(ipo.closing_date)}.`;
 
   const message = {
     notification: { title, body },
@@ -65,7 +65,7 @@ async function sendIpoClosingNotification(ipo, tokens) {
       }
     },
     data: {
-      type: `${offeringType.toLowerCase()}_closing`,
+      type: `${offeringType.toLowerCase()}_opening`,
       route: 'ipo_calendar',
       symbol: ipo.symbol || '',
       id: ipo.id.toString()
@@ -80,14 +80,14 @@ async function sendIpoClosingNotification(ipo, tokens) {
       const batchMessage = { ...message, tokens: batchTokens };
 
       const response = await admin.messaging().sendEachForMulticast(batchMessage);
-      logger.info(`Sent IPO Closing reminder for ${ipo.symbol} to ${response.successCount} devices.`);
+      logger.info(`Sent IPO Opening reminder for ${ipo.symbol} to ${response.successCount} devices.`);
 
       if (response.failureCount > 0) {
         await handleFailedTokens(response.responses, batchTokens);
       }
     }
   } catch (error) {
-    logger.error(`Failed to send IPO Closing reminder for ${ipo.symbol}:`, error);
+    logger.error(`Failed to send IPO Opening reminder for ${ipo.symbol}:`, error);
   }
 }
 
@@ -293,7 +293,7 @@ async function handleFailedTokens(responses, tokens) {
 
 module.exports = {
   sendIpoNotification,
-  sendIpoClosingNotification,
+  sendIpoOpeningNotification,
   sendDividendNotification,
   sendRightShareNotification,
   sendPriceAlertNotification

@@ -1,6 +1,6 @@
 const logger = require('../../utils/logger');
 const { pool } = require('../../database/database');
-const { sendIpoNotification, sendIpoClosingNotification } = require('./messaging');
+const { sendIpoNotification, sendIpoOpeningNotification } = require('./messaging');
 
 /**
  * Find IPOs created in the last 24 hours and broadcast to subscribed users
@@ -50,25 +50,25 @@ async function processNewIpos() {
 }
 
 /**
- * Find IPOs closing TODAY and broadcast reminders to subscribed users
+ * Find IPOs opening TODAY and broadcast reminders to subscribed users
  */
-async function processIpoClosingReminders() {
+async function processIpoOpeningReminders() {
   try {
-    // Find IPOs closing today
-    const [closingIpos] = await pool.execute(`
+    // Find IPOs opening today
+    const [openingIpos] = await pool.execute(`
       SELECT * FROM ipos 
-      WHERE closing_date = CURDATE()
+      WHERE opening_date = CURDATE()
     `);
 
-    if (closingIpos.length === 0) {
-      logger.info('No IPOs closing today.');
+    if (openingIpos.length === 0) {
+      logger.info('No IPOs opening today.');
       return;
     }
 
-    logger.info(`Found ${closingIpos.length} IPOs closing today. Preparing reminders...`);
+    logger.info(`Found ${openingIpos.length} IPOs opening today. Preparing reminders...`);
 
     // For each IPO, find users who want notifications for that specific type
-    for (const ipo of closingIpos) {
+    for (const ipo of openingIpos) {
       const { normalizeShareType } = require('../../utils/share-type-utils');
       const normalizedShareType = normalizeShareType(ipo.share_type);
       const preferenceType = normalizedShareType;
@@ -83,19 +83,19 @@ async function processIpoClosingReminders() {
 
       const tokens = rows.map(r => r.fcm_token);
       if (tokens.length === 0) {
-        logger.info(`No users subscribed to ${preferenceType} notifications (closing reminder).`);
+        logger.info(`No users subscribed to ${preferenceType} notifications (opening reminder).`);
         continue;
       }
 
-      await sendIpoClosingNotification(ipo, tokens);
+      await sendIpoOpeningNotification(ipo, tokens);
     }
 
   } catch (error) {
-    logger.error('Error processing IPO closing reminders:', error);
+    logger.error('Error processing IPO opening reminders:', error);
   }
 }
 
 module.exports = {
   processNewIpos,
-  processIpoClosingReminders
+  processIpoOpeningReminders
 };
