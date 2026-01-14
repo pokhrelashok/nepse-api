@@ -21,7 +21,7 @@ const translationCache = new Map();
 // Configuration for blog generation AI
 // Default to gemini for blogs, with fallback to deepseek
 const BLOG_AI_PROVIDER = process.env.BLOG_AI_PROVIDER || 'gemini'; // 'gemini', 'deepseek'
-const BLOG_AI_MODEL = process.env.BLOG_AI_MODEL || 'gemini-2.0-flash';
+const BLOG_AI_MODEL = process.env.BLOG_AI_MODEL || 'gemini-2.5-flash';
 
 /**
  * Initialize and get the DeepSeek client (for stock/portfolio summaries)
@@ -128,7 +128,7 @@ function getBlogAIClient() {
 }
 
 const DEEPSEEK_MODEL = 'deepseek/deepseek-chat';
-const GEMINI_MODEL = 'gemini-2.0-flash';
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 /**
  * Get the appropriate model name based on the provider
@@ -144,7 +144,7 @@ function getBlogAIModel(provider) {
   // Default models for each provider
   switch (provider.toLowerCase()) {
     case 'gemini':
-      return 'gemini-2.0-flash';
+      return 'gemini-2.5-flash';
     case 'deepseek':
       return 'deepseek/deepseek-chat';
     default:
