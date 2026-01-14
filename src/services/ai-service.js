@@ -19,9 +19,9 @@ let activeBlogProvider = null;  // Track which provider is actually being used
 const translationCache = new Map();
 
 // Configuration for blog generation AI
-// Default to deepseek, with fallback to gemini
-const BLOG_AI_PROVIDER = process.env.BLOG_AI_PROVIDER || 'deepseek'; // 'gemini', 'deepseek'
-const BLOG_AI_MODEL = process.env.BLOG_AI_MODEL || 'deepseek/deepseek-chat';
+// Default to gemini for blogs, with fallback to deepseek
+const BLOG_AI_PROVIDER = process.env.BLOG_AI_PROVIDER || 'gemini'; // 'gemini', 'deepseek'
+const BLOG_AI_MODEL = process.env.BLOG_AI_MODEL || 'gemini-2.0-flash';
 
 /**
  * Initialize and get the DeepSeek client (for stock/portfolio summaries)
@@ -312,7 +312,7 @@ Provide 2 sentences: price trend, valuation, outlook.`;
         }
       ],
       temperature: 0.3,
-      max_tokens: 70
+      max_tokens: 36
     });
 
     const summary = response.choices[0]?.message?.content?.trim();
@@ -473,7 +473,7 @@ JSON format:
         }
       ],
       temperature: 0.3,
-      max_tokens: 70,
+      max_tokens: 36,
       response_format: { type: 'json_object' }
     });
 
@@ -580,20 +580,13 @@ async function generateBlogPost(topic, category, blogType = 'informative') {
  * @returns {Promise<Object>} - Generated blog content
  */
 async function generateDailyMarketSummaryBlog(marketData) {
-  // Use DeepSeek as primary, with Gemini as fallback
-  let client = getDeepSeekClient();
-  let provider = 'deepseek';
-  let model = DEEPSEEK_MODEL;
+  // Use the configured blog AI provider (Gemini preferred for blogs)
+  let client = getBlogAIClient();
+  let provider = activeBlogProvider || BLOG_AI_PROVIDER;
+  let model = getBlogAIModel(provider);
 
   if (!client) {
-    logger.warn('DeepSeek not available for market summary blog, trying Gemini fallback...');
-    client = getGeminiClient();
-    provider = 'gemini';
-    model = GEMINI_MODEL;
-  }
-
-  if (!client) {
-    throw new Error('AI Service not configured. Please set DEEPSEEK_API_KEY or GEMINI_API_KEY in environment variables.');
+    throw new Error('AI Service not configured for blog generation. Please set GEMINI_API_KEY or DEEPSEEK_API_KEY in environment variables.');
   }
 
   try {
