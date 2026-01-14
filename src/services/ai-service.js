@@ -408,30 +408,46 @@ JSON format:
  * @param {string} category - The category of the blog
  * @returns {Promise<Object>} - Generated blog content
  */
-async function generateBlogPost(topic, category) {
+async function generateBlogPost(topic, category, blogType = 'informative') {
   const openai = getGeminiClient();
   if (!openai) {
     throw new Error('AI Service not configured');
   }
 
+  // Define blog type instructions
+  const blogTypeInstructions = {
+    'informative': 'Write an educational, fact-based article that explains concepts clearly with examples.',
+    'tutorial': 'Write a step-by-step guide with numbered instructions, actionable tips, and clear examples.',
+    'news': 'Write a news-style article covering recent developments, market analysis, and implications.',
+    'opinion': 'Write an editorial/commentary piece with analysis, insights, and well-reasoned perspectives.',
+    'beginner': 'Write for absolute beginners with simple language, basic concepts, and foundational knowledge.',
+    'advanced': 'Write an in-depth analysis with technical details, advanced concepts, and expert-level insights.'
+  };
+
+  const typeInstruction = blogTypeInstructions[blogType] || blogTypeInstructions['informative'];
+
   try {
     const prompt = `
       Write a comprehensive, SEO-optimized blog post in English for a global and Nepali audience about: "${topic}".
       Category: ${category}.
+      Blog Type: ${blogType.toUpperCase()}
       
-      The content should be educational, easy to understand, and relevant to the Nepal Stock Exchange (NEPSE) if applicable.
+      WRITING STYLE FOR THIS TYPE:
+      ${typeInstruction}
+      
+      The content should be relevant to the Nepal Stock Exchange (NEPSE) if applicable.
       
       Return the response strictly as a JSON object with the following fields:
-      - title: The blog title
+      - title: The blog title (should reflect the blog type)
       - content: The full blog content in Markdown format (use headers, lists, etc.)
       - excerpt: A short summary (2-3 sentences)
       - tags: An array of 5-8 relevant tags
       - meta_title: SEO title (under 60 chars)
       - meta_description: SEO description (under 160 chars)
       
-      Ensure the tone is professional yet accessible.
+      Ensure the tone matches the blog type while remaining professional.
       IMPORTANT: The whole response must be in English. No Nepali characters should be used in the content, except during explicit translations if requested.
-      Make the content engaging, informative, and detailed.
+      Make the content engaging, informative, and detailed according to the blog type specified.
     `;
 
     const completion = await openai.chat.completions.create({

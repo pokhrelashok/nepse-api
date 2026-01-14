@@ -206,12 +206,12 @@ exports.deleteBlog = async (req, res) => {
 // Generate Content (Admin)
 exports.generateBlogContent = async (req, res) => {
   try {
-    const { topic, category } = req.body;
+    const { topic, category, blogType } = req.body;
     if (!topic) {
       return res.status(400).json(formatError('Topic is required', 400));
     }
 
-    const generatedContent = await aiService.generateBlogPost(topic, category || 'blog');
+    const generatedContent = await aiService.generateBlogPost(topic, category || 'blog', blogType || 'informative');
     res.json(formatResponse(generatedContent));
 
   } catch (error) {

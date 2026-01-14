@@ -40,6 +40,7 @@ export default function BlogEditor() {
 
   // AI State
   const [aiTopic, setAiTopic] = useState('');
+  const [aiBlogType, setAiBlogType] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
 
@@ -116,7 +117,8 @@ export default function BlogEditor() {
     try {
       const res = await api.post('/admin/blogs/generate', {
         topic: aiTopic,
-        category: formData.category
+        category: formData.category,
+        blogType: aiBlogType || 'informative'
       });
 
       if (res.data.success) {
@@ -333,14 +335,33 @@ export default function BlogEditor() {
             </p>
 
             <div className="space-y-4">
-              <input
-                type="text"
-                value={aiTopic}
-                onChange={(e) => setAiTopic(e.target.value)}
-                placeholder="e.g., How to start investing in secondary market"
-                className="w-full p-3 border border-gray-200 rounded-md focus:ring-2 focus:ring-purple-600 focus:outline-none"
-                autoFocus
-              />
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Blog Type</label>
+                <select
+                  value={aiBlogType}
+                  onChange={(e) => setAiBlogType(e.target.value)}
+                  className="w-full p-3 border border-gray-200 rounded-md focus:ring-2 focus:ring-purple-600 focus:outline-none bg-white"
+                >
+                  <option value="informative">Informative (Educational)</option>
+                  <option value="tutorial">Tutorial (Step-by-step Guide)</option>
+                  <option value="news">News (Market Update/Analysis)</option>
+                  <option value="opinion">Opinion (Editorial/Commentary)</option>
+                  <option value="beginner">Beginner-Friendly (Basics)</option>
+                  <option value="advanced">Advanced (In-depth Analysis)</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Topic</label>
+                <input
+                  type="text"
+                  value={aiTopic}
+                  onChange={(e) => setAiTopic(e.target.value)}
+                  placeholder="e.g., How to start investing in secondary market"
+                  className="w-full p-3 border border-gray-200 rounded-md focus:ring-2 focus:ring-purple-600 focus:outline-none"
+                  autoFocus
+                />
+              </div>
 
               <div className="flex justify-end gap-2">
                 <button
