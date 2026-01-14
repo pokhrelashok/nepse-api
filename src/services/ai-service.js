@@ -12,9 +12,15 @@ const logger = require('../utils/logger');
 // Singleton client instances
 let deepseekClient = null;
 let geminiClient = null;
+let openaiClient = null;
+let blogAIClient = null;
 
 // In-memory cache for translations
 const translationCache = new Map();
+
+// Configuration for blog generation AI
+const BLOG_AI_PROVIDER = process.env.BLOG_AI_PROVIDER || 'openai'; // 'openai', 'gemini', 'deepseek'
+const BLOG_AI_MODEL = process.env.BLOG_AI_MODEL || 'gpt-4o-mini';
 
 /**
  * Initialize and get the DeepSeek client (for stock/portfolio summaries)
@@ -62,8 +68,120 @@ function getGeminiClient() {
   return geminiClient;
 }
 
+/**
+ * Initialize and get the OpenAI client (for blog generation)
+ * @returns {OpenAI|null} The OpenAI client instance
+ */
+function getOpenAIClient() {
+  if (!openaiClient) {
+    const apiKey = process.env.OPENAI_API_KEY;
+
+    if (!apiKey) {
+      logger.warn('OPENAI_API_KEY not set. OpenAI blog generation will not work.');
+      return null;
+    }
+
+    openaiClient = new OpenAI({
+      apiKey: apiKey,
+      maxRetries: 5,
+      timeout: 60000
+    });
+  }
+  return openaiClient;
+}
+
+/**
+ * Get the configured AI client for blog generation with fallback support
+ * @returns {OpenAI|null} The configured AI client instance
+ */
+function getBlogAIClient() {
+  if (blogAIClient) {
+    return blogAIClient;
+  }
+
+  // Try the configured provider first
+  let client = null;
+  let actualProvider = BLOG_AI_PROVIDER;
+
+  switch (BLOG_AI_PROVIDER.toLowerCase()) {
+    case 'openai':
+      client = getOpenAIClient();
+      break;
+    case 'gemini':
+      client = getGeminiClient();
+      break;
+    case 'deepseek':
+      client = getDeepSeekClient();
+      break;
+    default:
+      logger.warn(`Unknown BLOG_AI_PROVIDER: ${BLOG_AI_PROVIDER}, trying OpenAI as default`);
+      client = getOpenAIClient();
+      actualProvider = 'openai';
+  }
+
+  // Fallback chain: OpenAI -> DeepSeek -> Gemini
+  if (!client) {
+    logger.warn(`${actualProvider} client not available, trying fallback providers...`);
+
+    if (actualProvider !== 'openai') {
+      client = getOpenAIClient();
+      if (client) {
+        actualProvider = 'openai';
+        logger.info('Using OpenAI as fallback for blog generation');
+      }
+    }
+
+    if (!client && actualProvider !== 'deepseek') {
+      client = getDeepSeekClient();
+      if (client) {
+        actualProvider = 'deepseek';
+        logger.info('Using DeepSeek as fallback for blog generation');
+      }
+    }
+
+    if (!client && actualProvider !== 'gemini') {
+      client = getGeminiClient();
+      if (client) {
+        actualProvider = 'gemini';
+        logger.info('Using Gemini as fallback for blog generation');
+      }
+    }
+  }
+
+  if (client) {
+    blogAIClient = client;
+    logger.info(`Blog AI initialized with provider: ${actualProvider}, model: ${BLOG_AI_MODEL}`);
+  }
+
+  return blogAIClient;
+}
+
 const DEEPSEEK_MODEL = 'deepseek/deepseek-chat';
 const GEMINI_MODEL = 'gemini-2.0-flash-exp';
+
+/**
+ * Get the appropriate model name based on the provider
+ * @param {string} provider - The AI provider name
+ * @returns {string} The model name to use
+ */
+function getBlogAIModel(provider) {
+  // If a custom model is specified, use it
+  if (process.env.BLOG_AI_MODEL) {
+    return process.env.BLOG_AI_MODEL;
+  }
+
+  // Default models for each provider
+  switch (provider.toLowerCase()) {
+    case 'openai':
+      return 'gpt-4o-mini';
+    case 'gemini':
+      return 'gemini-2.0-flash-exp';
+    case 'deepseek':
+      return 'deepseek/deepseek-chat';
+    default:
+      return 'gpt-4o-mini';
+  }
+}
 
 /**
  * Translate a single text to Nepali
@@ -409,10 +527,13 @@ JSON format:
  * @returns {Promise<Object>} - Generated blog content
  */
 async function generateBlogPost(topic, category, blogType = 'informative') {
-  const openai = getGeminiClient();
-  if (!openai) {
-    throw new Error('AI Service not configured');
+  const client = getBlogAIClient();
+  if (!client) {
+    throw new Error('No AI service configured. Please set OPENAI_API_KEY, GEMINI_API_KEY, or DEEPSEEK_API_KEY in environment variables.');
   }
+
+  const provider = BLOG_AI_PROVIDER.toLowerCase();
+  const model = getBlogAIModel(provider);
 
   // Define blog type instructions
   const blogTypeInstructions = {
@@ -450,19 +571,36 @@ async function generateBlogPost(topic, category, blogType = 'informative') {
       Make the content engaging, informative, and detailed according to the blog type specified.
     `;
 
-    const completion = await openai.chat.completions.create({
+    logger.info(`Generating blog with ${provider} using model: ${model}`);
+
+    const requestOptions = {
       messages: [{ role: "user", content: prompt }],
-      model: GEMINI_MODEL,
-      response_format: { type: "json_object" },
-    });
+      model: model,
+    };
+
+    // Only add response_format for models that support it (OpenAI and Gemini)
+    if (provider === 'openai' || provider === 'gemini') {
+      requestOptions.response_format = { type: "json_object" };
+    }
+
+    const completion = await client.chat.completions.create(requestOptions);
 
     let content = completion.choices[0].message.content;
     // Strip markdown code blocks if present (e.g. ```json ... ```)
     content = content.replace(/```json\n?|```/g, '').trim();
-    return JSON.parse(content);
+
+    const result = JSON.parse(content);
+    logger.info('Blog post generated successfully');
+    return result;
   } catch (error) {
-    logger.error('Error generating blog post:', error);
-    throw new Error('Failed to generate blog content');
+    logger.error(`Error generating blog post with ${provider}:`, error.message);
+
+    // More detailed error message
+    if (error.response) {
+      logger.error('API Response Error:', error.response.data);
+    }
+
+    throw new Error(`Failed to generate blog content: ${error.message}`);
   }
 }
 
