@@ -83,6 +83,8 @@ export default function BlogDetail() {
       <Helmet>
         <title>{blog.meta_title || blog.title} - NEPSE Portfolio</title>
         <meta name="description" content={blog.meta_description || blog.excerpt} />
+        <link rel="canonical" href={`https://nepseportfoliotracker.app/blogs/${blog.slug}`} />
+        <meta name="robots" content="index, follow" />
         {/* Open Graph / Social Media */}
         <meta property="og:title" content={blog.title} />
         <meta property="og:description" content={blog.excerpt} />

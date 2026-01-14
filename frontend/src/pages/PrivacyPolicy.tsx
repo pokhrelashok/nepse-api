@@ -1,4 +1,5 @@
 // import '../styles/landing.css'
+import { Helmet } from 'react-helmet-async'
 
 export default function PrivacyPolicyPage() {
   const styles = {
@@ -16,6 +17,12 @@ export default function PrivacyPolicyPage() {
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
+      <Helmet>
+        <title>Privacy Policy - NEPSE Portfolio Tracker</title>
+        <meta name="description" content="Read our privacy policy to understand how we handle your data on NEPSE Portfolio Tracker. We prioritize your privacy and data security." />
+        <link rel="canonical" href="https://nepseportfoliotracker.app/privacy-policy" />
+        <meta name="robots" content="index, follow" />
+      </Helmet>
       <div style={styles.page}>
         <div style={styles.card}>
           <h1 style={styles.h1}>Privacy Policy</h1>

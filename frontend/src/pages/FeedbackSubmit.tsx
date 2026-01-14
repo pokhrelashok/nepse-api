@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { Helmet } from 'react-helmet-async'
 
 interface UploadedFile {
   file: File
@@ -157,11 +158,18 @@ export default function FeedbackPage() {
   }
 
   return (
-    <section style={styles.page}>
-      <div style={styles.header}>
-        <h1 style={styles.title}>Submit Feedback</h1>
-        <p style={styles.subtitle}>Help us improve by sharing your thoughts, suggestions, or reporting issues.</p>
-      </div>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      <Helmet>
+        <title>Send Feedback - NEPSE Portfolio Tracker</title>
+        <meta name="description" content="Share your feedback and suggestions with the NEPSE Portfolio Tracker team. Help us improve your stock market tracking experience." />
+        <link rel="canonical" href="https://nepseportfoliotracker.app/feedback" />
+        <meta name="robots" content="index, follow" />
+      </Helmet>
+      <section style={styles.page}>
+        <div style={styles.header}>
+          <h1 style={styles.title}>Submit Feedback</h1>
+          <p style={styles.subtitle}>Help us improve by sharing your thoughts, suggestions, or reporting issues.</p>
+        </div>
 
       <div style={styles.card}>
         <div style={styles.cardHeader}>

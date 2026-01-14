@@ -1,4 +1,5 @@
 // import '../styles/landing.css'
+import { Helmet } from 'react-helmet-async'
 
 export default function TermsOfServicePage() {
   const styles = {
@@ -16,6 +17,12 @@ export default function TermsOfServicePage() {
 
   return (
     <div style={{ background: '#f9fafb', minHeight: '100vh' }}>
+      <Helmet>
+        <title>Terms of Service - NEPSE Portfolio Tracker</title>
+        <meta name="description" content="Review the Terms of Service for NEPSE Portfolio Tracker. Understand your rights and responsibilities when using our stock market tracking platform." />
+        <link rel="canonical" href="https://nepseportfoliotracker.app/terms-of-service" />
+        <meta name="robots" content="index, follow" />
+      </Helmet>
       <div style={styles.page}>
         <div style={styles.card}>
           <h1 style={styles.h1}>Terms of Service</h1>

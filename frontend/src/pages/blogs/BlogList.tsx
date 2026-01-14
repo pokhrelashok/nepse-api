@@ -61,6 +61,8 @@ export default function BlogList() {
       <Helmet>
         <title>Stock Market Knowledge Base - NEPSE Portfolio</title>
         <meta name="description" content="Learn about investing in Nepal Stock Exchange (NEPSE). Tutorials, market updates, and investment basics." />
+        <link rel="canonical" href="https://nepseportfoliotracker.app/blogs" />
+        <meta name="robots" content="index, follow" />
       </Helmet>
 
       <div className="mb-10 text-center">
