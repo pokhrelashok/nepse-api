@@ -11,6 +11,7 @@ interface Stock {
   sector_name?: string
   ltp: number
   close_price: number
+  price_change?: number
   percentage_change: number
   market_capitalization: number
 }
@@ -246,6 +247,7 @@ export default function StocksList() {
                 {paginatedStocks.map((stock) => {
                   const price = stock.ltp || stock.close_price || 0
                   const change = stock.percentage_change || 0
+                  const pointChange = stock.price_change || 0
                   return (
                     <tr key={stock.symbol}>
                       <td>
@@ -257,7 +259,8 @@ export default function StocksList() {
                       <td className="sector-name">{stock.sector || stock.sector_name || '--'}</td>
                       <td className="stock-price">Rs. {formatNumber(price)}</td>
                       <td className={`stock-change ${change >= 0 ? 'positive' : 'negative'}`}>
-                        {change >= 0 ? '+' : ''}{change.toFixed(2)}%
+                        <div>{pointChange >= 0 ? '+' : ''}{pointChange.toFixed(2)}</div>
+                        <div style={{ fontSize: '0.9em', opacity: 0.8 }}>{change >= 0 ? '+' : ''}{change.toFixed(2)}%</div>
                       </td>
                       <td className="market-cap">{formatMarketCap(stock.market_capitalization)}</td>
                     </tr>

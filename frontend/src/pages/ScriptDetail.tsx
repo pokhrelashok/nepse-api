@@ -149,7 +149,7 @@ export default function ScriptDetail() {
   }
 
   const ltp = details.ltp || details.last_traded_price || 0
-  const change = details.point_change || 0
+  const change = details.price_change || 0
   const pctChange = details.percentage_change || 0
   const companyName = details.company_name || details.name || symbol
 

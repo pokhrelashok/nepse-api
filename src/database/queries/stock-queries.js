@@ -101,13 +101,47 @@ async function searchStocks(query) {
     `SELECT symbol, company_name AS name, nepali_company_name, 
             sector_name as sector, nepali_sector_name, 
             security_id, status, last_traded_price as ltp,
-            close_price
+            close_price, previous_close
      FROM company_details
      WHERE symbol LIKE ? OR company_name LIKE ? 
      ORDER BY symbol LIMIT 20`,
     [pattern, pattern]
   );
-  return rows;
+
+  // Enrich results with live price data from Redis
+  const enrichedRows = await Promise.all(rows.map(async (row) => {
+    try {
+      const livePriceJson = await redis.hget('live:stock_prices', row.symbol);
+      if (livePriceJson) {
+        const livePrice = JSON.parse(livePriceJson);
+        row.ltp = livePrice.close_price || row.ltp;
+        row.price_change = livePrice.change;
+        row.percentage_change = livePrice.percentage_change;
+      } else {
+        // Calculate from close_price if no live data
+        if (row.previous_close && row.close_price) {
+          row.price_change = row.close_price - row.previous_close;
+          row.percentage_change = (row.price_change / row.previous_close) * 100;
+        } else {
+          row.price_change = 0;
+          row.percentage_change = 0;
+        }
+      }
+    } catch (error) {
+      logger.error('❌ Redis error in searchStocks:', error);
+      // Fallback calculation
+      if (row.previous_close && row.close_price) {
+        row.price_change = row.close_price - row.previous_close;
+        row.percentage_change = (row.price_change / row.previous_close) * 100;
+      } else {
+        row.price_change = 0;
+        row.percentage_change = 0;
+      }
+    }
+    return row;
+  }));
+
+  return enrichedRows;
 }
 
 async function getScriptDetails(symbol) {
