@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
-const logger = require('./src/utils/logger');
+const logger = require('../src/utils/logger');
 
 async function debugMergers() {
   try {
     logger.info('🧪 Debugging merger data...');
 
-    const { pool } = require('./src/database/database');
+    const { pool } = require('../src/database/database');
 
     // Get all mergers and show their companies
     const [mergers] = await pool.execute(`
@@ -39,7 +39,7 @@ async function debugMergers() {
 
     // Now test getRecentMergersForSymbols
     logger.info('\n--- Testing getRecentMergersForSymbols ---\n');
-    const { getRecentMergersForSymbols } = require('./src/database/queries');
+    const { getRecentMergersForSymbols } = require('../src/database/queries');
 
     // Get all company symbols from mergers
     const allSymbols = new Set();

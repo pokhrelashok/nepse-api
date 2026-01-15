@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
-const logger = require('./src/utils/logger');
-const { getRecentMergersForSymbols } = require('./src/database/queries');
+const logger = require('../src/utils/logger');
+const { getRecentMergersForSymbols } = require('../src/database/queries');
 
 async function testMergerAPI() {
   try {

@@ -42,7 +42,7 @@ router.post('/:id/transactions', async (req, res) => {
   const { isValid, error, data } = validateTransaction(req.body);
   if (!isValid) return res.status(400).json({ error });
 
-  const { id, stock_symbol, type, quantity, price, date } = data;
+  const { id, stock_symbol, type, quantity, price, date, remarks } = data;
 
   // Enforce positive quantity for all types except DIVIDEND
   if (type !== 'DIVIDEND' && quantity <= 0) {
@@ -66,15 +66,16 @@ router.post('/:id/transactions', async (req, res) => {
 
     await pool.execute(
       `INSERT INTO transactions 
-       (id, portfolio_id, stock_symbol, type, quantity, price, date) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)
+       (id, portfolio_id, stock_symbol, type, quantity, price, date, remarks) 
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
        stock_symbol = VALUES(stock_symbol),
        type = VALUES(type),
        quantity = VALUES(quantity),
        price = VALUES(price),
-       date = VALUES(date)`,
-      [transactionId, portfolioId, stock_symbol.toUpperCase(), type, quantity, price, date || new Date()]
+       date = VALUES(date),
+       remarks = VALUES(remarks)`,
+      [transactionId, portfolioId, stock_symbol.toUpperCase(), type, quantity, price, date || new Date(), remarks || null]
     );
 
     const [newItem] = await pool.execute('SELECT * FROM transactions WHERE id = ?', [transactionId]);
@@ -178,15 +179,16 @@ router.post('/:id/import', async (req, res) => {
 
         await connection.execute(
           `INSERT INTO transactions 
-           (id, portfolio_id, stock_symbol, type, quantity, price, date) 
-           VALUES (?, ?, ?, ?, ?, ?, ?)
+           (id, portfolio_id, stock_symbol, type, quantity, price, date, remarks) 
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)
            ON DUPLICATE KEY UPDATE
            stock_symbol = VALUES(stock_symbol),
            type = VALUES(type),
            quantity = VALUES(quantity),
            price = VALUES(price),
-           date = VALUES(date)`,
-          [transactionId, portfolioId, t.stock_symbol.toUpperCase(), t.type, t.quantity, t.price, t.date || new Date()]
+           date = VALUES(date),
+           remarks = VALUES(remarks)`,
+          [transactionId, portfolioId, t.stock_symbol.toUpperCase(), t.type, t.quantity, t.price, t.date || new Date(), t.remarks || null]
         );
         results.imported++;
       }

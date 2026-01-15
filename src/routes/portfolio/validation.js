@@ -32,7 +32,8 @@ function validateTransaction(data) {
     stock_symbol: { type: 'string', required: true, message: 'Stock symbol required' },
     quantity: { type: 'number', required: true, message: 'Quantity required' },
     price: { type: 'number', required: true, message: 'Price required' },
-    date: { type: 'string', required: true, message: 'Date required' }
+    date: { type: 'string', required: true, message: 'Date required' },
+    remarks: { type: 'string', required: false, max: 255 }
   });
 }
 

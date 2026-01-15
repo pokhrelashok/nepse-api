@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
 
-const logger = require('./src/utils/logger');
+const logger = require('../src/utils/logger');
 
 async function createFakeMergers() {
   try {
     logger.info('🧪 Creating fake merger records for testing...');
 
-    const pool = require('./src/database/database').pool;
+    const pool = require('../src/database/database').pool;
 
     // Fake merger 1: NABIL merging to GBIME at ratio 0.5:1
     const merger1 = {
@@ -111,7 +111,7 @@ async function createFakeMergers() {
 
     // Test the query
     logger.info('\n--- Testing getRecentMergersForSymbols ---\n');
-    const { getRecentMergersForSymbols } = require('./src/database/queries');
+    const { getRecentMergersForSymbols } = require('../src/database/queries');
 
     const testSymbols = ['NABIL', 'HDL', 'GBIME', 'TTL'];
     const mergers = await getRecentMergersForSymbols(testSymbols);

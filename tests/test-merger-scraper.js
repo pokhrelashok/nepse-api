@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
-const { scrapeMergers } = require('./src/scrapers/merger-scraper');
-const logger = require('./src/utils/logger');
+const { scrapeMergers } = require('../src/scrapers/merger-scraper');
+const logger = require('../src/utils/logger');
 
 async function testMergerScraper() {
   try {
@@ -14,7 +14,7 @@ async function testMergerScraper() {
 
     // Now test the query function
     logger.info('\n📋 Testing getRecentMergersForSymbols...');
-    const { getRecentMergersForSymbols } = require('./src/database/queries');
+    const { getRecentMergersForSymbols } = require('../src/database/queries');
 
     // Test with a symbol that might have mergers
     const testSymbols = ['GBLBS', 'SAMAJ', 'NABIL'];

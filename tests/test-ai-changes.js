@@ -3,8 +3,8 @@
  * Tests that portfolio summary and stock insights use DeepSeek from OpenRouter
  */
 
-const { generateStockSummary, generatePortfolioSummary, generateBlogPost } = require('./src/services/ai-service');
-const { getScriptDetails } = require('./src/database/queries');
+const { generateStockSummary, generatePortfolioSummary, generateBlogPost } = require('../src/services/ai-service');
+const { getScriptDetails } = require('../src/database/queries');
 
 async function testStockSummary() {
   console.log('\n' + '='.repeat(60));

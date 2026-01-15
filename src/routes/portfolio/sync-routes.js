@@ -23,7 +23,8 @@ function formatPortfoliosData(portfolios, allTransactions) {
         type: t.type,
         quantity: t.quantity,
         price: parseFloat(t.price) || 0,
-        date: new Date(t.date).getTime()
+        date: new Date(t.date).getTime(),
+        remarks: t.remarks || null
       });
     });
 
@@ -206,9 +207,9 @@ router.post('/upload-local', async (req, res) => {
 
               await connection.execute(
                 `INSERT INTO transactions 
-                 (id, portfolio_id, stock_symbol, type, quantity, price, date) 
-                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                [transaction.id, portfolio.id, stock.symbol.toUpperCase(), transaction.type, transaction.quantity, transaction.price, transactionDate]
+                 (id, portfolio_id, stock_symbol, type, quantity, price, date, remarks) 
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                [transaction.id, portfolio.id, stock.symbol.toUpperCase(), transaction.type, transaction.quantity, transaction.price, transactionDate, transaction.remarks || null]
               );
             }
           }
@@ -281,9 +282,9 @@ router.post('/resolve-conflict', async (req, res) => {
                 for (const transaction of stock.transactions) {
                   const transactionDate = transaction.date ? new Date(transaction.date) : new Date();
                   await connection.execute(
-                    `INSERT INTO transactions (id, portfolio_id, stock_symbol, type, quantity, price, date) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [transaction.id, portfolio.id, stock.symbol.toUpperCase(), transaction.type, transaction.quantity, transaction.price, transactionDate]
+                    `INSERT INTO transactions (id, portfolio_id, stock_symbol, type, quantity, price, date, remarks) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [transaction.id, portfolio.id, stock.symbol.toUpperCase(), transaction.type, transaction.quantity, transaction.price, transactionDate, transaction.remarks || null]
                   );
                 }
               }
@@ -333,9 +334,9 @@ router.post('/resolve-conflict', async (req, res) => {
                 for (const transaction of stock.transactions) {
                   await connection.execute(
                     `INSERT IGNORE INTO transactions 
-                     (id, portfolio_id, stock_symbol, type, quantity, price, date) 
-                     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-                    [transaction.id, portfolio.id, stock.symbol.toUpperCase(), transaction.type, transaction.quantity, transaction.price, transaction.date ? new Date(transaction.date) : new Date()]
+                     (id, portfolio_id, stock_symbol, type, quantity, price, date, remarks) 
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [transaction.id, portfolio.id, stock.symbol.toUpperCase(), transaction.type, transaction.quantity, transaction.price, transaction.date ? new Date(transaction.date) : new Date(), transaction.remarks || null]
                   );
                 }
               }
