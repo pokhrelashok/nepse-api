@@ -104,6 +104,40 @@ async function runDividendScrape(scheduler) {
 }
 
 /**
+ * Scrapes merger/acquisition data
+ * Called daily at 2:45 AM
+ */
+async function runMergerScrape(scheduler) {
+  const jobKey = 'merger_update';
+  if (scheduler.isJobRunning.get(jobKey)) return;
+
+  scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping Merger scrape: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
+  scheduler.updateStatus(jobKey, 'START', 'Starting Merger/Acquisition scrape...');
+
+  logger.info('Starting scheduled Merger/Acquisition scrape...');
+
+  try {
+    const { scrapeMergers } = require('../scrapers/merger-scraper');
+    await scrapeMergers(false);
+
+    scheduler.updateStatus(jobKey, 'SUCCESS', 'Merger/Acquisition scrape completed');
+  } catch (error) {
+    logger.error('Scheduled Merger/Acquisition scrape failed:', error);
+    scheduler.updateStatus(jobKey, 'FAIL', error.message);
+  } finally {
+    scheduler.isJobRunning.set(jobKey, false);
+  }
+}
+
+/**
  * Scrapes historical market indices data
  * DISABLED BY DEFAULT - Only for manual backfills
  * 
@@ -171,5 +205,6 @@ module.exports = {
   runIpoScrape,
   runFpoScrape,
   runDividendScrape,
+  runMergerScrape,
   runMarketIndicesHistoryScrape
 };

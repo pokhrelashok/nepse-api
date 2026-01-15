@@ -8,6 +8,7 @@ const {
   getMarketIndicesHistory,
   getCompanyStats,
   getRecentBonusForSymbols,
+  getRecentMergersForSymbols,
   getSectorBreakdown
 } = require('../database/queries');
 const { NepseScraper } = require('../scrapers/nepse-scraper');
@@ -142,9 +143,11 @@ exports.getUpdates = async (req, res) => {
     // Get stock prices if symbols provided
     let stocks = [];
     let recentBonus = {};
+    let recentMergers = {};
     if (symbols && Array.isArray(symbols) && symbols.length > 0) {
       stocks = await getLatestPrices(symbols);
       recentBonus = await getRecentBonusForSymbols(symbols);
+      recentMergers = await getRecentMergersForSymbols(symbols);
     }
 
     // Get market status and index data
@@ -170,7 +173,8 @@ exports.getUpdates = async (req, res) => {
       last_updated: marketStatus?.lastUpdated || new Date().toISOString(),
       trading_date: marketStatus?.trading_date || null,
       stocks: stocks,
-      recent_bonus: recentBonus
+      recent_bonus: recentBonus,
+      recent_mergers: recentMergers
     };
 
 

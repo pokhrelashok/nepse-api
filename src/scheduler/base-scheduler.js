@@ -23,6 +23,7 @@ class BaseScheduler {
       ipo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       fpo_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       dividend_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
+      merger_update: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       db_backup: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null },
       notification_check: { last_run: null, last_success: null, success_count: 0, fail_count: 0, today_success_count: 0, today_fail_count: 0, stats_date: null, status: 'IDLE', message: null }
     };

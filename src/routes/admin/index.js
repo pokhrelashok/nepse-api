@@ -15,6 +15,7 @@ router.use('/ipos', require('./ipos'));
 router.use('/feedback', require('./feedback'));
 router.use('/keys', require('./api-keys'));
 router.use('/dividends', require('./dividends'));
+router.use('/mergers', require('./mergers'));
 router.use('/prices', require('./prices'));
 router.use('/users', require('./users'));
 router.use('/holidays', require('./holidays'));
