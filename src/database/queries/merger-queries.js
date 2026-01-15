@@ -110,7 +110,7 @@ async function getRecentMergersForSymbols(symbols) {
       try {
         const companies = Array.isArray(row.companies) ? row.companies : JSON.parse(row.companies || '[]');
         companies.forEach(c => {
-          if (symbols.includes(c.symbol)) {
+          if (symbols.includes(c.symbol) && c.symbol !== row.new_company_stock_symbol) {
             matchingSymbols.add(c.symbol);
           }
         });
