@@ -3,6 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts'
 import { DashboardCard } from '../components/DashboardCard'
+import { BlogCard } from '../components/BlogCard'
 
 interface MarketData {
   status: string
@@ -137,7 +138,6 @@ export default function LandingPage() {
   const [dividends, setDividends] = useState<Dividend[]>([])
   const [articles, setArticles] = useState<Article[]>([])
   const [activeTab, setActiveTab] = useState<'gainers' | 'losers'>('gainers')
-  const [showBetaModal, setShowBetaModal] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -317,94 +317,6 @@ export default function LandingPage() {
           })}
         </script>
       </Helmet>
-      {/* Beta Installation Modal */}
-      {showBetaModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowBetaModal(false)}>
-          <div className="bg-white rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-300" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-6 border-b border-gray-100">
-              <h2 className="text-xl font-bold flex items-center gap-3 text-nepse-primary">
-                <i className="fa-brands fa-android text-2xl"></i> Android Release (Beta)
-              </h2>
-              <button className="p-2 hover:bg-gray-100 rounded-full transition-colors" onClick={() => setShowBetaModal(false)}>
-                <i className="fa-solid fa-xmark text-lg text-gray-400"></i>
-              </button>
-            </div>
-            <div className="p-6 space-y-6">
-              <p className="text-gray-600">
-                Follow these steps to join the closed beta testing and install the app:
-              </p>
-
-              <div className="flex gap-4 group">
-                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">1</div>
-                <div className="space-y-2">
-                  <h3 className="font-bold text-gray-900">Join the Google Group</h3>
-                  <p className="text-sm text-gray-500">Request access to the closed testers group</p>
-                  <a
-                    href="https://groups.google.com/search?q=nepse-portfolio-closed-testers"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all group-hover:bg-nepse-primary group-hover:text-white"
-                  >
-                    <i className="fa-solid fa-arrow-up-right-from-square"></i>
-                    Open Google Group
-                  </a>
-                </div>
-              </div>
-
-              <div className="flex gap-4 group">
-                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">2</div>
-                <div className="space-y-2">
-                  <h3 className="font-bold text-gray-900">Become a Tester</h3>
-                  <p className="text-sm text-gray-500">Accept the tester invitation on the web</p>
-                  <a
-                    href="https://play.google.com/apps/testing/com.ashok.nepseportfoliotracker"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all"
-                  >
-                    <i className="fa-solid fa-arrow-up-right-from-square"></i>
-                    Join Beta Program
-                  </a>
-                </div>
-              </div>
-
-              <div className="flex gap-4 group">
-                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">3</div>
-                <div className="space-y-2">
-                  <h3 className="font-bold text-gray-900">Download the App</h3>
-                  <p className="text-sm text-gray-500">Install from Play Store after becoming a tester</p>
-                  <a
-                    href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all"
-                  >
-                    <i className="fa-brands fa-google-play"></i>
-                    Open Play Store
-                  </a>
-                </div>
-              </div>
-
-              <div className="flex gap-4 group">
-                <div className="shrink-0 w-8 h-8 rounded-full bg-nepse-primary/10 text-nepse-primary flex items-center justify-center font-bold text-sm">4</div>
-                <div className="space-y-2">
-                  <h3 className="font-bold text-gray-900">Leave a Review</h3>
-                  <p className="text-sm text-gray-500">Help us improve by sharing your feedback</p>
-                  <a
-                    href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 hover:bg-nepse-primary hover:text-white rounded-xl text-sm font-semibold transition-all"
-                  >
-                    <i className="fa-solid fa-star"></i>
-                    Rate the App
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Market Data & Dashboard Section */}
       <section id="market-dashboard" className="py-12 bg-gray-50/50">
@@ -593,45 +505,30 @@ export default function LandingPage() {
 
       {/* Hero Section - Secondary */}
       <section className="relative overflow-hidden bg-gradient-to-br from-[#1a472a] to-[#2d6a4f] text-white py-20 px-4">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-12">
-          <div className="flex-1 space-y-6 text-center md:text-left">
-            <h1 className="text-4xl md:text-6xl font-black leading-tight">
-              Track Like a PRO
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center gap-16">
+          <div className="flex-1 space-y-8 text-center md:text-left z-10">
+            <h1 className="text-5xl md:text-7xl font-black leading-tight tracking-tight drop-shadow-sm">
+              Track Like a <span className="text-nepse-accent">PRO</span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-200 max-w-xl mx-auto md:mx-0">
+            <p className="text-xl md:text-2xl text-blue-50 font-medium max-w-xl mx-auto md:mx-0 leading-relaxed">
               Join thousands of investors using our platform to monitor their NEPSE portfolios with precision and ease.
             </p>
-            <div className="flex flex-wrap justify-center md:justify-start gap-4">
-              <button
-                onClick={() => setShowBetaModal(true)}
-                className="group flex items-center gap-3 bg-white text-[#1a472a] px-8 py-4 rounded-2xl font-bold text-lg hover:bg-nepse-accent hover:text-white transition-all transform hover:-translate-y-1 shadow-xl hover:shadow-nepse-accent/20"
-              >
-                <div className="shrink-0 bg-[#1a472a] group-hover:bg-white p-2 rounded-lg transition-colors">
-                  <i className="fa-brands fa-google-play text-white group-hover:text-[#1a472a]"></i>
-                </div>
-                <div className="text-left leading-none">
-                  <div className="text-[10px] uppercase tracking-wider opacity-60">Get Beta on</div>
-                  <div className="text-lg font-black tracking-tight">Play Store</div>
-                </div>
-              </button>
-            </div>
           </div>
-          <div className="flex-1 relative w-full max-w-lg aspect-square">
-            <div className="absolute top-1/4 -left-4 bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl animate-bounce-slow transform -rotate-6">
-              <div className="text-xs font-bold text-gray-300 mb-1">Live Updates</div>
-              <div className="text-2xl font-black">Instant</div>
-              <div className="text-[10px] font-bold text-green-400 mt-1">No Refresh</div>
-            </div>
-            <div className="absolute bottom-1/4 -right-4 bg-white/10 backdrop-blur-xl border border-white/20 p-6 rounded-2xl shadow-2xl animate-bounce-slow delay-700 transform rotate-6">
-              <div className="text-xs font-bold text-gray-300 mb-1">Simple UX</div>
-              <div className="text-2xl font-black">Minimal</div>
-              <div className="text-[10px] font-bold text-gray-300 mt-1">Bloatware Free</div>
-            </div>
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white/10 backdrop-blur-3xl border border-white/20 p-8 rounded-[32px] shadow-2xl scale-125">
-              <div className="text-xs font-bold text-gray-300 mb-1">Join Testing</div>
-              <div className="text-4xl font-black">BETA</div>
-              <div className="text-[10px] font-bold text-green-400 mt-2 uppercase tracking-widest">Open Access</div>
-            </div>
+          <div className="flex flex-wrap justify-center md:justify-start gap-4 pt-4">
+            <a
+              href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center gap-4 bg-white text-[#1a472a] px-8 py-5 rounded-2xl font-bold text-lg hover:bg-nepse-accent hover:text-white transition-all transform hover:-translate-y-1 shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] hover:shadow-[0_20px_40px_-10px_rgba(82,183,136,0.5)]"
+            >
+              <div className="shrink-0 bg-[#1a472a]/10 group-hover:bg-white/20 p-2.5 rounded-xl transition-colors">
+                <i className="fa-brands fa-google-play text-2xl text-[#1a472a] group-hover:text-white"></i>
+              </div>
+              <div className="text-left leading-none">
+                <div className="text-[11px] uppercase tracking-wider font-extrabold opacity-70 mb-1">Get it on</div>
+                <div className="text-xl font-black tracking-tight">Play Store</div>
+              </div>
+            </a>
           </div>
         </div>
       </section>
@@ -691,61 +588,31 @@ export default function LandingPage() {
       </section>
 
       {/* Latest Insights Section */}
-      {articles.length > 0 && (
-        <section className="py-16 bg-gray-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
-              <h2 className="text-3xl md:text-5xl font-black text-nepse-primary tracking-tight">Market Insights</h2>
-              <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-sm">Latest news, analysis, and tutorials</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {articles.map((article) => (
+      {
+        articles.length > 0 && (
+          <section className="py-16 bg-gray-50">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="text-center max-w-3xl mx-auto mb-16 space-y-4">
+                <h2 className="text-3xl md:text-5xl font-black text-nepse-primary tracking-tight">Market Insights</h2>
+                <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-sm">Latest news, analysis, and tutorials</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {articles.map((article) => (
+                  <BlogCard key={article.id} blog={article} />
+                ))}
+              </div>
+              <div className="text-center mt-10">
                 <Link
-                  key={article.id}
-                  to="/blogs/$slug"
-                  params={{ slug: article.slug }}
-                  className="bg-white rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow border border-gray-100 flex flex-col"
+                  to="/blogs"
+                  className="inline-flex items-center px-6 py-3 border border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors"
                 >
-                  <div className="h-48 overflow-hidden relative">
-                    {article.featured_image ? (
-                      <img
-                        src={article.featured_image}
-                        alt={article.title}
-                        className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center">
-                        <i className="fa-solid fa-newspaper text-3xl text-blue-200"></i>
-                      </div>
-                    )}
-                    <span className="absolute top-4 left-4 bg-white/90 backdrop-blur px-3 py-1 text-xs font-bold rounded-full text-blue-800 uppercase tracking-wider">
-                      {article.category}
-                    </span>
-                  </div>
-                  <div className="p-6 flex-grow flex flex-col">
-                    <div className="text-gray-400 text-xs mb-2">
-                      {new Date(article.published_at).toLocaleDateString()}
-                    </div>
-                    <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-2">{article.title}</h3>
-                    <p className="text-gray-600 text-sm line-clamp-3 mb-4 flex-grow">{article.excerpt}</p>
-                    <div className="text-blue-600 font-semibold text-sm flex items-center mt-auto">
-                      Read More <i className="fa-solid fa-arrow-right ml-2 text-xs"></i>
-                    </div>
-                  </div>
+                  View All Articles
                 </Link>
-              ))}
+              </div>
             </div>
-            <div className="text-center mt-10">
-              <Link
-                to="/blogs"
-                className="inline-flex items-center px-6 py-3 border border-blue-600 text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors"
-              >
-                View All Articles
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )
+      }
 
       {/* App Showcase */}
       <section id="app-showcase" className="py-24 bg-white overflow-hidden">
@@ -781,6 +648,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-    </div>
+    </div >
   )
 }

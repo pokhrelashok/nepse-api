@@ -78,6 +78,25 @@ export default function PublicLayout() {
 
   return (
     <div className="min-h-screen bg-white font-['Outfit',_sans-serif] text-nepse-text-dark">
+      {/* Top App Banner */}
+      <div className="bg-nepse-primary text-white border-b border-white/10 relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-10 flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-2 text-xs sm:text-sm font-medium text-white/90">
+            <span className="hidden sm:inline">Experience the best of Nepse Portfolio Tracker on mobile.</span>
+            <span className="sm:hidden">Get the mobile app</span>
+          </div>
+          <a
+            href="https://play.google.com/store/apps/details?id=com.ashok.nepseportfoliotracker"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 px-3 py-1 bg-white/10 hover:bg-white/20 rounded-full text-xs font-bold transition-all group"
+          >
+            <i className="fa-brands fa-google-play group-hover:scale-110 transition-transform"></i>
+            <span>Download App</span>
+          </a>
+        </div>
+      </div>
+
       {/* Navigation */}
       <nav className="sticky top-0 z-50 w-full bg-white/95 backdrop-blur-md shadow-sm border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
@@ -86,11 +105,8 @@ export default function PublicLayout() {
             {/* Top Bar: Logo & Ticker */}
             <div className="flex items-center justify-between w-full md:w-auto shrink-0 px-1">
               <Link to="/" className="flex items-center gap-1.5" onClick={() => setShowResults(false)}>
-                <div className="w-7 h-7 md:w-9 md:h-9 bg-gradient-to-br from-nepse-primary to-nepse-accent rounded-lg flex items-center justify-center text-white" style={{ maskImage: 'url("/icon.png")', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center', WebkitMaskImage: 'url("/icon.png")' }}>
+                <div className="w-9 h-9 bg-gradient-to-br from-nepse-primary to-nepse-accent rounded-lg flex items-center justify-center text-white" style={{ maskImage: 'url("/icon.png")', maskSize: 'contain', maskRepeat: 'no-repeat', maskPosition: 'center', WebkitMaskImage: 'url("/icon.png")' }}>
                 </div>
-                <span className="font-extrabold text-[#1a472a] text-sm md:text-xl whitespace-nowrap">
-                  NEPSE Portfolio
-                </span>
               </Link>
 
               {/* Ticker for Mobile */}
