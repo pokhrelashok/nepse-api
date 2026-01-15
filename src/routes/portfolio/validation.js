@@ -8,7 +8,8 @@ const { validate } = require('../../utils/validator');
 const TRANSACTION_TYPES = [
   'IPO', 'FPO', 'AUCTION', 'RIGHTS',
   'SECONDARY_BUY', 'SECONDARY_SELL',
-  'BONUS', 'DIVIDEND'
+  'BONUS', 'DIVIDEND',
+  'MERGER_OUT', 'MERGER_IN'
 ];
 
 /**
