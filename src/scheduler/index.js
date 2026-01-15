@@ -39,8 +39,8 @@ class Scheduler extends BaseScheduler {
     });
     this.jobs.set('index_update', indexJob);
 
-    // Price Update (Every 2 minutes from 11 AM to 3 PM, Sunday-Thursday)
-    const priceJob = cron.schedule('*/2 11-14 * * 0-4', async () => {
+    // Price Update (Every 30 seconds from 11 AM to 3 PM, Sunday-Thursday)
+    const priceJob = cron.schedule('*/30 * 11-14 * * 0-4', async () => {
       await updatePricesAndStatus(this, this.scraper, 'DURING_HOURS');
     }, {
       scheduled: false,
