@@ -90,12 +90,12 @@ async function getRecentMergersForSymbols(symbols) {
   try {
     const [rows] = await pool.execute(sqlWithSymbols);
 
-    // Filter rows where any symbol matches
+    // Filter rows where any symbol in companies array matches
+    // Exclude if user holds the merged company (new_company_stock_symbol)
     const filteredRows = rows.filter(row => {
-      if (symbols.includes(row.new_company_stock_symbol)) return true;
-
       try {
-        const companies = JSON.parse(row.companies || '[]');
+        // MySQL JSON columns are returned as objects/arrays, not strings
+        const companies = Array.isArray(row.companies) ? row.companies : JSON.parse(row.companies || '[]');
         return companies.some(c => symbols.includes(c.symbol));
       } catch (e) {
         return false;
@@ -107,12 +107,8 @@ async function getRecentMergersForSymbols(symbols) {
     for (const row of filteredRows) {
       const matchingSymbols = new Set();
 
-      if (symbols.includes(row.new_company_stock_symbol)) {
-        matchingSymbols.add(row.new_company_stock_symbol);
-      }
-
       try {
-        const companies = JSON.parse(row.companies || '[]');
+        const companies = Array.isArray(row.companies) ? row.companies : JSON.parse(row.companies || '[]');
         companies.forEach(c => {
           if (symbols.includes(c.symbol)) {
             matchingSymbols.add(c.symbol);
@@ -127,15 +123,10 @@ async function getRecentMergersForSymbols(symbols) {
           mergerMap[symbol] = [];
         }
         // Parse companies JSON for response
+        const companies = Array.isArray(row.companies) ? row.companies : JSON.parse(row.companies || '[]');
         const mergerWithParsedCompanies = {
           ...row,
-          companies: (() => {
-            try {
-              return JSON.parse(row.companies || '[]');
-            } catch (e) {
-              return [];
-            }
-          })()
+          companies: companies
         };
         mergerMap[symbol].push(mergerWithParsedCompanies);
       }
@@ -167,16 +158,10 @@ async function getAllMergersForAdmin(limit = 20, offset = 0) {
 
   try {
     const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
-    // Parse companies JSON in response
+    // Parse companies JSON in response (MySQL JSON columns return as objects)
     return rows.map(row => ({
       ...row,
-      companies: (() => {
-        try {
-          return JSON.parse(row.companies || '[]');
-        } catch (e) {
-          return [];
-        }
-      })()
+      companies: Array.isArray(row.companies) ? row.companies : (row.companies ? JSON.parse(row.companies) : [])
     }));
   } catch (error) {
     logger.error('Error fetching mergers for admin:', error);
