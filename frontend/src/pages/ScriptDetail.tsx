@@ -263,7 +263,7 @@ export default function ScriptDetail() {
         </script>
       </Helmet>
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 sticky top-0 z-40">
+      <div className="bg-white border-b border-gray-100 sticky top-[99px] md:top-[65px] z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 md:w-16 md:h-16 bg-nepse-primary/5 rounded-2xl flex items-center justify-center text-nepse-primary text-xl md:text-2xl font-black">
