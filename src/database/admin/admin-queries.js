@@ -253,7 +253,8 @@ async function getUsersForAdmin(limit = 20, offset = 0) {
     SELECT 
       u.id, u.google_id, u.email, u.display_name, u.avatar_url, u.created_at,
       (SELECT COUNT(*) FROM portfolios WHERE user_id = u.id) as portfolio_count,
-      (SELECT COUNT(*) FROM price_alerts WHERE user_id = u.id) as alert_count
+      (SELECT COUNT(*) FROM price_alerts WHERE user_id = u.id) as alert_count,
+      (SELECT COUNT(*) FROM transactions t JOIN portfolios p ON t.portfolio_id = p.id WHERE p.user_id = u.id) as transaction_count
     FROM users u
     ORDER BY u.created_at DESC 
     LIMIT ? OFFSET ?

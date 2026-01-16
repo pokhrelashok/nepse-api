@@ -59,6 +59,7 @@ export default function UsersPage() {
               <TableHead>Email</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-center">Portfolios</TableHead>
+              <TableHead className="text-center">Transactions</TableHead>
               <TableHead className="text-center">Alerts</TableHead>
             </TableRow>
           </TableHeader>
@@ -69,6 +70,7 @@ export default function UsersPage() {
                   <TableCell><div className="flex items-center gap-2"><Skeleton className="h-8 w-8 rounded-full" /><Skeleton className="h-4 w-[100px]" /></div></TableCell>
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[40px] mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[40px] mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[40px] mx-auto" /></TableCell>
                 </TableRow>
@@ -88,11 +90,12 @@ export default function UsersPage() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{formatDate(user.created_at)}</TableCell>
                   <TableCell className="text-center">{user.portfolio_count}</TableCell>
+                  <TableCell className="text-center">{user.transaction_count}</TableCell>
                   <TableCell className="text-center">{user.alert_count}</TableCell>
                 </TableRow>
               ))
             ) : (
-              <TableRow><TableCell colSpan={5} className="text-center h-24">No users found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center h-24">No users found</TableCell></TableRow>
             )}
           </TableBody>
         </Table>

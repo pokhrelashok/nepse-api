@@ -350,18 +350,19 @@ export default function ScriptDetail() {
             >
               <div className="divide-y divide-gray-100">
                 {Array.from(new Set(financials.map((f: any) => f.fiscal_year))).sort().reverse().map((year: any) => (
-                  <div key={year} className="p-6 md:p-8">
-                    <h4 className="text-sm font-black text-nepse-primary uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <span className="w-2 h-2 bg-nepse-accent rounded-full"></span> {year}
-                    </h4>
-                    <div className="overflow-x-auto -mx-6 md:-mx-8">
+                  <div key={year} className="border-b last:border-b-0 border-gray-100">
+                    <div className="px-4 py-3 bg-gray-50/50 flex items-center gap-2 border-b border-gray-100">
+                      <span className="w-1.5 h-1.5 bg-nepse-primary rounded-full"></span>
+                      <h4 className="text-xs font-black text-gray-700">{year}</h4>
+                    </div>
+                    <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
-                          <tr className="bg-gray-50/50">
-                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Quarter</th>
-                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">EPS</th>
-                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">NWPS</th>
-                            <th className="px-6 md:px-8 py-3 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Profit</th>
+                          <tr className="border-b border-gray-100">
+                            <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider w-1/4">Quarter</th>
+                            <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right w-1/4">EPS</th>
+                            <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right w-1/4">NWPS</th>
+                            <th className="px-4 py-2 text-[10px] font-bold text-gray-400 uppercase tracking-wider text-right w-1/4">Profit</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-50">
@@ -372,11 +373,19 @@ export default function ScriptDetail() {
                               return (quarters[a.quarter as keyof typeof quarters] || 0) - (quarters[b.quarter as keyof typeof quarters] || 0);
                             })
                             .map((report: any, i: number) => (
-                              <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                                <td className="px-6 md:px-8 py-4 text-xs font-bold text-gray-600 truncate max-w-[100px]">{report.quarter?.replace(' Quarter', '')}</td>
-                                <td className="px-6 md:px-8 py-4 text-xs font-black text-nepse-primary">{report.earnings_per_share || '--'}</td>
-                                <td className="px-6 md:px-8 py-4 text-xs font-black text-nepse-primary">{report.net_worth_per_share || '--'}</td>
-                                <td className="px-6 md:px-8 py-4 text-xs font-black text-nepse-primary">{formatCurrency(report.net_profit)}</td>
+                              <tr key={i} className="hover:bg-gray-50 transition-colors even:bg-gray-50/30">
+                                <td className="px-4 py-2.5 text-xs font-medium text-gray-600">
+                                  {report.quarter?.replace(' Quarter', '')}
+                                </td>
+                                <td className="px-4 py-2.5 text-xs font-bold text-gray-800 text-right font-mono">
+                                  {report.earnings_per_share || '--'}
+                                </td>
+                                <td className="px-4 py-2.5 text-xs font-bold text-gray-800 text-right font-mono">
+                                  {report.net_worth_per_share || '--'}
+                                </td>
+                                <td className="px-4 py-2.5 text-xs font-bold text-nepse-primary text-right font-mono">
+                                  {formatCurrency(report.net_profit).replace('Rs. ', '')}
+                                </td>
                               </tr>
                             ))}
                         </tbody>
@@ -397,19 +406,26 @@ export default function ScriptDetail() {
             icon="fa-solid fa-circle-info"
             noPadding
           >
-            <div className="divide-y divide-gray-50">
+            <div className="grid grid-cols-2 gap-px bg-gray-100 border-b border-gray-100">
               {[
-                { label: 'Market Cap', value: formatCurrency(details.market_capitalization) },
-                { label: 'Sector', value: details.sector_name || details.nepali_sector_name || '--' },
-                { label: 'Open Price', value: `Rs. ${formatNumber(details.open_price)}` },
-                { label: 'Day\'s High', value: `Rs. ${formatNumber(details.high_price)}` },
-                { label: 'Day\'s Low', value: `Rs. ${formatNumber(details.low_price)}` },
-                { label: 'Total Volume', value: formatNumber(details.total_traded_quantity || details.volume) },
-                { label: 'Prev Close', value: `Rs. ${formatNumber(details.previous_close || details.prev_close)}` },
+                { label: 'Market Cap', value: formatCurrency(details.market_capitalization), icon: 'fa-coins' },
+                { label: 'Sector', value: details.sector_name || details.nepali_sector_name || '--', icon: 'fa-industry' },
+                { label: 'Open Price', value: `Rs. ${formatNumber(details.open_price)}`, icon: 'fa-door-open' },
+                { label: 'Prev Close', value: `Rs. ${formatNumber(details.previous_close || details.prev_close)}`, icon: 'fa-clock-rotate-left' },
+                { label: 'Day\'s High', value: `Rs. ${formatNumber(details.high_price)}`, icon: 'fa-arrow-trend-up', className: 'text-green-600' },
+                { label: 'Day\'s Low', value: `Rs. ${formatNumber(details.low_price)}`, icon: 'fa-arrow-trend-down', className: 'text-red-600' },
+                { label: 'Total Volume', value: formatNumber(details.total_traded_quantity || details.volume), icon: 'fa-chart-simple' },
               ].map((item, i) => (
-                <div key={i} className="flex items-center justify-between p-4 md:p-6 hover:bg-gray-50/50 transition-colors">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{item.label}</span>
-                  <span className="text-sm font-black text-nepse-primary">{item.value}</span>
+                <div key={i} className="bg-white p-4 hover:bg-gray-50/50 transition-colors group">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <div className="w-5 h-5 rounded bg-gray-50 flex items-center justify-center group-hover:bg-white group-hover:shadow-sm transition-all">
+                      <i className={`fa-solid ${item.icon} text-[10px] text-gray-400`}></i>
+                    </div>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">{item.label}</span>
+                  </div>
+                  <div className={`text-sm font-black pl-7 ${item.className || 'text-nepse-primary'}`}>
+                    {item.value}
+                  </div>
                 </div>
               ))}
             </div>
@@ -422,17 +438,28 @@ export default function ScriptDetail() {
             noPadding
           >
             {dividends.length > 0 ? (
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-gray-100">
+                <div className="flex items-center justify-between px-4 py-2 bg-gray-50/50 border-b border-gray-100">
+                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Fiscal Year</span>
+                  <div className="flex gap-4">
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider w-16 text-right">Bonus</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider w-16 text-right">Cash</span>
+                  </div>
+                </div>
                 {dividends.map((div: any, i: number) => (
-                  <div key={i} className="p-4 md:p-6 hover:bg-gray-50/50 transition-colors flex items-center justify-between">
-                    <div className="text-sm font-black text-nepse-primary">{div.fiscal_year}</div>
-                    <div className="flex gap-2">
-                      {parseFloat(div.bonus_shares || 0) > 0 && (
-                        <span className="text-[10px] font-black text-green-600 bg-green-50 px-2 py-1 rounded-lg">B: {div.bonus_shares}%</span>
-                      )}
-                      {parseFloat(div.cash_dividend || 0) > 0 && (
-                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">C: {div.cash_dividend}%</span>
-                      )}
+                  <div key={i} className="px-4 py-2 hover:bg-gray-50 transition-colors flex items-center justify-between even:bg-gray-50/30">
+                    <div className="text-xs font-bold text-gray-700 font-mono">{div.fiscal_year}</div>
+                    <div className="flex gap-4">
+                      <div className="w-16 text-right">
+                        {parseFloat(div.bonus_shares || 0) > 0 ? (
+                          <span className="text-xs font-bold text-green-600 font-mono">{div.bonus_shares}%</span>
+                        ) : <span className="text-xs text-gray-300">-</span>}
+                      </div>
+                      <div className="w-16 text-right">
+                        {parseFloat(div.cash_dividend || 0) > 0 ? (
+                          <span className="text-xs font-bold text-blue-600 font-mono">{div.cash_dividend}%</span>
+                        ) : <span className="text-xs text-gray-300">-</span>}
+                      </div>
                     </div>
                   </div>
                 ))}
