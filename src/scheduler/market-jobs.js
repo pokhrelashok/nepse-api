@@ -110,7 +110,7 @@ async function updatePricesAndStatus(scheduler, scraper, phase, force = false) {
 
     let msg = `Market status: ${status}`;
 
-    if ((force || (phase === 'DURING_HOURS' && isOpen))) {
+    if ((force || (phase === 'DURING_HOURS' && isOpen) || phase === 'AFTER_CLOSE')) {
       const prices = await scraper.scrapeTodayPrices();
       if (prices && prices.length > 0) {
         const formattedPrices = formatPricesForDatabase(prices);

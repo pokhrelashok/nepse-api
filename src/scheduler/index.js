@@ -48,7 +48,7 @@ class Scheduler extends BaseScheduler {
     });
     this.jobs.set('price_update', priceJob);
 
-    // After-Close Status Check (At 3:01 PM)
+    // After-Close Final Price Fetch and Status Check (At 3:01 PM)
     const closeJob = cron.schedule('1 15 * * 0-4', async () => {
       await updatePricesAndStatus(this, this.scraper, 'AFTER_CLOSE');
     }, {
