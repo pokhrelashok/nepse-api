@@ -9,6 +9,14 @@ import {
 import { Activity, ArrowUpRight, ArrowDownRight, Equal, Clock, CheckCircle2, XCircle, Users, UserPlus, Cpu, HardDrive, MemoryStick, Server, Bell, BellRing } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
 
 export default function Dashboard() {
   const { data, isLoading } = useQuery({
@@ -295,81 +303,94 @@ export default function Dashboard() {
               ))}
             </div>
           ) : (
-            <div className="space-y-3">
-              {schedulerData?.stats && Object.entries(schedulerData.stats).map(([key, value]: [string, any]) => {
-                const isCurrentlyRunning = schedulerData?.currently_executing?.includes(key)
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Job Name</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Last Run</TableHead>
+                  <TableHead>Last Success</TableHead>
+                  <TableHead className="text-right">Stats (Today/Total)</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {schedulerData?.stats && Object.entries(schedulerData.stats).map(([key, value]: [string, any]) => {
+                  const isCurrentlyRunning = schedulerData?.currently_executing?.includes(key)
 
-                return (
-                  <div key={key} className="border rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium capitalize">
-                          {key.replace(/_/g, ' ')}
-                        </span>
-                        {/* Status Badge */}
-                        <Badge
-                          variant={
-                            value.status === 'SUCCESS' ? 'default' :
-                              value.status === 'FAILED' ? 'destructive' :
-                                value.status === 'RUNNING' ? 'outline' : 'secondary'
-                          }
-                          className={value.status === 'SUCCESS' ? 'bg-green-600 hover:bg-green-700' : ''}
-                        >
-                          {value.status || 'IDLE'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        {isCurrentlyRunning && (
-                          <span className="animate-pulse text-blue-600 text-xs font-bold uppercase">Executing...</span>
-                        )}
-                        {value.status === 'SUCCESS' ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        ) : value.status === 'FAILED' ? (
-                          <XCircle className="h-4 w-4 text-red-600" />
-                        ) : (
-                          <Clock className="h-4 w-4 text-muted-foreground" />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Log Message */}
-                    {value.message && (
-                      <div className="text-xs bg-muted/50 p-2 rounded-md font-mono text-muted-foreground truncate" title={value.message}>
-                        &gt; {value.message}
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                      <div>
-                        <span className="font-medium">Last Run:</span>{' '}
+                  return (
+                    <TableRow key={key} className="group cursor-default">
+                      <TableCell className="py-2">
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium capitalize text-sm">
+                              {key.replace(/_/g, ' ')}
+                            </span>
+                            {isCurrentlyRunning && (
+                              <Badge variant="outline" className="h-4 px-1 text-[10px] animate-pulse border-blue-200 text-blue-600 bg-blue-50">
+                                EXECUTING
+                              </Badge>
+                            )}
+                          </div>
+                          {value.message && (
+                            <span className="text-[10px] text-muted-foreground truncate max-w-[300px]" title={value.message}>
+                              {value.message}
+                            </span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            className={`h-5 text-[10px] px-1.5 ${value.status === 'SUCCESS' ? 'bg-emerald-500 hover:bg-emerald-600' :
+                              value.status === 'FAILED' ? 'bg-red-500 hover:bg-red-600' :
+                                value.status === 'RUNNING' ? 'bg-blue-500 hover:bg-blue-600' : 'bg-slate-500'
+                              }`}
+                          >
+                            {value.status || 'IDLE'}
+                          </Badge>
+                          {value.status === 'SUCCESS' ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                          ) : value.status === 'FAILED' ? (
+                            <XCircle className="h-3.5 w-3.5 text-red-500" />
+                          ) : (
+                            <Clock className="h-3.5 w-3.5 text-slate-400" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="py-2 text-xs text-muted-foreground">
                         {formatDate(value.last_run)}
-                      </div>
-                      <div>
-                        <span className="font-medium">Last Success:</span>{' '}
+                      </TableCell>
+                      <TableCell className="py-2 text-xs text-muted-foreground">
                         {formatDate(value.last_success)}
-                      </div>
-                      <div>
-                        <span className="font-medium">Today:</span>{' '}
-                        <span className="text-green-600">{value.today_success_count || 0}✓</span>
-                        {' / '}
-                        <span className="text-red-600">{value.today_fail_count || 0}✗</span>
-                      </div>
-                      <div>
-                        <span className="font-medium">Total:</span>{' '}
-                        <span className="text-green-600">{value.success_count}✓</span>
-                        {' / '}
-                        <span className="text-red-600">{value.fail_count}✗</span>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-              {(!schedulerData?.stats || Object.keys(schedulerData.stats).length === 0) && (
-                <div className="text-center text-muted-foreground py-8">
-                  No scheduler data available
-                </div>
-              )}
-            </div>
+                      </TableCell>
+                      <TableCell className="py-2 text-right">
+                        <div className="flex flex-col items-end gap-0.5">
+                          <div className="text-[10px] font-medium">
+                            <span className="text-emerald-600">{value.today_success_count || 0}</span>
+                            <span className="mx-1 text-slate-300">/</span>
+                            <span className="text-red-600">{value.today_fail_count || 0}</span>
+                            <span className="ml-1 text-slate-400 font-normal">today</span>
+                          </div>
+                          <div className="text-[9px] text-muted-foreground">
+                            <span className="text-emerald-600/70">{value.success_count || 0}</span>
+                            <span className="mx-1">/</span>
+                            <span className="text-red-600/70">{value.fail_count || 0}</span>
+                            <span className="ml-1">total</span>
+                          </div>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+                {(!schedulerData?.stats || Object.keys(schedulerData.stats).length === 0) && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      No scheduler data available
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
