@@ -101,6 +101,16 @@ export default function StocksList() {
     }
   }
 
+  const slugify = (text: string) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-');
+  };
+
   // Scroll to top when page changes
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -177,7 +187,7 @@ export default function StocksList() {
                 "@type": "Corporation",
                 "name": stock.name,
                 "tickerSymbol": stock.symbol,
-                "url": `https://nepseportfoliotracker.app/script/${stock.symbol}`
+                "url": `https://nepseportfoliotracker.app/script/${stock.symbol}-${slugify(stock.name || stock.company_name || '')}`
               }
             }))
           })}
@@ -251,7 +261,11 @@ export default function StocksList() {
                   return (
                     <tr key={stock.symbol}>
                       <td>
-                        <Link to="/script/$symbol" params={{ symbol: stock.symbol }} className="stock-symbol">
+                        <Link
+                          to="/script/$slug"
+                          params={{ slug: `${stock.symbol}-${slugify(stock.name || stock.company_name || '')}` }}
+                          className="stock-symbol"
+                        >
                           {stock.symbol}
                         </Link>
                       </td>

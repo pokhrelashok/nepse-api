@@ -41,6 +41,14 @@ const getStartDateFromRange = (range) => {
   return date.toISOString().split('T')[0];
 };
 
+// Helper to extract symbol from slug or return symbol as is
+const extractSymbol = (param) => {
+  if (!param) return null;
+  // If it contains a hyphen, assume it's a slug (SYMBOL-company-name)
+  // Otherwise it's just the symbol
+  return param.split('-')[0].toUpperCase();
+};
+
 exports.searchCompanies = async (req, res) => {
   try {
     const query = req.query.q;
@@ -64,7 +72,7 @@ exports.getValues = async (req, res) => {
 
 exports.getCompanyDetails = async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = extractSymbol(req.params.symbol);
     const details = await getScriptDetails(symbol);
 
     if (!details) {
@@ -80,7 +88,7 @@ exports.getCompanyDetails = async (req, res) => {
 
 exports.getAIStockSummary = async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = extractSymbol(req.params.symbol);
     const details = await getScriptDetails(symbol);
 
     if (!details) {
@@ -211,7 +219,7 @@ exports.getDividends = async (req, res) => {
 
 exports.getCompanyHistory = async (req, res) => {
   try {
-    const symbol = req.params.symbol.toUpperCase();
+    const symbol = extractSymbol(req.params.symbol);
     const range = req.query.range || '1Y';
 
     // Validate range strictly if needed, but the helper defaults to 1Y

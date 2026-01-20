@@ -1,4 +1,5 @@
 const { getAllCompanies, getAllPublishedBlogs } = require('../database/queries');
+const { slugify } = require('../utils/formatter');
 const logger = require('../utils/logger');
 
 /**
@@ -38,8 +39,9 @@ async function generateSitemap() {
 
     // Add each company page
     companies.forEach(company => {
+      const slug = `${company.symbol}-${slugify(company.name || '')}`;
       sitemap += '  <url>\n';
-      sitemap += `    <loc>${baseUrl}/script/${company.symbol}</loc>\n`;
+      sitemap += `    <loc>${baseUrl}/script/${slug}</loc>\n`;
       sitemap += '    <changefreq>daily</changefreq>\n';
       sitemap += '    <priority>0.8</priority>\n';
       sitemap += '  </url>\n';

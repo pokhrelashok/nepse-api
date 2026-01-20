@@ -178,7 +178,7 @@ import BlogDetailPage from './pages/blogs/BlogDetail'
 
 export const scriptDetailRoute = createRoute({
   getParentRoute: () => publicLayoutRoute,
-  path: 'script/$symbol',
+  path: 'script/$slug',
   component: ScriptDetailPage,
 })
 

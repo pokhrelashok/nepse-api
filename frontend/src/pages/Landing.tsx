@@ -33,6 +33,9 @@ interface Article {
 
 interface StockItem {
   symbol: string
+  name?: string
+  company_name?: string
+  security_name?: string
   close_price?: number
   closePrice?: number
   ltp?: number
@@ -214,6 +217,16 @@ export default function LandingPage() {
     }
     return { class: '', text: 'Closed' }
   }
+
+  const slugify = (text: string) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-');
+  };
 
   const status = getMarketStatus()
   const idx = marketData?.market_index
@@ -438,8 +451,8 @@ export default function LandingPage() {
                   {(activeTab === 'gainers' ? gainers : losers).map((stock, i) => (
                     <Link
                       key={i}
-                      to="/script/$symbol"
-                      params={{ symbol: stock.symbol }}
+                      to="/script/$slug"
+                      params={{ slug: `${stock.symbol}-${slugify(stock.name || stock.company_name || (stock as any).security_name || '')}` }}
                       className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
                     >
                       <div>

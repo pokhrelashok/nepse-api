@@ -56,7 +56,8 @@ const Chart = ({ data }: { data: HistoryData[] }) => {
 }
 
 export default function ScriptDetail() {
-  const { symbol } = useParams({ strict: false }) as any
+  const { slug } = useParams({ strict: false }) as any
+  const symbol = slug?.split('-')[0].toUpperCase()
   const [details, setDetails] = useState<any>(null)
   const [history, setHistory] = useState<HistoryData[]>([])
   const [range, setRange] = useState('1M')
@@ -67,7 +68,7 @@ export default function ScriptDetail() {
 
   useEffect(() => {
     const fetchCoreData = async () => {
-      const sym = symbol?.toUpperCase()
+      const sym = symbol
       if (!sym) return
       setLoading(true)
       try {
@@ -110,7 +111,7 @@ export default function ScriptDetail() {
   // Split AI fetching to avoid blocking the main UI
   useEffect(() => {
     const fetchAiData = async () => {
-      const sym = symbol?.toUpperCase()
+      const sym = symbol
       if (!sym) return
       setAiSummary(null)
       try {
@@ -153,6 +154,18 @@ export default function ScriptDetail() {
   const pctChange = details.percentage_change || 0
   const companyName = details.company_name || details.name || symbol
 
+  const slugify = (text: string) => {
+    return text
+      .toString()
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w-]+/g, '')
+      .replace(/--+/g, '-');
+  };
+
+  const currentSlug = `${symbol}-${slugify(companyName)}`;
+
   const handleShare = async () => {
     try {
       if (navigator.share) {
@@ -178,11 +191,11 @@ export default function ScriptDetail() {
         <meta name="title" content={`${symbol} Stock Price - ${companyName} Live Chart & Analysis`} />
         <meta name="description" content={`${symbol} (${companyName}) live stock price Rs. ${formatNumber(ltp)} with ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${pctChange.toFixed(2)}%) change. Real-time charts, AI-powered analysis, financial reports, dividend history, and key metrics for ${companyName} on Nepal Stock Exchange (NEPSE).`} />
         <meta name="keywords" content={`${symbol}, ${companyName}, ${symbol} stock price, ${symbol} NEPSE, ${companyName} share price, ${symbol} live price, ${symbol} chart, ${symbol} analysis, ${symbol} dividend, ${symbol} financials, Nepal stock ${symbol}`} />
-        <link rel="canonical" href={`https://nepseportfoliotracker.app/script/${symbol}`} />
+        <link rel="canonical" href={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
 
         {/* Open Graph / Facebook */}
         <meta property="og:type" content="website" />
-        <meta property="og:url" content={`https://nepseportfoliotracker.app/script/${symbol}`} />
+        <meta property="og:url" content={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
         <meta property="og:title" content={`${symbol} - ${companyName} Stock Price & Analysis`} />
         <meta property="og:description" content={`Live price Rs. ${formatNumber(ltp)} (${change >= 0 ? '+' : ''}${pctChange.toFixed(2)}%). Get real-time charts, AI analysis, and financial data for ${companyName}.`} />
         <meta property="og:image" content={`https://nepseportfoliotracker.app/og-stock-${symbol}.png`} />
@@ -190,7 +203,7 @@ export default function ScriptDetail() {
 
         {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content={`https://nepseportfoliotracker.app/script/${symbol}`} />
+        <meta name="twitter:url" content={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
         <meta name="twitter:title" content={`${symbol} - ${companyName} Stock Price`} />
         <meta name="twitter:description" content={`Rs. ${formatNumber(ltp)} (${change >= 0 ? '+' : ''}${pctChange.toFixed(2)}%) - Live charts & AI analysis`} />
         <meta name="twitter:image" content={`https://nepseportfoliotracker.app/og-stock-${symbol}.png`} />
@@ -206,7 +219,7 @@ export default function ScriptDetail() {
             "name": companyName,
             "tickerSymbol": symbol,
             "description": `${companyName} (${symbol}) stock information and analysis on Nepal Stock Exchange`,
-            "url": `https://nepseportfoliotracker.app/script/${symbol}`,
+            "url": `https://nepseportfoliotracker.app/script/${currentSlug}`,
             "sameAs": [
               `https://merolagani.com/CompanyDetail.aspx?symbol=${symbol}`,
               `https://www.sharesansar.com/company/${symbol}`
@@ -256,7 +269,7 @@ export default function ScriptDetail() {
                 "@type": "ListItem",
                 "position": 3,
                 "name": symbol,
-                "item": `https://nepseportfoliotracker.app/script/${symbol}`
+                "item": `https://nepseportfoliotracker.app/script/${currentSlug}`
               }
             ]
           })}
