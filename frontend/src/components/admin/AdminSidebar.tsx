@@ -10,17 +10,22 @@ import {
   MessageSquareText,
   Users,
   CalendarDays,
-  FileText
+  FileText,
+  Moon,
+  Sun,
+  Monitor
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { useNavigate } from "@tanstack/react-router"
+import { useTheme } from "../ThemeProvider"
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
 
 export function AdminSidebar({ className }: SidebarProps) {
   const navigate = useNavigate()
   const location = useLocation()
+  const { theme, setTheme } = useTheme()
 
   const handleLogout = () => {
     localStorage.removeItem("admin_token")
@@ -104,9 +109,38 @@ export function AdminSidebar({ className }: SidebarProps) {
             ))}
           </div>
         </div>
-        <div className="px-3 py-2">
-          <div className="space-y-1">
-            <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50" onClick={handleLogout}>
+        <div className="px-3 py-2 mt-auto border-t">
+          <div className="flex items-center justify-around p-1 bg-muted/50 rounded-lg">
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8", theme === "light" && "bg-background shadow-sm")}
+              onClick={() => setTheme("light")}
+              title="Light Mode"
+            >
+              <Sun className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8", theme === "dark" && "bg-background shadow-sm")}
+              onClick={() => setTheme("dark")}
+              title="Dark Mode"
+            >
+              <Moon className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn("h-8 w-8", theme === "system" && "bg-background shadow-sm")}
+              onClick={() => setTheme("system")}
+              title="System Theme"
+            >
+              <Monitor className="h-4 w-4" />
+            </Button>
+          </div>
+          <div className="space-y-1 mt-2">
+            <Button variant="ghost" className="w-full justify-start text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30" onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" />
               Logout
             </Button>

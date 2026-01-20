@@ -6,6 +6,7 @@ import { routeTree } from './routes'
 import './index.css'
 
 import { HelmetProvider } from 'react-helmet-async'
+import { ThemeProvider } from './components/ThemeProvider'
 
 const queryClient = new QueryClient()
 
@@ -31,9 +32,11 @@ if (!rootElement.innerHTML) {
   root.render(
     <StrictMode>
       <HelmetProvider>
-        <QueryClientProvider client={queryClient}>
-          <RouterProvider router={router} />
-        </QueryClientProvider>
+        <ThemeProvider defaultTheme="system" storageKey="nepse-admin-theme">
+          <QueryClientProvider client={queryClient}>
+            <RouterProvider router={router} />
+          </QueryClientProvider>
+        </ThemeProvider>
       </HelmetProvider>
     </StrictMode>,
   )
