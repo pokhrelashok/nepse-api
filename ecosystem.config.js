@@ -21,6 +21,7 @@ module.exports = {
       time: true,
       watch: false,
       max_memory_restart: '384M', // Lower memory limit for Bun (uses less memory)
+      cron_restart: '0 1 * * *', // Restart daily at 1:00 AM Nepal Time
       restart_delay: 4000,
       max_restarts: 10,
       min_uptime: '10s',
