@@ -2,6 +2,19 @@ const { pool } = require('./database');
 const logger = require('../utils/logger');
 
 /**
+ * Safely parse JSON string
+ */
+function safeJsonParse(str, fallback = []) {
+  if (!str) return fallback;
+  try {
+    return typeof str === 'string' ? JSON.parse(str) : str;
+  } catch (error) {
+    logger.error('JSON Parse Error:', error, 'String:', str);
+    return fallback;
+  }
+}
+
+/**
  * Create a new feedback entry
  */
 async function createFeedback({ title, body, attachments = [], userEmail = null, userName = null }) {
@@ -39,7 +52,7 @@ async function getFeedbacks({ status = null, limit = 20, offset = 0 } = {}) {
     // Parse attachments JSON
     return rows.map(row => ({
       ...row,
-      attachments: row.attachments ? JSON.parse(row.attachments) : []
+      attachments: safeJsonParse(row.attachments)
     }));
   } catch (error) {
     logger.error('Error fetching feedbacks:', error);
@@ -56,7 +69,7 @@ async function getFeedbackById(id) {
     if (rows.length === 0) return null;
 
     const feedback = rows[0];
-    feedback.attachments = feedback.attachments ? JSON.parse(feedback.attachments) : [];
+    feedback.attachments = safeJsonParse(feedback.attachments);
     return feedback;
   } catch (error) {
     logger.error('Error fetching feedback by id:', error);
