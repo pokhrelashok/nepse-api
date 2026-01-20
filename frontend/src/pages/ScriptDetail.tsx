@@ -3,6 +3,7 @@ import { useParams } from '@tanstack/react-router'
 import { Helmet } from 'react-helmet-async'
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts'
 import { DashboardCard } from '../components/DashboardCard'
+import { slugify } from '../lib/stock-utils'
 // import '../styles/script-detail.css'
 
 interface HistoryData {
@@ -154,15 +155,6 @@ export default function ScriptDetail() {
   const pctChange = details.percentage_change || 0
   const companyName = details.company_name || details.name || symbol
 
-  const slugify = (text: string) => {
-    return text
-      .toString()
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]+/g, '')
-      .replace(/--+/g, '-');
-  };
 
   const currentSlug = `${symbol}-${slugify(companyName)}`;
 

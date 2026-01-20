@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Helmet } from 'react-helmet-async'
+import { generateStockSlug, slugify } from '../lib/stock-utils'
 import '../styles/stocks-list.css'
 
 interface Stock {
@@ -101,15 +102,6 @@ export default function StocksList() {
     }
   }
 
-  const slugify = (text: string) => {
-    return text
-      .toString()
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]+/g, '')
-      .replace(/--+/g, '-');
-  };
 
   // Scroll to top when page changes
   useEffect(() => {
@@ -263,7 +255,7 @@ export default function StocksList() {
                       <td>
                         <Link
                           to="/script/$slug"
-                          params={{ slug: `${stock.symbol}-${slugify(stock.name || stock.company_name || '')}` }}
+                          params={{ slug: generateStockSlug(stock.symbol, stock.name || stock.company_name) }}
                           className="stock-symbol"
                         >
                           {stock.symbol}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, Outlet } from '@tanstack/react-router'
+import { generateStockSlug } from '../lib/stock-utils'
 
 interface MarketData {
   status: string
@@ -149,8 +150,8 @@ export default function PublicLayout() {
                       {searchResults.map((item) => (
                         <Link
                           key={item.symbol}
-                          to="/script/$symbol"
-                          params={{ symbol: item.symbol }}
+                          to="/script/$slug"
+                          params={{ slug: generateStockSlug(item.symbol, item.name || item.company_name) }}
                           className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group"
                           onClick={() => {
                             setShowResults(false)

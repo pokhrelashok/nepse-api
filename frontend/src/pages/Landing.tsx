@@ -4,6 +4,7 @@ import { Helmet } from 'react-helmet-async'
 import { createChart, ColorType, AreaSeries } from 'lightweight-charts'
 import { DashboardCard } from '../components/DashboardCard'
 import { BlogCard } from '../components/BlogCard'
+import { generateStockSlug } from '../lib/stock-utils'
 
 interface MarketData {
   status: string
@@ -218,15 +219,6 @@ export default function LandingPage() {
     return { class: '', text: 'Closed' }
   }
 
-  const slugify = (text: string) => {
-    return text
-      .toString()
-      .toLowerCase()
-      .trim()
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]+/g, '')
-      .replace(/--+/g, '-');
-  };
 
   const status = getMarketStatus()
   const idx = marketData?.market_index
@@ -452,7 +444,7 @@ export default function LandingPage() {
                     <Link
                       key={i}
                       to="/script/$slug"
-                      params={{ slug: `${stock.symbol}-${slugify(stock.name || stock.company_name || (stock as any).security_name || '')}` }}
+                      params={{ slug: generateStockSlug(stock.symbol, stock.name || stock.company_name || (stock as any).security_name || '') }}
                       className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors group"
                     >
                       <div>
