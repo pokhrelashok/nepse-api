@@ -1,7 +1,8 @@
 const {
   getUsersForAdmin,
   getUserCountForAdmin,
-  getUserStatsForAdmin
+  getUserStatsForAdmin,
+  getTransactionsForAdminUsers
 } = require('../../database/admin/admin-queries');
 const { formatResponse, formatError } = require('../../utils/formatter');
 const logger = require('../../utils/logger');
@@ -19,6 +20,68 @@ exports.getAllUsers = async (req, res) => {
       getUsersForAdmin(limit, offset),
       getUserCountForAdmin()
     ]);
+
+    // Calculate total investment for each user
+    if (users.length > 0) {
+      const userIds = users.map(u => u.id);
+      const transactions = await getTransactionsForAdminUsers(userIds);
+
+      // Group transactions by user
+      const userTransactions = {};
+      transactions.forEach(t => {
+        if (!userTransactions[t.user_id]) userTransactions[t.user_id] = [];
+        userTransactions[t.user_id].push(t);
+      });
+
+      // Calculate investment per user
+      users.forEach(user => {
+        const userTx = userTransactions[user.id] || [];
+        const holdingsMap = new Map();
+
+        userTx.forEach(t => {
+          const symbol = t.stock_symbol.toUpperCase();
+          if (!holdingsMap.has(symbol)) {
+            holdingsMap.set(symbol, { units: 0, total_cost: 0 });
+          }
+
+          const holding = holdingsMap.get(symbol);
+          const qty = parseFloat(t.quantity);
+          const price = parseFloat(t.price);
+
+          switch (t.type) {
+            case 'IPO':
+            case 'FPO':
+            case 'AUCTION':
+            case 'SECONDARY_BUY':
+            case 'RIGHTS':
+              holding.units += qty;
+              holding.total_cost += (qty * price);
+              break;
+            case 'SECONDARY_SELL':
+              if (holding.units > 0) {
+                const avgCost = holding.total_cost / holding.units;
+                holding.units -= qty;
+                holding.total_cost -= (qty * avgCost);
+              }
+              break;
+            case 'BONUS':
+              holding.units += qty;
+              break;
+            // Dividend doesn't affect cost basis
+          }
+        });
+
+        // Sum up total cost of currently held units
+        let totalInvestment = 0;
+        holdingsMap.forEach(holding => {
+          if (holding.units > 0) {
+            totalInvestment += holding.total_cost;
+          }
+        });
+
+        user.total_investment = totalInvestment;
+      });
+    }
 
     res.json(formatResponse({
       users,

@@ -263,6 +263,22 @@ async function getUsersForAdmin(limit = 20, offset = 0) {
   return rows;
 }
 
+async function getTransactionsForAdminUsers(userIds) {
+  if (!userIds || userIds.length === 0) return [];
+
+  const placeholders = userIds.map(() => '?').join(',');
+  const sql = `
+    SELECT 
+      t.stock_symbol, t.type, t.quantity, t.price, p.user_id
+    FROM transactions t
+    JOIN portfolios p ON t.portfolio_id = p.id
+    WHERE p.user_id IN (${placeholders})
+  `;
+
+  const [rows] = await pool.execute(sql, userIds);
+  return rows;
+}
+
 async function getUserCountForAdmin() {
   const sql = 'SELECT COUNT(*) as total FROM users';
   const [rows] = await pool.execute(sql);
@@ -306,6 +322,7 @@ module.exports = {
 
   // Users
   getUsersForAdmin,
+  getTransactionsForAdminUsers,
   getUserCountForAdmin,
   getUserStatsForAdmin
 };

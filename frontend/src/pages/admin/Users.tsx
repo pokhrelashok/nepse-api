@@ -59,6 +59,7 @@ export default function UsersPage() {
               <TableHead>Email</TableHead>
               <TableHead>Joined</TableHead>
               <TableHead className="text-center">Portfolios</TableHead>
+              <TableHead className="text-center">Total Investment</TableHead>
               <TableHead className="text-center">Transactions</TableHead>
               <TableHead className="text-center">Alerts</TableHead>
             </TableRow>
@@ -71,6 +72,7 @@ export default function UsersPage() {
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[40px] mx-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[80px] mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[40px] mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[40px] mx-auto" /></TableCell>
                 </TableRow>
@@ -90,12 +92,21 @@ export default function UsersPage() {
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{formatDate(user.created_at)}</TableCell>
                   <TableCell className="text-center">{user.portfolio_count}</TableCell>
+                  <TableCell className="text-center">
+                    {user.total_investment ? (
+                      <span className="font-medium text-green-600">
+                        Rs. {user.total_investment.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">-</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-center">{user.transaction_count}</TableCell>
                   <TableCell className="text-center">{user.alert_count}</TableCell>
                 </TableRow>
               ))
             ) : (
-              <TableRow><TableCell colSpan={6} className="text-center h-24">No users found</TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center h-24">No users found</TableCell></TableRow>
             )}
           </TableBody>
         </Table>
