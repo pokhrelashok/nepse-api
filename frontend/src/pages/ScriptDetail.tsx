@@ -63,7 +63,6 @@ export default function ScriptDetail() {
   const [history, setHistory] = useState<HistoryData[]>([])
   const [range, setRange] = useState('1M')
   const [loading, setLoading] = useState(true)
-  const [aiSummary, setAiSummary] = useState<string | null>(null)
   const [financials, setFinancials] = useState<any[]>([])
   const [dividends, setDividends] = useState<any[]>([])
 
