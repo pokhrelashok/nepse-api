@@ -13,7 +13,7 @@ class CompanyScraper {
       securityId: securityId,
       rawLogoData: '',
       isLogoPlaceholder: true,
-      companyName: '',
+      companyName: profileData?.titleFromDom || '',
       sectorName: '',
       email: '',
       permittedToTrade: 'No',
@@ -53,9 +53,25 @@ class CompanyScraper {
     };
 
     const clean = (text) => text ? String(text).replace(/\s+/g, ' ').trim() : '';
+    const instrumentTypeFromData = securityData?.security?.instrumentType?.description || securityData?.security?.instrumentType?.code || securityData?.security?.instrumentType || '';
+    const isMutualFund = clean(instrumentTypeFromData).toLowerCase().includes('mutual fund');
 
     if (profileData) {
-      if (!info.companyName) info.companyName = clean(profileData.companyName || '');
+      const profileName = clean(profileData.companyName || '');
+      const hasFundName = profileName.toLowerCase().includes('fund');
+
+      const currentHasFundName = info.companyName && info.companyName.toLowerCase().includes('fund');
+
+      // If it's a mutual fund, we only want names that actually look like fund names
+      // If we already have a fund name (e.g. from title), don't overwrite it with a non-fund name from API
+      if (isMutualFund) {
+        if (hasFundName || !currentHasFundName) {
+          info.companyName = profileName || info.companyName;
+        }
+      } else if (!info.companyName || profileName) {
+        info.companyName = profileName;
+      }
+
       if (!info.email) info.email = clean(profileData.companyEmail || '');
 
       if (!info.rawLogoData && profileData.logoFilePath) {
@@ -83,7 +99,13 @@ class CompanyScraper {
       info.status = clean(security.activeStatus || security.status || '');
       info.permittedToTrade = clean(security.permittedToTrade || 'No');
       info.listingDate = clean(security.listingDate || '');
-      info.sectorName = clean(sectorMaster.sectorDescription || '');
+
+      // For mutual funds, sector is often wrongly reported as sponsor's sector
+      if (isMutualFund) {
+        info.sectorName = 'Mutual Funds';
+      } else {
+        info.sectorName = clean(sectorMaster.sectorDescription || '');
+      }
       info.website = clean(companyInfo.companyWebsite || '');
       info.shareRegistrar = clean(companyInfo.companyContactPerson || '');
 
@@ -188,7 +210,8 @@ class CompanyScraper {
                 const data = await response.json().catch(() => null);
                 if (data) {
                   if (responseUrl.includes('/profile/')) {
-                    apiProfileData = data;
+                    // Merge data to preserve titleFromDom if already set
+                    apiProfileData = apiProfileData ? { ...apiProfileData, ...data } : data;
                   } else {
                     apiSecurityData = data;
                   }
@@ -212,6 +235,24 @@ class CompanyScraper {
             await new Promise(resolve => setTimeout(resolve, 2000));
 
             await page.waitForSelector('.company__title--details', { timeout: 3000 }).catch(() => { });
+
+            // CRITICAL: Extract the actual company name from H1 title regardless of API data
+            // This is essential for mutual funds where API returns sponsor name
+            const titleInfo = await page.evaluate(() => {
+              const h1 = document.querySelector('.company__title--details h1');
+              if (!h1) return null;
+              const clean = (text) => text ? text.replace(/\s+/g, ' ').trim() : '';
+              let companyName = clean(h1.innerText);
+              return companyName.replace(/\s*\([A-Z0-9]+\)\s*$/, '').trim();
+            });
+
+            if (titleInfo) {
+              if (apiProfileData) {
+                apiProfileData.titleFromDom = titleInfo;
+              } else {
+                apiProfileData = { titleFromDom: titleInfo };
+              }
+            }
 
             const profileTab = await page.$('#profileTab');
             if (profileTab) {

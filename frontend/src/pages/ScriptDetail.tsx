@@ -110,22 +110,22 @@ export default function ScriptDetail() {
   }, [symbol, range])
 
   // Split AI fetching to avoid blocking the main UI
-  useEffect(() => {
-    const fetchAiData = async () => {
-      const sym = symbol
-      if (!sym) return
-      setAiSummary(null)
-      try {
-        const aiRes = await fetch(`/api/scripts/${sym}/ai-summary`).then(res => res.json())
-        if (aiRes.success) {
-          setAiSummary(aiRes.data.ai_summary)
-        }
-      } catch (error) {
-        setAiSummary("AI summary currently unavailable.")
-      }
-    }
-    fetchAiData()
-  }, [symbol])
+  // useEffect(() => {
+  //   const fetchAiData = async () => {
+  //     const sym = symbol
+  //     if (!sym) return
+  //     setAiSummary(null)
+  //     try {
+  //       const aiRes = await fetch(`/api/scripts/${sym}/ai-summary`).then(res => res.json())
+  //       if (aiRes.success) {
+  //         setAiSummary(aiRes.data.ai_summary)
+  //       }
+  //     } catch (error) {
+  //       setAiSummary("AI summary currently unavailable.")
+  //     }
+  //   }
+  //   fetchAiData()
+  // }, [symbol])
 
   if (loading && !details) {
     return <div className="loading-state">Loading script details...</div>
@@ -329,7 +329,7 @@ export default function ScriptDetail() {
           </DashboardCard>
 
           {/* AI Analysis */}
-          <DashboardCard
+          {/* <DashboardCard
             title="AI Analysis"
             icon="fa-solid fa-wand-magic-sparkles"
           >
@@ -344,7 +344,7 @@ export default function ScriptDetail() {
                 </div>
               )}
             </div>
-          </DashboardCard>
+          </DashboardCard> */}
 
           {/* Financial Performance */}
           {financials.length > 0 && (
