@@ -74,6 +74,9 @@ router.post('/ipos', authMiddleware, companyController.createIpo);
 // Dividends
 router.get('/announced-dividends', companyController.getDividends);
 
+// Mutual Funds
+router.post('/mutual-funds', companyController.getMutualFunds);
+
 // Market Stats & Summary
 router.get('/market/stats', marketController.getMarketStats);
 router.get('/market/status', marketController.getMarketStatus);

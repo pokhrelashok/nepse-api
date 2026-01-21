@@ -139,11 +139,53 @@ function insertFinancials(financials) {
   return saveFinancials(formatted);
 }
 
+async function getMutualFunds(symbols = null) {
+  const sql = `
+    SELECT 
+      cd.symbol,
+      cd.company_name AS name,
+      cd.nepali_company_name,
+      cd.logo_url AS logo,
+      cd.sector_name AS sector,
+      cd.maturity_date,
+      cd.maturity_period,
+      cd.last_traded_price AS ltp,
+      cd.previous_close,
+      mf.weekly_nav,
+      mf.weekly_nav_date,
+      mf.monthly_nav,
+      mf.monthly_nav_date
+    FROM company_details cd
+    LEFT JOIN mutual_fund_navs mf ON cd.security_id = mf.security_id
+    WHERE (cd.instrument_type LIKE '%Mutual Fund%' OR cd.sector_name = 'Mutual Funds')
+    ${symbols && symbols.length > 0 ? `AND cd.symbol IN (${symbols.map(() => '?').join(',')})` : ''}
+    ORDER BY cd.symbol
+  `;
+
+  const params = symbols && symbols.length > 0 ? symbols : [];
+  const [rows] = await pool.execute(sql, params);
+
+  // Calculate premium/discount using LTP and Weekly NAV
+  return rows.map(r => {
+    let premium_discount = null;
+    if (r.ltp && r.weekly_nav && r.weekly_nav > 0) {
+      premium_discount = ((r.ltp - r.weekly_nav) / r.weekly_nav) * 100;
+      premium_discount = Math.round(premium_discount * 100) / 100;
+    }
+
+    return {
+      ...r,
+      premium_discount
+    };
+  });
+}
+
 module.exports = {
   getAllCompanies,
   getCompaniesBySector,
   getTopCompaniesByMarketCap,
   getCompanyStats,
   insertCompanyDetails,
-  insertFinancials
+  insertFinancials,
+  getMutualFunds
 };

@@ -7,7 +7,8 @@ const {
   getIpos,
   insertIpo,
   getAnnouncedDividends,
-  getStockHistory
+  getStockHistory,
+  getMutualFunds
 } = require('../database/queries');
 const aiService = require('../services/ai-service');
 const { formatResponse, formatError } = require('../utils/formatter');
@@ -241,6 +242,17 @@ exports.getCompanyHistory = async (req, res) => {
     res.json(formatResponse(history));
   } catch (e) {
     console.error('API History Error:', e);
+    res.status(500).json(formatError("Internal Server Error"));
+  }
+};
+
+exports.getMutualFunds = async (req, res) => {
+  try {
+    const { symbols } = req.body;
+    const mutualFunds = await getMutualFunds(symbols);
+    res.json(formatResponse(mutualFunds));
+  } catch (e) {
+    console.error('API Mutual Funds Error:', e);
     res.status(500).json(formatError("Internal Server Error"));
   }
 };

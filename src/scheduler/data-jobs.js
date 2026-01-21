@@ -201,10 +201,44 @@ async function runMarketIndicesHistoryScrape(scheduler) {
   }
 }
 
+/**
+ * Scrapes Mutual Fund NAV data from ShareSansar
+ * Called daily at 3:00 AM
+ */
+async function runMutualFundScrape(scheduler) {
+  const jobKey = 'mutual_fund_update';
+  if (scheduler.isJobRunning.get(jobKey)) return;
+
+  scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping Mutual Fund scrape: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
+  scheduler.updateStatus(jobKey, 'START', 'Starting Mutual Fund NAV scrape...');
+
+  logger.info('Starting scheduled Mutual Fund NAV scrape...');
+
+  try {
+    const MutualFundScraper = require('../scrapers/nepse/mutual-fund-scraper');
+    const scraper = new MutualFundScraper(scheduler.scraper.browserManager);
+    await scraper.scrape();
+
+    scheduler.updateStatus(jobKey, 'SUCCESS', 'Mutual Fund NAV scrape completed');
+  } catch (error) {
+    logger.error('Scheduled Mutual Fund NAV scrape failed:', error);
+    scheduler.updateStatus(jobKey, 'FAIL', error.message);
+  } finally {
+    scheduler.isJobRunning.set(jobKey, false);
+  }
+}
+
 module.exports = {
-  runIpoScrape,
-  runFpoScrape,
   runDividendScrape,
   runMergerScrape,
-  runMarketIndicesHistoryScrape
+  runMarketIndicesHistoryScrape,
+  runMutualFundScrape
 };

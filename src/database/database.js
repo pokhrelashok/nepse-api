@@ -197,11 +197,12 @@ async function saveCompanyDetails(detailsArray) {
         total_paid_up_value, email, website, status, permitted_to_trade,
         promoter_shares, public_shares, market_capitalization,
         pe_ratio, pb_ratio, dividend_yield, eps,
+        maturity_date, maturity_period,
         logo_url, is_logo_placeholder, last_traded_price,
         open_price, close_price, high_price, low_price, previous_close,
         fifty_two_week_high, fifty_two_week_low, total_traded_quantity,
         total_trades, average_traded_price, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
       ON DUPLICATE KEY UPDATE
         symbol = VALUES(symbol),
         company_name = VALUES(company_name),
@@ -212,6 +213,8 @@ async function saveCompanyDetails(detailsArray) {
         issue_manager = VALUES(issue_manager),
         share_registrar = VALUES(share_registrar),
         listing_date = VALUES(listing_date),
+        maturity_date = VALUES(maturity_date),
+        maturity_period = VALUES(maturity_period),
         total_listed_shares = VALUES(total_listed_shares),
         paid_up_capital = VALUES(paid_up_capital),
         total_paid_up_value = VALUES(total_paid_up_value),
@@ -275,6 +278,8 @@ async function saveCompanyDetails(detailsArray) {
         pbRatio,
         dividendYield,
         eps,
+        d.maturity_date || null,
+        d.maturity_period || null,
         d.logo_url || null,
         d.is_logo_placeholder ? 1 : 0,
         d.last_traded_price ?? 0,
@@ -512,6 +517,58 @@ async function saveMarketIndexHistory(historyData) {
   }
 }
 
+async function saveMutualFundNavs(navData) {
+  if (!navData || navData.length === 0) return Promise.resolve();
+
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const sql = `
+      INSERT INTO mutual_fund_navs (
+        security_id, weekly_nav, weekly_nav_date, 
+        monthly_nav, monthly_nav_date
+      ) VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        weekly_nav = VALUES(weekly_nav),
+        weekly_nav_date = VALUES(weekly_nav_date),
+        monthly_nav = VALUES(monthly_nav),
+        monthly_nav_date = VALUES(monthly_nav_date),
+        updated_at = NOW()
+    `;
+
+    for (const data of navData) {
+      let weeklyNavDate = null;
+      if (data.weekly_date) {
+        try {
+          weeklyNavDate = new Date(data.weekly_date);
+          if (isNaN(weeklyNavDate.getTime())) {
+            weeklyNavDate = null;
+          }
+        } catch (e) {
+          weeklyNavDate = null;
+        }
+      }
+
+      await connection.execute(sql, [
+        data.security_id,
+        data.weekly_nav_price || null,
+        weeklyNavDate,
+        data.monthly_nav_price || null,
+        data.monthly_date || null
+      ]);
+    }
+
+    await connection.commit();
+    logger.info(`Saved/Updated ${navData.length} mutual fund NAV records.`);
+  } catch (err) {
+    await connection.rollback();
+    throw err;
+  } finally {
+    connection.release();
+  }
+}
+
 // Export pool for queries
 module.exports = {
   pool,
@@ -520,5 +577,6 @@ module.exports = {
   saveDividends,
   saveFinancials,
   saveStockPriceHistory,
-  saveMarketIndexHistory
+  saveMarketIndexHistory,
+  saveMutualFundNavs
 };

@@ -88,7 +88,8 @@ app.use('/api', (req, res, next) => {
     '/search',
     '/sitemap.xml',
     '/today-prices',
-    '/market/indices/history'
+    '/market/indices/history',
+    '/mutual-funds'
   ];
 
   const prefixPaths = [
