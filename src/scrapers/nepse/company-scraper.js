@@ -58,18 +58,21 @@ class CompanyScraper {
 
     if (profileData) {
       const profileName = clean(profileData.companyName || '');
-      const hasFundName = profileName.toLowerCase().includes('fund');
+      const titleFromDom = clean(profileData.titleFromDom || '');
 
-      const currentHasFundName = info.companyName && info.companyName.toLowerCase().includes('fund');
-
-      // If it's a mutual fund, we only want names that actually look like fund names
-      // If we already have a fund name (e.g. from title), don't overwrite it with a non-fund name from API
+      // For mutual funds, ALWAYS prefer titleFromDom (H1 from page) over API profileName
+      // because API often returns sponsor bank name instead of fund name
       if (isMutualFund) {
-        if (hasFundName || !currentHasFundName) {
-          info.companyName = profileName || info.companyName;
+        // Only use profileName if we don't have titleFromDom
+        if (!titleFromDom && profileName) {
+          info.companyName = profileName;
         }
-      } else if (!info.companyName || profileName) {
-        info.companyName = profileName;
+        // Otherwise keep titleFromDom (already set in line 16)
+      } else {
+        // For non-mutual funds, use profileName if available
+        if (profileName) {
+          info.companyName = profileName;
+        }
       }
 
       if (!info.email) info.email = clean(profileData.companyEmail || '');
