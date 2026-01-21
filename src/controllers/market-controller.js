@@ -1,5 +1,6 @@
 const {
   getLatestPrices,
+  getLatestPricesWithMutualFunds,
   getCurrentMarketStatus,
   updateMarketStatus,
   saveMarketIndex,
@@ -140,12 +141,18 @@ exports.getUpdates = async (req, res) => {
   try {
     const { symbols } = req.body;
 
-    // Get stock prices if symbols provided
+    // Get stock prices and mutual fund data in a single optimized query
     let stocks = [];
+    let mutualFunds = [];
     let recentBonus = {};
     let recentMergers = {};
+
     if (symbols && Array.isArray(symbols) && symbols.length > 0) {
-      stocks = await getLatestPrices(symbols);
+      // Use optimized function that fetches both stocks and mutual funds in one query
+      const result = await getLatestPricesWithMutualFunds(symbols);
+      stocks = result.stocks;
+      mutualFunds = result.mutualFunds;
+
       recentBonus = await getRecentBonusForSymbols(symbols);
       recentMergers = await getRecentMergersForSymbols(symbols);
     }
@@ -174,7 +181,8 @@ exports.getUpdates = async (req, res) => {
       trading_date: marketStatus?.trading_date || null,
       stocks: stocks,
       recent_bonus: recentBonus,
-      recent_mergers: recentMergers
+      recent_mergers: recentMergers,
+      mutual_funds: mutualFunds
     };
 
 

@@ -483,6 +483,133 @@ async function getStockHistory(symbol, startDate) {
   return rows;
 }
 
+/**
+ * Get latest prices with mutual fund data in a single optimized query
+ * @param {Array} symbols - Array of stock symbols
+ * @returns {Object} - Object with stocks array and mutualFunds array
+ */
+async function getLatestPricesWithMutualFunds(symbols) {
+  if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
+    return { stocks: [], mutualFunds: [] };
+  }
+
+  let stocks = [];
+  let source = 'REDIS_LIVE';
+
+  // Try Redis first for stock prices
+  try {
+    const redisPrices = await redis.hgetall('live:stock_prices');
+    if (redisPrices && Object.keys(redisPrices).length > 0) {
+      stocks = Object.values(redisPrices)
+        .map(p => JSON.parse(p))
+        .filter(p => symbols.includes(p.symbol));
+    } else {
+      source = 'MYSQL_PERSISTENT';
+      // Fallback to MySQL
+      const placeholders = symbols.map(() => '?').join(',');
+      const sql = `
+        SELECT 
+          symbol, 
+          company_name AS security_name,
+          close_price,
+          last_traded_price,
+          open_price,
+          high_price,
+          low_price,
+          previous_close,
+          percentage_change,
+          (close_price - previous_close) as \`change\`,
+          total_traded_quantity,
+          updated_at as business_date
+        FROM company_details
+        WHERE symbol IN (${placeholders})
+      `;
+      const [rows] = await pool.execute(sql, symbols);
+      stocks = rows;
+    }
+  } catch (error) {
+    logger.error('❌ Redis error in getLatestPricesWithMutualFunds:', error);
+  }
+
+  // Fetch metadata and mutual fund data in a single query using LEFT JOIN
+  if (stocks.length > 0) {
+    const stockSymbols = stocks.map(s => s.symbol);
+    const placeholders = stockSymbols.map(() => '?').join(',');
+
+    const [enrichedData] = await pool.execute(
+      `SELECT 
+        cd.symbol, 
+        cd.company_name, 
+        cd.nepali_company_name, 
+        cd.sector_name, 
+        cd.nepali_sector_name,
+        cd.market_capitalization, 
+        cd.pe_ratio, 
+        cd.pb_ratio, 
+        cd.eps, 
+        cd.dividend_yield,
+        cd.logo_url,
+        cd.maturity_date,
+        cd.maturity_period,
+        mf.weekly_nav,
+        mf.weekly_nav_date,
+        mf.monthly_nav,
+        mf.monthly_nav_date
+       FROM company_details cd
+       LEFT JOIN mutual_fund_navs mf ON cd.security_id = mf.security_id
+       WHERE cd.symbol IN (${placeholders})`,
+      stockSymbols
+    );
+
+    const enrichedMap = enrichedData.reduce((acc, curr) => ({ ...acc, [curr.symbol]: curr }), {});
+
+    // Enrich stocks with metadata
+    stocks = stocks.map(s => ({
+      ...s,
+      ...enrichedMap[s.symbol],
+      source
+    }));
+
+    // Extract mutual funds data (only for stocks that have mutual fund data)
+    const mutualFunds = enrichedData
+      .filter(item => item.sector_name === 'Mutual Funds' && item.weekly_nav !== null)
+      .map(item => {
+        // Find the corresponding stock to get LTP
+        const stock = stocks.find(s => s.symbol === item.symbol);
+        const ltp = stock?.close_price || stock?.last_traded_price;
+
+        // Calculate premium/discount
+        let premium_discount = null;
+        if (ltp && item.weekly_nav && item.weekly_nav > 0) {
+          premium_discount = ((ltp - item.weekly_nav) / item.weekly_nav) * 100;
+          premium_discount = Math.round(premium_discount * 100) / 100;
+        }
+
+        return {
+          symbol: item.symbol,
+          name: item.company_name,
+          nepali_company_name: item.nepali_company_name,
+          logo: item.logo_url,
+          sector: item.sector_name,
+          maturity_date: item.maturity_date,
+          maturity_period: item.maturity_period,
+          ltp: ltp,
+          previous_close: stock?.previous_close,
+          weekly_nav: item.weekly_nav,
+          weekly_nav_date: item.weekly_nav_date,
+          monthly_nav: item.monthly_nav,
+          monthly_nav_date: item.monthly_nav_date,
+          premium_discount
+        };
+      });
+
+    return { stocks, mutualFunds };
+  }
+
+  return { stocks: [], mutualFunds: [] };
+}
+
+
 module.exports = {
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
@@ -491,7 +618,9 @@ module.exports = {
   searchStocks,
   getScriptDetails,
   getLatestPrices,
+  getLatestPricesWithMutualFunds,
   getIntradayData,
   insertTodayPrices,
   getStockHistory
 };
+
