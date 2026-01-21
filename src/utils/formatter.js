@@ -75,6 +75,8 @@ const formatCompanyDetailsForDatabase = (details) => {
     pb_ratio: detail.pb_ratio || 0,
     dividend_yield: detail.dividend_yield || 0,
     eps: detail.eps || 0,
+    maturity_date: detail.maturity_date || detail.maturityDate || null,
+    maturity_period: detail.maturity_period || detail.maturityPeriod || null,
     logo_url: detail.logoUrl,
     is_logo_placeholder: detail.isLogoPlaceholder,
     last_traded_price: detail.lastTradedPrice || 0,
