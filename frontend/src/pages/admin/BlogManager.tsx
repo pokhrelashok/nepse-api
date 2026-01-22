@@ -65,11 +65,11 @@ export default function BlogManager() {
       {/* Filter Bar */}
       <div className="flex items-center py-4">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground text-gray-400" />
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <input
             type="search"
             placeholder="Search blogs..."
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 pl-8 border-gray-200"
+            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 pl-8"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
@@ -77,11 +77,11 @@ export default function BlogManager() {
       </div>
 
       {/* Table */}
-      <div className="rounded-md border border-gray-200 bg-white">
+      <div className="rounded-md border border-border bg-card text-card-foreground">
         <div className="relative w-full overflow-auto">
           <table className="w-full caption-bottom text-sm text-left">
             <thead className="[&_tr]:border-b">
-              <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted border-gray-200">
+              <tr className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted border-border">
                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground w-[400px]">Title</th>
                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Category</th>
                 <th className="h-12 px-4 align-middle font-medium text-muted-foreground">Status</th>
@@ -96,18 +96,18 @@ export default function BlogManager() {
                 </tr>
               ) : blogs.length > 0 ? (
                 blogs.map((blog) => (
-                  <tr key={blog.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted border-gray-100 hover:bg-gray-50">
+                  <tr key={blog.id} className="border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted border-border">
                     <td className="p-4 align-middle font-medium">
                       <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-gray-400" />
+                        <FileText className="h-4 w-4 text-muted-foreground" />
                         {blog.title}
                       </div>
                     </td>
                     <td className="p-4 align-middle capitalize">{blog.category.replace('_', ' ')}</td>
                     <td className="p-4 align-middle">
                       <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${(blog.is_published === 1 || blog.is_published === true)
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-yellow-100 text-yellow-800'
+                        ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                        : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
                         }`}>
                         {(blog.is_published === 1 || blog.is_published === true) ? 'Published' : 'Draft'}
                       </span>
@@ -120,15 +120,15 @@ export default function BlogManager() {
                         <Link
                           to="/admin/blogs/$id/edit"
                           params={{ id: blog.id.toString() }}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white hover:bg-gray-100 text-sm font-medium transition-colors"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background hover:bg-accent hover:text-accent-foreground text-sm font-medium transition-colors"
                         >
-                          <Edit className="h-4 w-4 text-gray-600" />
+                          <Edit className="h-4 w-4" />
                         </Link>
                         <button
                           onClick={() => handleDelete(blog.id)}
-                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-gray-200 bg-white hover:bg-red-50 text-sm font-medium transition-colors"
+                          className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-background hover:bg-destructive/10 text-destructive text-sm font-medium transition-colors"
                         >
-                          <Trash2 className="h-4 w-4 text-red-600" />
+                          <Trash2 className="h-4 w-4" />
                         </button>
                       </div>
                     </td>
