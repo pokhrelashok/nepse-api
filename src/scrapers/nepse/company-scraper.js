@@ -53,29 +53,18 @@ class CompanyScraper {
     };
 
     const clean = (text) => text ? String(text).replace(/\s+/g, ' ').trim() : '';
-    const instrumentTypeFromData = securityData?.security?.instrumentType?.description || securityData?.security?.instrumentType?.code || securityData?.security?.instrumentType || '';
-    const instrumentTypeLower = clean(instrumentTypeFromData).toLowerCase();
-    const isSpecialInstrument = instrumentTypeLower.includes('mutual fund') ||
-      instrumentTypeLower.includes('debenture') ||
-      instrumentTypeLower.includes('bond');
 
     if (profileData) {
       const profileName = clean(profileData.companyName || '');
       const titleFromDom = clean(profileData.titleFromDom || '');
 
-      // For mutual funds, debentures, and bonds, ALWAYS prefer titleFromDom (H1 from page) over API profileName
-      // because API often returns parent company/sponsor name instead of specific instrument name
-      if (isSpecialInstrument) {
-        // Only use profileName if we don't have titleFromDom
-        if (!titleFromDom && profileName) {
-          info.companyName = profileName;
-        }
-        // Otherwise keep titleFromDom (already set in line 16)
-      } else {
-        // For non-mutual funds, use profileName if available
-        if (profileName) {
-          info.companyName = profileName;
-        }
+      // Always prefer titleFromDom (H1 from page) over API profileName
+      // - For mutual funds/debentures: fixes issue where API returns sponsor/parent name
+      // - For regular companies: returns the correct full name (e.g. "Nabil Bank Limited")
+      if (titleFromDom) {
+        info.companyName = titleFromDom;
+      } else if (profileName) {
+        info.companyName = profileName;
       }
 
       if (!info.email) info.email = clean(profileData.companyEmail || '');
