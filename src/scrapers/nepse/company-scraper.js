@@ -54,15 +54,18 @@ class CompanyScraper {
 
     const clean = (text) => text ? String(text).replace(/\s+/g, ' ').trim() : '';
     const instrumentTypeFromData = securityData?.security?.instrumentType?.description || securityData?.security?.instrumentType?.code || securityData?.security?.instrumentType || '';
-    const isMutualFund = clean(instrumentTypeFromData).toLowerCase().includes('mutual fund');
+    const instrumentTypeLower = clean(instrumentTypeFromData).toLowerCase();
+    const isSpecialInstrument = instrumentTypeLower.includes('mutual fund') ||
+      instrumentTypeLower.includes('debenture') ||
+      instrumentTypeLower.includes('bond');
 
     if (profileData) {
       const profileName = clean(profileData.companyName || '');
       const titleFromDom = clean(profileData.titleFromDom || '');
 
-      // For mutual funds, ALWAYS prefer titleFromDom (H1 from page) over API profileName
-      // because API often returns sponsor bank name instead of fund name
-      if (isMutualFund) {
+      // For mutual funds, debentures, and bonds, ALWAYS prefer titleFromDom (H1 from page) over API profileName
+      // because API often returns parent company/sponsor name instead of specific instrument name
+      if (isSpecialInstrument) {
         // Only use profileName if we don't have titleFromDom
         if (!titleFromDom && profileName) {
           info.companyName = profileName;
@@ -104,7 +107,7 @@ class CompanyScraper {
       info.listingDate = clean(security.listingDate || '');
 
       // For mutual funds, sector is often wrongly reported as sponsor's sector
-      if (isMutualFund) {
+      if (instrumentTypeLower.includes('mutual fund')) {
         info.sectorName = 'Mutual Funds';
       } else {
         info.sectorName = clean(sectorMaster.sectorDescription || '');
