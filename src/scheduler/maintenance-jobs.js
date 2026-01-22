@@ -87,9 +87,21 @@ async function runSystemCleanup(scheduler) {
     if (process.platform === 'linux') {
       try {
         const { execSync } = require('child_process');
-        execSync('journalctl --vacuum-time=1d', { stdio: 'ignore' });
-        logger.info('✅ Vacuumed system journal logs to 1 day');
+
+        // 1. Clean System Journals (limit size to 50M)
+        execSync('journalctl --vacuum-size=50M', { stdio: 'ignore' });
+
+        // 2. Clean Apt Cache
+        execSync('apt-get clean', { stdio: 'ignore' });
+
+        // 3. Clean Old Log Files (*.gz and *.1)
+        execSync("find /var/log -type f -name '*.gz' -delete", { stdio: 'ignore' });
+        execSync("find /var/log -type f -name '*.1' -delete", { stdio: 'ignore' });
+
+        logger.info('✅ Performed deep system cleanup (journals, apt cache, old logs)');
+        msg += 'Deep system cleanup executed.';
       } catch (err) {
+        logger.warn(`⚠️ Some system cleanup commands failed: ${err.message}`);
       }
     }
 
