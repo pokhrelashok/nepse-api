@@ -73,7 +73,8 @@ exports.getValues = async (req, res) => {
 
 exports.getCompanyDetails = async (req, res) => {
   try {
-    const symbol = extractSymbol(req.params.symbol);
+    const symbolParam = req.params.symbol || req.params[0];
+    const symbol = extractSymbol(symbolParam);
     const details = await getScriptDetails(symbol);
 
     if (!details) {

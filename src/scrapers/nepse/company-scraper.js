@@ -53,6 +53,7 @@ class CompanyScraper {
     };
 
     const clean = (text) => text ? String(text).replace(/\s+/g, ' ').trim() : '';
+    const instrumentTypeFromData = securityData?.security?.instrumentType?.description || securityData?.security?.instrumentType?.code || securityData?.security?.instrumentType || '';
 
     if (profileData) {
       const profileName = clean(profileData.companyName || '');
@@ -90,6 +91,8 @@ class CompanyScraper {
       } else {
         info.instrumentType = clean(security.instrumentType || '');
       }
+
+      const instrumentTypeLower = info.instrumentType.toLowerCase();
 
       info.status = clean(security.activeStatus || security.status || '');
       info.permittedToTrade = clean(security.permittedToTrade || 'No');

@@ -55,8 +55,8 @@ router.get('/scheduler/status', schedulerController.getSchedulerStatus);
 // Search & Scripts
 router.get('/search', companyController.searchCompanies);
 router.get('/scripts', companyController.getAllCompanies);
-router.get('/scripts/:symbol', companyController.getCompanyDetails);
 router.get('/scripts/:symbol/ai-summary', companyController.getAIStockSummary);
+router.get(/^\/scripts\/(.*)/, companyController.getCompanyDetails);
 router.get('/history/:symbol', companyController.getCompanyHistory);
 
 // Market Updates
