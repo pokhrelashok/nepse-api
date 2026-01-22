@@ -67,22 +67,55 @@ export default function ScriptDetail() {
   const [dividends, setDividends] = useState<any[]>([])
 
   useEffect(() => {
-    const fetchCoreData = async () => {
-      const sym = symbol
-      if (!sym) return
+    const fetchDetails = async () => {
+      if (!symbol) return
       setLoading(true)
       try {
-        const [detailsRes, historyRes] = await Promise.all([
-          fetch(`/api/scripts/${sym}`).then(res => res.json()),
-          fetch(`/api/history/${sym}?range=${range}`).then(res => res.json())
-        ])
+        const res = await fetch(`/api/scripts/${symbol}`)
+        const data = await res.json()
 
-        if (detailsRes.success) {
-          setDetails(detailsRes.data)
-          // Also set dividends and financials from details if they exist
-          setDividends(detailsRes.data.dividends || [])
-          setFinancials(detailsRes.data.financials || [])
+        if (data.success) {
+          setDetails(data.data)
+          setDividends(data.data.dividends || [])
+          setFinancials(data.data.financials || [])
         }
+      } catch (error) {
+        console.error('Error fetching details:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchDetails()
+  }, [symbol])
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      // Prefer security_id if available (from details), otherwise fallback to symbol
+      // But for symbols with slashes (e.g. GBILD84/85), we MUST use security_id
+      const identifier = details?.security_id || symbol
+
+      if (!identifier) return
+
+      // If we have details but no security_id (rare/impossible?), fallback to symbol.
+      // If we don't have details yet, we could wait, or try symbol. 
+      // To strictly fix the bug, we should probably wait for details if we suspect a problematic symbol.
+      // But practically, 'details' will be null initially. 
+      // If we try fetching with symbol 'GBILD84/85' it will fail (404/500).
+      // So checking if details is loaded is better.
+      if (!details && !symbol) return
+
+      // If we don't have details yet, use symbol. If symbol has '/', the fetch might fail or return error.
+      // The previous implementation did Promise.all, so it TRIED to fetch with symbol.
+      // We want to avoid that for broken symbols.
+      // So if details is not null, use security_id.
+      // If details IS null, should we wait?
+      // If we wait, the chart will be empty for a second.
+      // Let's rely on identifier.
+
+      try {
+        const res = await fetch(`/api/history/${identifier}?range=${range}`)
+        const historyRes = await res.json()
 
         if (historyRes.success && Array.isArray(historyRes.data)) {
           const formattedHistory = historyRes.data.map((d: any) => ({
@@ -91,7 +124,6 @@ export default function ScriptDetail() {
           })).sort((a: any, b: any) => a.time.localeCompare(b.time))
           setHistory(formattedHistory)
         } else if (Array.isArray(historyRes)) {
-          // Fallback for backward compatibility if API changes
           const formattedHistory = historyRes.map((d: any) => ({
             time: d.business_date ? d.business_date.split('T')[0] : d.time,
             value: parseFloat(d.close_price || d.close || d.value)
@@ -99,14 +131,12 @@ export default function ScriptDetail() {
           setHistory(formattedHistory)
         }
       } catch (error) {
-        console.error('Error fetching core data:', error)
-      } finally {
-        setLoading(false)
+        console.error('Error fetching history:', error)
       }
     }
 
-    fetchCoreData()
-  }, [symbol, range])
+    fetchHistory()
+  }, [details, symbol, range])
 
   // Split AI fetching to avoid blocking the main UI
   // useEffect(() => {

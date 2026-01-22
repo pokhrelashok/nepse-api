@@ -469,17 +469,36 @@ async function insertTodayPrices(prices) {
 }
 
 async function getStockHistory(symbol, startDate) {
-  const sql = `
-    SELECT
-    business_date,
-      close_price,
-      total_traded_quantity
-    FROM stock_price_history
-    WHERE symbol = ? AND business_date >= ?
-      ORDER BY business_date ASC
-        `;
+  const isSecurityId = /^\d+$/.test(symbol);
 
-  const [rows] = await pool.execute(sql, [symbol, startDate]);
+  let sql;
+  let params;
+
+  if (isSecurityId) {
+    sql = `
+      SELECT
+      business_date,
+        close_price,
+        total_traded_quantity
+      FROM stock_price_history
+      WHERE security_id = ? AND business_date >= ?
+        ORDER BY business_date ASC
+          `;
+    params = [symbol, startDate];
+  } else {
+    sql = `
+      SELECT
+      business_date,
+        close_price,
+        total_traded_quantity
+      FROM stock_price_history
+      WHERE symbol = ? AND business_date >= ?
+        ORDER BY business_date ASC
+          `;
+    params = [symbol, startDate];
+  }
+
+  const [rows] = await pool.execute(sql, params);
   return rows;
 }
 
