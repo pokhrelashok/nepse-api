@@ -477,7 +477,7 @@ async function getStockHistory(symbol, startDate) {
   if (isSecurityId) {
     sql = `
       SELECT
-      business_date,
+        CAST(business_date AS CHAR) as business_date,
         close_price,
         total_traded_quantity
       FROM stock_price_history
@@ -488,7 +488,7 @@ async function getStockHistory(symbol, startDate) {
   } else {
     sql = `
       SELECT
-      business_date,
+        CAST(business_date AS CHAR) as business_date,
         close_price,
         total_traded_quantity
       FROM stock_price_history

@@ -437,7 +437,7 @@ async function getMarketIndicesHistory(options = {}) {
 
   let sql = `
     SELECT
-    business_date,
+      CAST(business_date AS CHAR) as business_date,
       closing_index,
       percentage_change,
       turnover_value,

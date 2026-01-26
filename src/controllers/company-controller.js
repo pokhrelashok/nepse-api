@@ -45,9 +45,11 @@ const getStartDateFromRange = (range) => {
 // Helper to extract symbol from slug or return symbol as is
 const extractSymbol = (param) => {
   if (!param) return null;
+  // Decode URL encoded characters (e.g. %2F -> /)
+  const decoded = decodeURIComponent(param);
   // If it contains a hyphen, assume it's a slug (SYMBOL-company-name)
   // Otherwise it's just the symbol
-  return param.split('-')[0].toUpperCase();
+  return decoded.split('-')[0].toUpperCase();
 };
 
 exports.searchCompanies = async (req, res) => {
