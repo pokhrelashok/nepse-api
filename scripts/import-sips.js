@@ -24,8 +24,6 @@ const path = require('path');
     console.log(`Processing ${sips.length} records...`);
     console.log('This will:');
     console.log('1. Insert/Update into `sips` table');
-    console.log('2. Sync to `company_details` (negative security_id)');
-    console.log('3. Push to Redis `live:stock_prices`');
 
     const count = await insertSips(sips);
     console.log(`✅ Successfully processed ${count} records.`);
