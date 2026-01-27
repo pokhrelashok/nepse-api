@@ -261,6 +261,27 @@ program
   });
 
 program
+  .command('sips')
+  .description('Scrape SIP data from NepseAlpha')
+  .action(async () => {
+    try {
+      console.log('📊 Scraping SIPs...');
+      const SipScraper = require('./scrapers/sip-scraper');
+      const { insertSips } = require('./database/queries/sip-queries');
+
+      const scraper = new SipScraper();
+      const data = await scraper.scrapeSips();
+
+      console.log(`✅ Scraped ${data.length} SIPs`);
+      const count = await insertSips(data);
+      console.log(`💾 Saved/Updated ${count} SIP records`);
+    } catch (error) {
+      console.error('❌ Error:', error.message);
+      process.exit(1);
+    }
+  });
+
+program
   .command('notifications')
   .description('Check and send daily notifications')
   .action(async () => {

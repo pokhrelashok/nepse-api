@@ -5,6 +5,7 @@
 const stockQueries = require('./stock-queries');
 const companyQueries = require('./company-queries');
 const schedulerQueries = require('./scheduler-queries');
+const sipQueries = require('./sip-queries');
 const marketQueries = require('./market-queries');
 const ipoQueries = require('./ipo-queries');
 const dividendQueries = require('./dividend-queries');
@@ -24,6 +25,12 @@ module.exports = {
 
   // Scheduler queries
   ...schedulerQueries,
+
+  // SIP queries
+  ...sipQueries,
+
+  // SIP queries
+  ...sipQueries,
 
   // Market queries
   ...marketQueries,

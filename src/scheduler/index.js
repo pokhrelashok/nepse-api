@@ -6,7 +6,7 @@ const { NepseScraper } = require('../scrapers/nepse-scraper');
 // Import all job modules
 const { updateMarketIndex, updatePricesAndStatus } = require('./market-jobs');
 const { updateCompanyDetails } = require('./company-jobs');
-const { runIpoScrape, runFpoScrape, runDividendScrape, runMergerScrape, runMarketIndicesHistoryScrape, runMutualFundScrape } = require('./data-jobs');
+const { runIpoScrape, runFpoScrape, runDividendScrape, runMergerScrape, runMarketIndicesHistoryScrape, runMutualFundScrape, runSipScrape } = require('./data-jobs');
 const { archiveDailyPrices, archiveMarketIndex } = require('./archive-jobs');
 const { runSystemCleanup, runDatabaseBackup, runNotificationCheck } = require('./maintenance-jobs');
 const { generateStockSummaries, generateDailyMarketBlog } = require('./ai-analysis-jobs');
@@ -115,6 +115,16 @@ class Scheduler extends BaseScheduler {
     });
     this.jobs.set('mutual_fund_update', mutualFundJob);
     mutualFundJob.start();
+
+    // SIP Scraper (Daily at 3:15 AM)
+    const sipJob = cron.schedule('15 3 * * *', async () => {
+      await runSipScrape(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('sip_update', sipJob);
+    sipJob.start();
 
     // System Cleanup (Daily at 4:30 AM - when no other jobs are running)
     const cleanupJob = cron.schedule('30 4 * * *', async () => {

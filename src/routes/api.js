@@ -77,6 +77,10 @@ router.get('/announced-dividends', companyController.getDividends);
 // Mutual Funds
 router.post('/mutual-funds', companyController.getMutualFunds);
 
+// SIPs
+const sipController = require('../controllers/sip-controller');
+router.get('/sips', sipController.getSips);
+
 // Market Stats & Summary
 router.get('/market/stats', marketController.getMarketStats);
 router.get('/market/status', marketController.getMarketStatus);

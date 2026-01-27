@@ -236,9 +236,50 @@ async function runMutualFundScrape(scheduler) {
   }
 }
 
+/**
+ * Scrapes SIP data
+ * Called daily at 3:15 AM
+ */
+async function runSipScrape(scheduler) {
+  const jobKey = 'sip_update';
+  if (scheduler.isJobRunning.get(jobKey)) return;
+
+  scheduler.isJobRunning.set(jobKey, true);
+
+  // Holiday check
+  if (await HolidayService.isHoliday()) {
+    logger.info('Skipping SIP scrape: Today is a market holiday');
+    scheduler.isJobRunning.set(jobKey, false);
+    return;
+  }
+
+  scheduler.updateStatus(jobKey, 'START', 'Starting SIP scrape...');
+
+  logger.info('Starting scheduled SIP scrape...');
+
+  try {
+    const SipScraper = require('../scrapers/sip-scraper');
+    const { insertSips } = require('../database/queries/sip-queries');
+
+    const scraper = new SipScraper();
+    const data = await scraper.scrapeSips();
+    const count = await insertSips(data);
+
+    scheduler.updateStatus(jobKey, 'SUCCESS', `SIP scrape completed. Updated ${count} records.`);
+  } catch (error) {
+    logger.error('Scheduled SIP scrape failed:', error);
+    scheduler.updateStatus(jobKey, 'FAIL', error.message);
+  } finally {
+    scheduler.isJobRunning.set(jobKey, false);
+  }
+}
+
 module.exports = {
+  runIpoScrape,
+  runFpoScrape,
   runDividendScrape,
   runMergerScrape,
   runMarketIndicesHistoryScrape,
-  runMutualFundScrape
+  runMutualFundScrape,
+  runSipScrape
 };

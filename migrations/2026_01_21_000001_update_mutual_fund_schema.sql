@@ -2,9 +2,10 @@
 -- Created: 2026-01-21
 
 -- Add maturity fields to company_details
-ALTER TABLE company_details 
-ADD COLUMN maturity_date VARCHAR(50) AFTER listing_date,
-ADD COLUMN maturity_period VARCHAR(100) AFTER maturity_date;
+-- Add maturity fields to company_details
+-- ALTER TABLE company_details 
+-- ADD COLUMN maturity_date VARCHAR(50) AFTER listing_date,
+-- ADD COLUMN maturity_period VARCHAR(100) AFTER maturity_date;
 
 -- Create mutual_fund_navs table
 CREATE TABLE IF NOT EXISTS mutual_fund_navs (
