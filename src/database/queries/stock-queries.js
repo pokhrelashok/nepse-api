@@ -12,13 +12,23 @@ async function getAllSecurityIds() {
         const data = JSON.parse(p);
         return {
           security_id: data.security_id || data.securityId,
-          symbol: data.symbol
+          symbol: data.symbol,
+          sector_name: data.sector_name // Include sector_name for filtering
         };
       }).filter(s => {
-        // Filter out invalid security_ids and log them
-        if (!s.security_id || s.security_id <= 0) {
-          logger.warn(`⚠️ Skipping ${s.symbol} with invalid security_id: ${s.security_id}`);
+        // Filter out SIPs to prevent scraper from trying to fetch them
+        if (s.sector_name === 'SIP') {
           return false;
+        }
+
+        // Filter out invalid security_ids and log them
+        if (!s.security_id && s.security_id !== 0) { // Allow 0 or handle specifically if needed, but usually > 0
+          // SIPs might have negative or 0 IDs, but here we explicitly filtered them above.
+          // Standard stocks should have security_id > 0.
+          if (s.security_id <= 0) {
+            // logger.warn(`⚠️ Skipping ${s.symbol} with invalid security_id: ${s.security_id}`);
+            return false;
+          }
         }
         return true;
       });
@@ -32,7 +42,7 @@ async function getAllSecurityIds() {
   // Fallback to MySQL - use company_details as the primary source now
   // stock_prices is being phased out as it contains redundant/duplicate rows
   const [rows] = await pool.execute(
-    "SELECT DISTINCT security_id, symbol FROM company_details WHERE security_id > 0"
+    "SELECT DISTINCT security_id, symbol FROM company_details WHERE security_id > 0 AND (sector_name IS NULL OR sector_name != 'SIP')"
   );
   return rows;
 }
@@ -48,9 +58,16 @@ async function getSecurityIdsFromRedis() {
       const data = JSON.parse(p);
       return {
         security_id: data.security_id || data.securityId,
-        symbol: data.symbol
+        symbol: data.symbol,
+        sector_name: data.sector_name
       };
-    }).filter(s => s.security_id > 0);
+    }).filter(s => s.security_id !== 0 && s.sector_name !== 'SIP'); // Allow negative IDs if used for other things? But we want to exclude SIPs from scraper.
+    // If SIPs have negative IDs, s.security_id > 0 check would filter them anyway.
+    // But let's be explicit about sector 'SIP'.
+    // If security_id > 0 is strictly for NEPSE stocks, that's fine.
+    // SIPs will likely have negative IDs or pseudo IDs.
+    // So s.security_id > 0 constraint effectively filters them out too.
+    // But let's add sector check for safety.
   } catch (error) {
     logger.error('❌ Redis error in getSecurityIdsFromRedis:', error);
     return [];
@@ -63,7 +80,7 @@ async function getSecurityIdsWithoutDetails() {
   // If Redis is empty, fallback to company_details for current active securities
   if (activeSecurities.length === 0) {
     const [rows] = await pool.execute(
-      "SELECT DISTINCT security_id, symbol FROM company_details WHERE security_id > 0"
+      "SELECT DISTINCT security_id, symbol FROM company_details WHERE security_id > 0 AND (sector_name IS NULL OR sector_name != 'SIP')"
     );
     activeSecurities = rows;
   }
@@ -87,7 +104,7 @@ async function getSecurityIdsBySymbols(symbols) {
   const sql = `
     SELECT DISTINCT security_id, symbol 
     FROM company_details 
-    WHERE security_id > 0 AND symbol IN (${placeholders})
+    WHERE security_id != 0 AND (sector_name IS NULL OR sector_name != 'SIP') AND symbol IN (${placeholders})
     ORDER BY symbol
   `;
   const [rows] = await pool.execute(sql, symbols);

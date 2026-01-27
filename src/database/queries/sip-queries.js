@@ -1,4 +1,19 @@
 const { pool } = require('../database');
+const redis = require('../../config/redis');
+const logger = require('../../utils/logger');
+
+/**
+ * Generate a deterministic negative security ID for SIPs based on symbol
+ */
+function getSipSecurityId(symbol) {
+  let hash = 0;
+  for (let i = 0; i < symbol.length; i++) {
+    hash = ((hash << 5) - hash) + symbol.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  // Ensure negative and within integer range, preventing collision with small negative numbers if any
+  return -Math.abs(hash) - 100000;
+}
 
 /**
  * Insert or update SIPs
@@ -42,6 +57,69 @@ async function insertSips(sips) {
     ]);
 
     const [result] = await connection.query(query, [values]);
+
+    // 2. Insert/Update company_details
+    const companyDetailsQuery = `
+      INSERT INTO company_details 
+      (security_id, symbol, company_name, sector_name, status, last_traded_price, close_price, open_price, high_price, low_price, previous_close, total_traded_quantity, total_trades, updated_at)
+      VALUES ?
+      ON DUPLICATE KEY UPDATE
+      company_name = VALUES(company_name),
+      last_traded_price = VALUES(last_traded_price),
+      close_price = VALUES(close_price),
+      updated_at = CURRENT_TIMESTAMP
+    `;
+
+    const companyDetailsValues = sips.map(sip => {
+      const securityId = getSipSecurityId(sip.symbol);
+      return [
+        securityId,
+        sip.symbol,
+        sip.company_name,
+        'SIP',
+        'A',
+        sip.nav || 0,
+        sip.nav || 0,
+        0, 0, 0, 0, 0, 0, // open, high, low, prev, qty, trades
+        new Date()
+      ];
+    });
+
+    await connection.query(companyDetailsQuery, [companyDetailsValues]);
+
+    // 3. Push to Redis live:stock_prices
+    const pipeline = redis.pipeline();
+    const now = new Date().toISOString();
+
+    for (const sip of sips) {
+      const securityId = getSipSecurityId(sip.symbol);
+      const data = {
+        security_id: securityId,
+        symbol: sip.symbol,
+        security_name: sip.company_name,
+        company_name: sip.company_name,
+        sector_name: 'SIP',
+        business_date: sip.nav_date,
+        open_price: 0,
+        high_price: 0,
+        low_price: 0,
+        close_price: sip.nav || 0,
+        total_traded_quantity: 0,
+        total_traded_value: 0,
+        previous_close: 0,
+        change: 0,
+        percentage_change: 0,
+        last_updated: now,
+        status: 'A',
+        is_sip: true
+      };
+      pipeline.hset('live:stock_prices', sip.symbol, JSON.stringify(data));
+    }
+
+    // Also add to active keys list or similar if needed, but live:stock_prices is standard
+    await pipeline.exec();
+    logger.info(`✅ Synced ${sips.length} SIPs to company_details and Redis`);
+
     await connection.commit();
     return result.affectedRows;
   } catch (error) {

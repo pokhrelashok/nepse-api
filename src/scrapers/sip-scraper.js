@@ -3,8 +3,7 @@ const logger = require('../utils/logger');
 
 class SipScraper {
   constructor() {
-    // NepseAlpha has Cloudflare, but we will try headless as requested for final test
-    this.browserManager = new BrowserManager({ headless: true });
+    this.browserManager = new BrowserManager();
   }
 
   async scrapeSips() {
@@ -12,7 +11,7 @@ class SipScraper {
     await this.browserManager.init();
     const browser = this.browserManager.getBrowser();
     const page = await browser.newPage();
-
+    await page.setUserAgent('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36');
     const url = 'https://nepsealpha.com/sip-in-nepal';
 
     try {
@@ -20,7 +19,8 @@ class SipScraper {
       await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 90000 });
 
       // Wait for table to load
-      await page.waitForSelector('.v-data-table', { timeout: 60000 });
+      logger.info('⏳ Waiting for table data... (If you see a Cloudflare CAPTCHA, please solve it manually!)');
+      await page.waitForSelector('.v-data-table', { timeout: 300000 }); // 5 minutes timeout for manual solving
       // Small wait for Vue to render rows
       await new Promise(r => setTimeout(r, 2000));
 
@@ -59,27 +59,57 @@ class SipScraper {
 
           if (!symbolText) return; // Skip if no symbol found
 
-          // Company Name
-          // Try to get from small tag, or fallback to symbol if empty
-          let companyName = '';
-          const smallTag = cols[0].querySelector('small');
-          if (smallTag) companyName = smallTag.innerText.trim();
+          // Company Name Extraction
+          // 0. Static mapping for known SIPs where scraped name is missing or corrupted
+          const sipNames = {
+            'NIBLSF': 'NIBL Sahabhagita Fund',
+            'SSIS': 'Siddhartha Systematic Investment Scheme',
+            'NICSF': 'NIBL Samriddhi Fund 1',
+            'NI31': 'NI 31',
+            'KSLY': 'Kumari Sunaulo Lagani Yojana',
+            'NFCF': 'Nabil Flexi Cap Fund',
+            'NMBSBF': 'NMB Saral Bachat Fund - E',
+            'SLK': 'Shubha Laxmi Kosh',
+            'NADDF': 'NIC Asia Dynamic Debt Fund',
+            'SFF': 'Sanima Flexi Fund',
+            'NMB50': 'NMB 50',
+            'NMBHF1': 'NMB Hybrid Fund L-1',
+            'LEMF': 'Laxmi Equity Fund',
+            'LUK': 'Laxmi Unnati Kosh',
+            'LVF1': 'Laxmi Value Fund 1',
+            'SFMF': 'Siddhartha Investment Growth Scheme 2',
+            'SIGS2': 'Siddhartha Investment Growth Scheme 2',
+            'SAEF': 'Sanima Equity Fund',
+            'SEF': 'Sanima Equity Fund',
+            'NICGF': 'NIC Asia Growth Fund',
+            'NBF2': 'Nabil Balanced Fund 2'
+          };
 
-          // If company name is empty (as seen in logs), use Symbol or try to find it elsewhere?
-          // Since the HTML dump showed empty small tag, but user screenshot has name.
-          // It's possible the name is loaded dynamically or we just use symbol map later.
-          // For now, if empty, use Symbol as placeholder or look for other text nodes.
+          let companyName = sipNames[symbolText] || '';
+
+          // 1. Try specific selectors first - these are most reliable if the site works properly
           if (!companyName) {
-            // Try to get all text from the second div
-            const textDiv = cols[0].querySelector('.d-flex.flex-column');
-            if (textDiv) {
-              const fullText = textDiv.innerText.trim(); // "SSIS"
-              if (fullText.length > symbolText.length) {
-                companyName = fullText.replace(symbolText, '').trim();
-              }
+            const specificNameEl = cols[0].querySelector('.text-caption, small, .text-muted, .v-list-item__subtitle');
+            companyName = specificNameEl ? specificNameEl.innerText.trim() : '';
+          }
+
+          if (!companyName) {
+            // 2. Fallback: Parse cell text and filter out artifacts like single-letter avatars
+            const cellText = cols[0].innerText.trim();
+            const parts = cellText.split('\n').map(p => p.trim()).filter(p => p.length > 1);
+
+            // Remove the symbol if present in parts
+            const cleanParts = parts.filter(p => !symbolText || p !== symbolText);
+
+            if (cleanParts.length > 0) {
+              cleanParts.sort((a, b) => b.length - a.length);
+              companyName = cleanParts[0];
+            } else {
+              companyName = symbolText;
             }
           }
-          if (!companyName) companyName = symbolText;
+
+          if (!companyName) companyName = symbolText; // Final fallback
 
           // Validate Date (Column 3)
           const dateText = getText(cols[3]);
