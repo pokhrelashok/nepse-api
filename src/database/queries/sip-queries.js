@@ -56,7 +56,16 @@ async function insertSips(sips) {
  * Get all SIPs
  */
 async function getAllSips() {
-  const [rows] = await pool.query('SELECT * FROM sips ORDER BY company_name ASC');
+  const query = `
+    SELECT 
+      id, symbol, company_name, category, nav, 
+      DATE_FORMAT(nav_date, '%Y-%m-%d') as nav_date, 
+      authorized_fund_size, net_asset_value, return_since_inception, 
+      inception_date, expense_ratio, created_at, updated_at
+    FROM sips 
+    ORDER BY company_name ASC
+  `;
+  const [rows] = await pool.query(query);
   return rows;
 }
 

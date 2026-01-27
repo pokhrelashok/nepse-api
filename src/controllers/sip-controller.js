@@ -1,5 +1,5 @@
 const { getAllSips } = require('../database/queries/sip-queries');
-const { formatResponse } = require('../utils/formatter');
+const { formatResponse, formatError } = require('../utils/formatter');
 const logger = require('../utils/logger');
 
 /**
@@ -11,7 +11,7 @@ async function getSips(req, res) {
     res.json(formatResponse(sips, 'SIPs retrieved successfully'));
   } catch (error) {
     logger.error('Error getting SIPs:', error);
-    res.status(500).json(formatResponse(null, 'Failed to get SIPs', true));
+    res.status(500).json(formatError('Failed to get SIPs', 500));
   }
 }
 
