@@ -74,11 +74,12 @@ async function scrapeIpos(checkAll = false) {
         };
 
         // Translate company name and sector name to Nepali
-        const nepaliCompanyName = await aiService.translateToNepali(ipo.companyName);
-        const nepaliSectorName = await aiService.translateToNepali(ipo.sectorName);
+        // Disabled for testing to avoid rate limits
+        // const nepaliCompanyName = await aiService.translateToNepali(ipo.companyName);
+        // const nepaliSectorName = await aiService.translateToNepali(ipo.sectorName);
 
-        cleanedIpo.nepaliCompanyName = nepaliCompanyName;
-        cleanedIpo.nepaliSectorName = nepaliSectorName;
+        cleanedIpo.nepaliCompanyName = null; // nepaliCompanyName;
+        cleanedIpo.nepaliSectorName = null; // nepaliSectorName;
 
         await insertIpo(cleanedIpo);
       }

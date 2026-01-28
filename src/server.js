@@ -90,12 +90,14 @@ app.use('/api', (req, res, next) => {
     '/today-prices',
     '/market/indices/history',
     '/mutual-funds',
-    '/sips'
+    '/sips',
+    '/ipo/published'
   ];
 
   const prefixPaths = [
     '/scripts',
-    '/history'
+    '/history',
+    '/ipo/scripts'
   ];
 
   if (exactPaths.includes(req.path) || prefixPaths.some(p => req.path.startsWith(p))) {

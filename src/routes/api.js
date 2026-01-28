@@ -81,6 +81,19 @@ router.post('/mutual-funds', companyController.getMutualFunds);
 const sipController = require('../controllers/sip-controller');
 router.get('/sips', sipController.getSips);
 
+// IPO Result Checker
+const ipoResultController = require('../controllers/ipo-result-controller');
+router.post('/ipo/check-result', authMiddleware, ipoResultController.checkIpoResultsBulk);
+router.get('/ipo/published', ipoResultController.getPublishedIpos);
+
+// User BOID Management
+const userBoidController = require('../controllers/user-boid-controller');
+router.get('/user/boids', authMiddleware, userBoidController.getBoids);
+router.get('/user/boids/primary', authMiddleware, userBoidController.getPrimaryBoid);
+router.post('/user/boids', authMiddleware, userBoidController.addBoid);
+router.put('/user/boids/:boidId', authMiddleware, userBoidController.updateBoid);
+router.delete('/user/boids/:boidId', authMiddleware, userBoidController.deleteBoid);
+
 // Market Stats & Summary
 router.get('/market/stats', marketController.getMarketStats);
 router.get('/market/status', marketController.getMarketStatus);
