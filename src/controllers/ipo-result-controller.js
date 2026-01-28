@@ -2,6 +2,8 @@ const { getChecker } = require('../services/ipo-checker');
 const { validateBoid } = require('../utils/boid-validator');
 const { formatResponse, formatError } = require('../utils/formatter');
 const { findIpoByCompanyAndShareType, getPublishedIpos } = require('../database/queries/ipo-queries');
+const { pool } = require('../database/database');
+const { formatShareType } = require('../utils/share-type-utils');
 const logger = require('../utils/logger');
 
 /**
@@ -101,15 +103,20 @@ exports.checkIpoResultsBulk = async (req, res) => {
       return res.status(400).json(formatError('IPO ID is required', 400));
     }
 
-    // Get IPO details from database
-    const { getIpos } = require('../database/queries/ipo-queries');
-    const ipos = await getIpos({ id: ipoId });
+    // Get IPO details from database - using direct query for simplicity and robustness
+    const [ipos] = await pool.query(
+      'SELECT id, ipo_id, company_name, share_type, symbol, published_in FROM ipos WHERE id = ? OR ipo_id = ?',
+      [ipoId, ipoId]
+    );
 
     if (!ipos || ipos.length === 0) {
       return res.status(404).json(formatError('IPO not found', 404));
     }
 
     const ipo = ipos[0];
+
+    // Format share_type for display and result checking compatibility
+    ipo.share_type = formatShareType(ipo.share_type);
 
     // Check if result is published
     if (!ipo.published_in) {

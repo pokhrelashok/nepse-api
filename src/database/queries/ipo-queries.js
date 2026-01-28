@@ -47,10 +47,34 @@ async function insertIpo(ipoData) {
   return result;
 }
 
-async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null, offeringType = null) {
+async function getIpos(arg1 = 100, arg2 = 0, arg3 = null, arg4 = null, arg5 = null) {
+  let limit = 100;
+  let offset = 0;
+  let startDate = null;
+  let endDate = null;
+  let offeringType = null;
+  let id = null;
+
+  if (typeof arg1 === 'object' && arg1 !== null) {
+    const options = arg1;
+    limit = options.limit || 100;
+    offset = options.offset || 0;
+    startDate = options.startDate || null;
+    endDate = options.endDate || null;
+    offeringType = options.offeringType || null;
+    id = options.id || null;
+  } else {
+    limit = arg1;
+    offset = arg2;
+    startDate = arg3;
+    endDate = arg4;
+    offeringType = arg5;
+  }
+
   let sql = `
     SELECT
-    ipo_id,
+      id,
+      ipo_id,
       company_name,
       nepali_company_name,
       symbol,
@@ -71,9 +95,14 @@ async function getIpos(limit = 100, offset = 0, startDate = null, endDate = null
       published_in
     FROM ipos
     WHERE 1 = 1
-      `;
+  `;
 
   const params = [];
+
+  if (id) {
+    sql += ` AND id = ? `;
+    params.push(id);
+  }
 
   if (startDate) {
     sql += ` AND opening_date >= ? `;
@@ -187,6 +216,7 @@ async function findIpoByCompanyAndShareType(companyName, shareType) {
 async function getPublishedIpos(limit = 100, offset = 0) {
   const sql = `
     SELECT 
+      id,
       ipo_id,
       company_name,
       nepali_company_name,
@@ -209,10 +239,10 @@ async function getPublishedIpos(limit = 100, offset = 0) {
     FROM ipos
     WHERE published_in IS NOT NULL
     ORDER BY closing_date DESC
-    LIMIT ? OFFSET ?
+    LIMIT ${parseInt(limit) || 100} OFFSET ${parseInt(offset) || 0}
   `;
 
-  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+  const [rows] = await pool.query(sql);
 
   // Format share_type for display
   return rows.map(row => ({
