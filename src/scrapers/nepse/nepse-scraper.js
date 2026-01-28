@@ -1,4 +1,4 @@
-const BrowserManager = require('./browser-manager');
+const BrowserManager = require('../../utils/browser-manager');
 const MarketScraper = require('./market-scraper');
 const PriceScraper = require('./price-scraper');
 const CompanyScraper = require('./company-scraper');

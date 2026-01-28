@@ -1,9 +1,6 @@
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const BrowserManager = require('../../utils/browser-manager');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
-
-puppeteer.use(StealthPlugin());
 
 /**
  * NMB Capital IPO Result Checker
@@ -67,12 +64,12 @@ class NmbCapitalChecker extends IpoResultChecker {
    * @returns {Promise<Array>} - Array of {rawName, companyName, shareType, value}
    */
   async getScripts() {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
+    const browserManager = new BrowserManager();
+    let browser;
     try {
+      await browserManager.init();
+      browser = browserManager.getBrowser();
+
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720 });
 
@@ -120,7 +117,7 @@ class NmbCapitalChecker extends IpoResultChecker {
       logger.error('Error fetching scripts from NMB Capital:', error);
       throw error;
     } finally {
-      await browser.close();
+      await browserManager.close();
     }
   }
 
@@ -132,13 +129,13 @@ class NmbCapitalChecker extends IpoResultChecker {
    * @returns {Promise<Object>} - Result object
    */
   async checkResult(boid, companyName, shareType) {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
+    const browserManager = new BrowserManager();
+    let browser;
     try {
       logger.info(`Checking IPO result for BOID: ${boid}, Company: ${companyName}, Share Type: ${shareType}`);
+
+      await browserManager.init();
+      browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
       await page.setViewport({ width: 1280, height: 720 });
@@ -153,8 +150,21 @@ class NmbCapitalChecker extends IpoResultChecker {
       await page.waitForSelector('select#company', { timeout: 10000 });
       await page.waitForSelector('input#boidNumber', { timeout: 10000 });
 
-      // Get all available companies to find the right one
-      const scripts = await this.getScripts();
+      // Get all available companies from the current page to find the right one (optimized to reuse browser)
+      const scriptsData = await page.evaluate(() => {
+        const select = document.querySelector('select#company');
+        if (!select) return [];
+        return Array.from(select.querySelectorAll('option'))
+          .filter(opt => opt.value && opt.value !== '')
+          .map(opt => ({ rawName: opt.textContent.trim(), value: opt.value }));
+      });
+
+      const scripts = scriptsData.map(script => ({
+        rawName: script.rawName,
+        companyName: this._normalizeCompanyName(script.rawName),
+        shareType: this._extractShareType(script.rawName),
+        value: script.value
+      }));
 
       // Find matching company (companyName is already normalized from database)
       const matchingScript = scripts.find(script =>
@@ -251,7 +261,7 @@ class NmbCapitalChecker extends IpoResultChecker {
         message: `Error: ${error.message}`
       };
     } finally {
-      await browser.close();
+      await browserManager.close();
     }
   }
 }

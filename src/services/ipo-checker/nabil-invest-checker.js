@@ -1,10 +1,6 @@
-const puppeteer = require('puppeteer-extra');
-const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+const BrowserManager = require('../../utils/browser-manager');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
-
-// Add stealth plugin to avoid detection
-puppeteer.use(StealthPlugin());
 
 /**
  * Nabil Invest IPO Result Checker
@@ -64,18 +60,11 @@ class NabilInvestChecker extends IpoResultChecker {
    * @returns {Promise<Array>} - Array of script objects
    */
   async getScripts() {
+    const browserManager = new BrowserManager();
     let browser;
     try {
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu'
-        ]
-      });
+      await browserManager.init();
+      browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
       await page.goto(this.url, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -114,9 +103,7 @@ class NabilInvestChecker extends IpoResultChecker {
       logger.error('Error fetching scripts from Nabil Invest:', error);
       throw new Error(`Failed to fetch scripts: ${error.message}`);
     } finally {
-      if (browser) {
-        await browser.close();
-      }
+      await browserManager.close();
     }
   }
 
@@ -128,26 +115,42 @@ class NabilInvestChecker extends IpoResultChecker {
    * @returns {Promise<Object>} - Result object
    */
   async checkResult(boid, companyName, shareType) {
+    const browserManager = new BrowserManager();
     let browser;
     try {
       logger.info(`Checking IPO result for BOID: ${boid}, Company: ${companyName}, Share Type: ${shareType}`);
 
-      browser = await puppeteer.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-accelerated-2d-canvas',
-          '--disable-gpu'
-        ]
-      });
+      await browserManager.init();
+      browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
       await page.goto(this.url, { waitUntil: 'networkidle2', timeout: 30000 });
 
       // Get all scripts and find matching one
-      const scripts = await this.getScripts();
+      // Note: We're calling getScripts recursively which creates another browser interaction.
+      // This is slightly inefficient but safer for isolation. 
+      // Ideally we should cache scripts or reuse browser if possible but getScripts closes its browser.
+      // Let's just call getScripts first before opening this browser to be safe or just call it here?
+      // Actually calling this.getScripts() here will instantiate ANOTHER BrowserManager and browser.
+      // That's fine, Puppeteer can handle multiple browsers, but sequential is better.
+      // However, checkResult flow implies we are already inside a task.
+
+      // OPTIMIZATION: Manually fetch scripts using the CURRENT browser page to avoid double launch
+      // Extract company options from dropdown (Reusing logic from getScripts)
+      const scriptsData = await page.evaluate(() => {
+        const select = document.querySelector('select[aria-label="company"]');
+        if (!select) return [];
+        return Array.from(select.querySelectorAll('option'))
+          .filter(opt => opt.value && opt.value !== '')
+          .map(opt => ({ rawName: opt.textContent.trim(), value: opt.value }));
+      });
+
+      const scripts = scriptsData.map(script => ({
+        rawName: script.rawName,
+        companyName: this._normalizeCompanyName(script.rawName),
+        shareType: this._extractShareType(script.rawName),
+        value: script.value
+      })).filter(s => s.shareType !== null);
 
       // Normalize input company name for matching
       const normalizedInputName = this._normalizeCompanyName(companyName);
@@ -230,9 +233,7 @@ class NabilInvestChecker extends IpoResultChecker {
         message: `Failed to check result: ${error.message}`
       };
     } finally {
-      if (browser) {
-        await browser.close();
-      }
+      await browserManager.close();
     }
   }
 }
