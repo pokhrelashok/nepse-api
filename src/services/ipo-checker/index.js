@@ -1,4 +1,5 @@
 const NabilInvestChecker = require('./nabil-invest-checker');
+const NmbCapitalChecker = require('./nmb-capital-checker');
 
 /**
  * Registry of supported providers
@@ -10,6 +11,13 @@ const SUPPORTED_PROVIDERS = {
     displayName: 'Nabil Investment Banking Limited',
     url: 'https://result.nabilinvest.com.np/search/ipo-share',
     checker: NabilInvestChecker
+  },
+  'nmb-capital': {
+    id: 'nmb-capital',
+    name: 'NMB Capital',
+    displayName: 'NMB Capital Limited',
+    url: 'https://nmbcl.com.np/ipo',
+    checker: NmbCapitalChecker
   }
 };
 
