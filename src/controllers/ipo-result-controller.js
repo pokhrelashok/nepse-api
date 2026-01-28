@@ -1,7 +1,7 @@
 const { getChecker } = require('../services/ipo-checker');
 const { validateBoid } = require('../utils/boid-validator');
 const { formatResponse, formatError } = require('../utils/formatter');
-const { findIpoByCompanyAndShareType, getPublishedIpos } = require('../database/queries/ipo-queries');
+const { findIpoResult, getPublishedIpos } = require('../database/queries/ipo-queries');
 const { pool } = require('../database/database');
 const { formatShareType } = require('../utils/share-type-utils');
 const logger = require('../utils/logger');
@@ -37,27 +37,20 @@ exports.checkIpoResult = async (req, res) => {
     // Determine which provider to use
     let providerId = provider;
 
-    // If no provider specified, check database for published_in
+    // If no provider specified, check database for result entry in ipo_results
     if (!providerId) {
-      const ipo = await findIpoByCompanyAndShareType(companyName, shareType);
+      // Note: companyName here should be the raw name from bank website if called from published list
+      const resultEntry = await findIpoResult(companyName, shareType);
 
-      if (!ipo) {
+      if (!resultEntry) {
         return res.status(404).json(formatError(
-          `IPO not found for company "${companyName}" with share type "${shareType}"`,
+          `Result not found for "${companyName}" with share type "${shareType}"`,
           404
         ));
       }
 
-      if (!ipo.published_in) {
-        return res.status(404).json(formatError(
-          `Result not yet published for ${companyName} (${shareType})`,
-          404,
-          { ipo: { companyName: ipo.company_name, shareType: ipo.share_type, status: ipo.status } }
-        ));
-      }
-
-      providerId = ipo.published_in;
-      logger.info(`Using provider ${providerId} from database for ${companyName}`);
+      providerId = resultEntry.provider_id;
+      logger.info(`Using provider ${providerId} from ipo_results for ${companyName}`);
     }
 
     // Get appropriate checker for the provider
@@ -103,25 +96,17 @@ exports.checkIpoResultsBulk = async (req, res) => {
       return res.status(400).json(formatError('IPO ID is required', 400));
     }
 
-    // Get IPO details from database - using direct query for simplicity and robustness
-    const [ipos] = await pool.query(
-      'SELECT id, ipo_id, company_name, share_type, symbol, published_in FROM ipos WHERE id = ? OR ipo_id = ?',
-      [ipoId, ipoId]
+    // Get result details from ipo_results database
+    const [resultsFromDb] = await pool.query(
+      'SELECT provider_id, company_name, share_type FROM ipo_results WHERE id = ?',
+      [ipoId]
     );
 
-    if (!ipos || ipos.length === 0) {
-      return res.status(404).json(formatError('IPO not found', 404));
+    if (!resultsFromDb || resultsFromDb.length === 0) {
+      return res.status(404).json(formatError('IPO result entry not found', 404));
     }
 
-    const ipo = ipos[0];
-
-    // Format share_type for display and result checking compatibility
-    ipo.share_type = formatShareType(ipo.share_type);
-
-    // Check if result is published
-    if (!ipo.published_in) {
-      return res.status(404).json(formatError('IPO result not yet published', 404));
-    }
+    const ipoResult = resultsFromDb[0];
 
     // Get user's BOIDs
     const { getUserBoids } = require('../database/queries/user-boid-queries');
@@ -132,7 +117,7 @@ exports.checkIpoResultsBulk = async (req, res) => {
     }
 
     // Get appropriate checker for the provider
-    const providerId = ipo.published_in;
+    const providerId = ipoResult.provider_id;
     let checker;
     try {
       checker = getChecker(providerId);
@@ -140,13 +125,13 @@ exports.checkIpoResultsBulk = async (req, res) => {
       return res.status(500).json(formatError(`Provider ${providerId} not supported`, 500));
     }
 
-    logger.info(`IPO result check - User: ${userId}, IPO: ${ipo.company_name}, Provider: ${providerId}, BOIDs: ${userBoids.length}`);
+    logger.info(`IPO result check - User: ${userId}, IPO: ${ipoResult.company_name}, Provider: ${providerId}, BOIDs: ${userBoids.length}`);
 
     // Check results for all user BOIDs in parallel
     const results = await Promise.all(
       userBoids.map(async (boidEntry) => {
         try {
-          const result = await checker.checkResult(boidEntry.boid, ipo.company_name, ipo.share_type);
+          const result = await checker.checkResult(boidEntry.boid, ipoResult.company_name, formatShareType(ipoResult.share_type));
           return {
             name: boidEntry.name,
             boid: boidEntry.boid,
@@ -179,10 +164,9 @@ exports.checkIpoResultsBulk = async (req, res) => {
 
     res.json(formatResponse({
       ipo: {
-        id: ipo.id,
-        companyName: ipo.company_name,
-        shareType: ipo.share_type,
-        symbol: ipo.symbol
+        id: ipoId,
+        companyName: ipoResult.company_name,
+        shareType: formatShareType(ipoResult.share_type)
       },
       provider: providerId,
       summary,

@@ -208,7 +208,26 @@ async function findIpoByCompanyAndShareType(companyName, shareType) {
 }
 
 /**
- * Get IPOs with published results
+ * Insert or update IPO result from bank website
+ * @param {Object} resultData - Result data (provider_id, company_name, share_type, value)
+ * @returns {Promise} - Insert result
+ */
+async function insertIpoResult(resultData) {
+  const sql = `
+    INSERT INTO ipo_results (provider_id, company_name, share_type, value)
+    VALUES (?, ?, ?, ?)
+    ON DUPLICATE KEY UPDATE
+      value = VALUES(value),
+      updated_at = NOW()
+  `;
+
+  const { providerId, companyName, shareType, value } = resultData;
+  const [result] = await pool.execute(sql, [providerId, companyName, shareType, value]);
+  return result;
+}
+
+/**
+ * Get published IPOs (from ipo_results table)
  * @param {number} limit - Maximum number of results
  * @param {number} offset - Offset for pagination
  * @returns {Promise<Array>} - Array of published IPOs
@@ -217,45 +236,46 @@ async function getPublishedIpos(limit = 100, offset = 0) {
   const sql = `
     SELECT 
       id,
-      ipo_id,
+      provider_id,
       company_name,
-      nepali_company_name,
-      symbol,
-      share_registrar,
-      sector_name,
-      nepali_sector_name,
       share_type,
-      offering_type,
-      price_per_unit,
-      rating,
-      units,
-      min_units,
-      max_units,
-      total_amount,
-      DATE_FORMAT(opening_date, '%Y-%m-%d') as opening_date,
-      DATE_FORMAT(closing_date, '%Y-%m-%d') as closing_date,
-      status,
-      published_in
-    FROM ipos
-    WHERE published_in IS NOT NULL
-    ORDER BY closing_date DESC
-    LIMIT ${parseInt(limit) || 100} OFFSET ${parseInt(offset) || 0}
+      value,
+      DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') as published_at
+    FROM ipo_results
+    ORDER BY updated_at DESC
+    LIMIT ? OFFSET ?
   `;
 
-  const [rows] = await pool.query(sql);
+  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
 
   // Format share_type for display
   return rows.map(row => ({
     ...row,
-    share_type: formatShareType(row.share_type)
+    share_type_display: formatShareType(row.share_type)
   }));
 }
 
+/**
+ * Find IPO result by raw company name and share type
+ * @param {string} companyName - Raw company name from bank
+ * @param {string} shareType - Normalized share type
+ * @returns {Promise<Object|null>} - Matching result or null
+ */
+async function findIpoResult(companyName, shareType) {
+  const sql = `
+    SELECT provider_id, company_name, share_type, value
+    FROM ipo_results
+    WHERE company_name = ? AND share_type = ?
+    LIMIT 1
+  `;
+
+  const [rows] = await pool.execute(sql, [companyName, shareType]);
+  return rows.length > 0 ? rows[0] : null;
+}
+
 module.exports = {
-  insertIpo,
-  getIpos,
-  updateIpoPublishedStatus,
-  getUnpublishedIpos,
   findIpoByCompanyAndShareType,
-  getPublishedIpos
+  getPublishedIpos,
+  insertIpoResult,
+  findIpoResult
 };

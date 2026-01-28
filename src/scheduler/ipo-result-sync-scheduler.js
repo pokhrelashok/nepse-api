@@ -1,14 +1,12 @@
 const { getAllCheckers } = require('../services/ipo-checker');
 const {
-  findIpoByCompanyAndShareType,
-  updateIpoPublishedStatus,
-  getUnpublishedIpos
+  insertIpoResult
 } = require('../database/queries/ipo-queries');
 const logger = require('../utils/logger');
 
 /**
  * Sync IPO results from all providers
- * Fetches scripts from each provider and updates database with published_in status
+ * Fetches scripts from each provider and stores them in ipo_results table
  * @returns {Promise<Object>} - Summary of sync operation
  */
 async function syncIpoResults() {
@@ -16,10 +14,8 @@ async function syncIpoResults() {
 
   const summary = {
     totalScriptsFound: 0,
-    totalMatched: 0,
-    totalUpdated: 0,
+    totalSaved: 0,
     providers: {},
-    matches: [],
     errors: []
   };
 
@@ -36,8 +32,7 @@ async function syncIpoResults() {
       summary.providers[providerId] = {
         name: providerName,
         scriptsFound: 0,
-        matched: 0,
-        updated: 0,
+        saved: 0,
         errors: []
       };
 
@@ -49,7 +44,7 @@ async function syncIpoResults() {
 
         logger.info(`Found ${scripts.length} scripts from ${providerName}`);
 
-        // Try to match each script with IPOs in database
+        // Save each script to database
         for (const script of scripts) {
           try {
             // Skip if no share type could be extracted
@@ -58,36 +53,18 @@ async function syncIpoResults() {
               continue;
             }
 
-            // Find matching IPO in database
-            const matchingIpo = await findIpoByCompanyAndShareType(
-              script.companyName,
-              script.shareType
-            );
+            // Save result to ipo_results table
+            await insertIpoResult({
+              providerId: providerId,
+              companyName: script.rawName, // Save the raw name as provided by the bank
+              shareType: script.shareType,
+              value: script.value
+            });
 
-            if (matchingIpo) {
-              summary.totalMatched++;
-              summary.providers[providerId].matched++;
+            summary.totalSaved++;
+            summary.providers[providerId].saved++;
 
-              logger.info(`Matched: ${script.rawName} -> ${matchingIpo.company_name} (${matchingIpo.share_type})`);
-
-              // Update published_in status
-              await updateIpoPublishedStatus(matchingIpo.ipo_id, providerId);
-
-              summary.totalUpdated++;
-              summary.providers[providerId].updated++;
-
-              summary.matches.push({
-                provider: providerId,
-                scriptName: script.rawName,
-                ipoId: matchingIpo.ipo_id,
-                companyName: matchingIpo.company_name,
-                shareType: matchingIpo.share_type
-              });
-
-              logger.info(`Updated IPO ${matchingIpo.ipo_id} with published_in: ${providerId}`);
-            } else {
-              logger.info(`No match found for: ${script.companyName} (${script.shareType})`);
-            }
+            logger.info(`Saved result: ${script.rawName} (${script.shareType}) from ${providerName}`);
           } catch (error) {
             logger.error(`Error processing script ${script.rawName}:`, error);
             summary.providers[providerId].errors.push({
@@ -113,7 +90,7 @@ async function syncIpoResults() {
       }
     }
 
-    logger.info(`IPO result sync completed. Matched: ${summary.totalMatched}, Updated: ${summary.totalUpdated}`);
+    logger.info(`IPO result sync completed. Scripts found: ${summary.totalScriptsFound}, Saved: ${summary.totalSaved}`);
     return summary;
 
   } catch (error) {
@@ -123,21 +100,30 @@ async function syncIpoResults() {
 }
 
 /**
- * Get sync status - shows unpublished IPOs
+ * Get sync status - shows summary of results in ipo_results table
  * @returns {Promise<Object>} - Status object
  */
 async function getSyncStatus() {
   try {
-    const unpublishedIpos = await getUnpublishedIpos();
+    const sql = `
+      SELECT provider_id, COUNT(*) as result_count
+      FROM ipo_results
+      GROUP BY provider_id
+    `;
+    const [rows] = await pool.execute(sql);
+
+    // Get latest results
+    const [latestResults] = await pool.query(
+      'SELECT provider_id, company_name, share_type, DATE_FORMAT(updated_at, "%Y-%m-%d %H:%i:%s") as updated_at FROM ipo_results ORDER BY updated_at DESC LIMIT 10'
+    );
 
     return {
-      unpublishedCount: unpublishedIpos.length,
-      unpublishedIpos: unpublishedIpos.map(ipo => ({
-        ipoId: ipo.ipo_id,
-        companyName: ipo.company_name,
-        shareType: ipo.share_type,
-        symbol: ipo.symbol,
-        closingDate: ipo.closing_date
+      providerStats: rows,
+      latestResults: latestResults.map(r => ({
+        providerId: r.provider_id,
+        companyName: r.company_name,
+        shareType: r.share_type,
+        updatedAt: r.updated_at
       }))
     };
   } catch (error) {
