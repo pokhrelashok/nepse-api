@@ -44,7 +44,7 @@
     "backup:db": "echo 'Use mysqldump -u nepse -p nepse_db > backup.sql'",
     "restore:db": "echo 'Use mysql -u nepse -p nepse_db < backup.sql'",
     "backfill:market-history": "bun scripts/backfill-market-history.js",
-    "sync:ipo-results": "node scripts/sync-ipo-results.js"
+    "sync:ipo-results": "bun scripts/sync-ipo-results.js"
   },
   "keywords": [
     "nepse",

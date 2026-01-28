@@ -1,4 +1,4 @@
-const { pool } = require('../database/database');
+const { pool } = require('../database');
 
 /**
  * Get all BOIDs for a user
