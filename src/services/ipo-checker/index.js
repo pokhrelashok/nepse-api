@@ -1,5 +1,6 @@
 const NabilInvestChecker = require('./nabil-invest-checker');
 const NmbCapitalChecker = require('./nmb-capital-checker');
+const LsCapitalChecker = require('./ls-capital-checker');
 
 /**
  * Registry of supported providers
@@ -18,6 +19,13 @@ const SUPPORTED_PROVIDERS = {
     displayName: 'NMB Capital Limited',
     url: 'https://nmbcl.com.np/ipo',
     checker: NmbCapitalChecker
+  },
+  'ls-capital': {
+    id: 'ls-capital',
+    name: 'LS Capital',
+    displayName: 'Laxmi Sunrise Capital Limited',
+    url: 'https://lscapital.com.np/ipo',
+    checker: LsCapitalChecker
   }
 };
 

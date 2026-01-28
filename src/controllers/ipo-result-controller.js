@@ -199,12 +199,7 @@ exports.getPublishedIpos = async (req, res) => {
 
     const ipos = await getPublishedIpos(limit, offset);
 
-    res.json(formatResponse({
-      ipos: ipos,
-      count: ipos.length,
-      limit: limit,
-      offset: offset
-    }, 'Published IPOs retrieved successfully'));
+    res.json(formatResponse(ipos, 'Published IPOs retrieved successfully'));
 
   } catch (error) {
     logger.error('Error getting published IPOs:', error);
