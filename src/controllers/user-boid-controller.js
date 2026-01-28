@@ -15,7 +15,7 @@ const logger = require('../utils/logger');
  */
 exports.getBoids = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.currentUser?.id;
 
     if (!userId) {
       return res.status(401).json(formatError('Authentication required', 401));
@@ -41,7 +41,7 @@ exports.getBoids = async (req, res) => {
  */
 exports.addBoid = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.currentUser?.id;
     const { name, boid, isPrimary } = req.body;
 
     if (!userId) {
@@ -91,7 +91,7 @@ exports.addBoid = async (req, res) => {
  */
 exports.updateBoid = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.currentUser?.id;
     const { boidId } = req.params;
     const updates = req.body;
 
@@ -142,7 +142,7 @@ exports.updateBoid = async (req, res) => {
  */
 exports.deleteBoid = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.currentUser?.id;
     const { boidId } = req.params;
 
     if (!userId) {
@@ -178,7 +178,7 @@ exports.deleteBoid = async (req, res) => {
  */
 exports.getPrimaryBoid = async (req, res) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.currentUser?.id;
 
     if (!userId) {
       return res.status(401).json(formatError('Authentication required', 401));

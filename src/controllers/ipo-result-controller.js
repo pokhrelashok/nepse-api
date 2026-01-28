@@ -91,7 +91,7 @@ exports.checkIpoResult = async (req, res) => {
 exports.checkIpoResultsBulk = async (req, res) => {
   try {
     const { ipoId } = req.body;
-    const userId = req.user?.id;
+    const userId = req.currentUser?.id;
 
     if (!userId) {
       return res.status(401).json(formatError('Authentication required', 401));
