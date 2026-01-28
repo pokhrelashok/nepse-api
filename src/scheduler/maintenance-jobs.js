@@ -23,6 +23,31 @@ async function runSystemCleanup(scheduler) {
 
     let deletedCount = 0;
     let keptCount = 0;
+    let totalBytesDeleted = 0;
+
+    // Helper function to get directory size recursively
+    function getDirectorySize(dirPath) {
+      let totalSize = 0;
+      try {
+        const items = fs.readdirSync(dirPath);
+        for (const item of items) {
+          const itemPath = path.join(dirPath, item);
+          try {
+            const stats = fs.statSync(itemPath);
+            if (stats.isDirectory()) {
+              totalSize += getDirectorySize(itemPath);
+            } else {
+              totalSize += stats.size;
+            }
+          } catch (err) {
+            // Skip files we can't access
+          }
+        }
+      } catch (err) {
+        // Skip directories we can't access
+      }
+      return totalSize;
+    }
 
     const files = fs.readdirSync(tmpDir);
     for (const file of files) {
@@ -33,6 +58,10 @@ async function runSystemCleanup(scheduler) {
           const age = now - stats.mtimeMs;
 
           if (age > MAX_AGE_MS) {
+            // Calculate size before deletion
+            const size = stats.isDirectory() ? getDirectorySize(filePath) : stats.size;
+            totalBytesDeleted += size;
+
             fs.rmSync(filePath, { recursive: true, force: true });
             deletedCount++;
           } else {
@@ -44,9 +73,12 @@ async function runSystemCleanup(scheduler) {
     }
 
     let msg = '';
+    let totalFilesDeleted = deletedCount;
+
     if (deletedCount > 0) {
-      logger.info(`✅ Cleaned up ${deletedCount} old temp directories (kept ${keptCount} recent ones)`);
-      msg += `Cleaned ${deletedCount} temp dirs. `;
+      const mbDeleted = (totalBytesDeleted / (1024 * 1024)).toFixed(2);
+      logger.info(`✅ Cleaned up ${deletedCount} old temp directories (${mbDeleted} MB, kept ${keptCount} recent ones)`);
+      msg += `Cleaned ${deletedCount} temp dirs (${mbDeleted} MB). `;
     } else if (keptCount > 0) {
       logger.info(`ℹ️ No old temp directories to clean (found ${keptCount} active/recent ones)`);
     } else {
@@ -55,6 +87,7 @@ async function runSystemCleanup(scheduler) {
 
     const downloadsDir = '/home/nepse/Downloads';
     let csvDeletedCount = 0;
+    let csvBytesDeleted = 0;
 
     try {
       if (fs.existsSync(downloadsDir)) {
@@ -68,6 +101,7 @@ async function runSystemCleanup(scheduler) {
               const age = now - stats.mtimeMs;
 
               if (age > MAX_AGE_MS) {
+                csvBytesDeleted += stats.size;
                 fs.unlinkSync(filePath);
                 csvDeletedCount++;
               }
@@ -77,8 +111,11 @@ async function runSystemCleanup(scheduler) {
         }
 
         if (csvDeletedCount > 0) {
-          logger.info(`✅ Cleaned up ${csvDeletedCount} old CSV files from Downloads directory`);
-          msg += `Cleaned ${csvDeletedCount} CSV files.`;
+          const csvMbDeleted = (csvBytesDeleted / (1024 * 1024)).toFixed(2);
+          logger.info(`✅ Cleaned up ${csvDeletedCount} old CSV files from Downloads directory (${csvMbDeleted} MB)`);
+          msg += `Cleaned ${csvDeletedCount} CSV files (${csvMbDeleted} MB). `;
+          totalFilesDeleted += csvDeletedCount;
+          totalBytesDeleted += csvBytesDeleted;
         }
       }
     } catch (err) {
