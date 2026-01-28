@@ -166,10 +166,14 @@ class NmbCapitalChecker extends IpoResultChecker {
         value: script.value
       }));
 
-      // Find matching company (companyName is already normalized from database)
+      // Normalize input company name and share type for robust matching
+      const normalizedInputName = this._normalizeCompanyName(companyName);
+      const normalizedInputShareType = shareType.toLowerCase();
+
+      // Find matching company
       const matchingScript = scripts.find(script =>
-        script.companyName === companyName &&
-        script.shareType === shareType
+        script.companyName === normalizedInputName &&
+        script.shareType === normalizedInputShareType
       );
 
       if (!matchingScript) {

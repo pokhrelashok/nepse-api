@@ -152,12 +152,13 @@ class NabilInvestChecker extends IpoResultChecker {
         value: script.value
       })).filter(s => s.shareType !== null);
 
-      // Normalize input company name for matching
+      // Normalize input company name and share type for matching
       const normalizedInputName = this._normalizeCompanyName(companyName);
+      const normalizedInputShareType = shareType.toLowerCase();
 
       // Find matching script by company name and share type
       const matchingScript = scripts.find(script =>
-        script.companyName === normalizedInputName && script.shareType === shareType
+        script.companyName === normalizedInputName && script.shareType === normalizedInputShareType
       );
 
       if (!matchingScript) {

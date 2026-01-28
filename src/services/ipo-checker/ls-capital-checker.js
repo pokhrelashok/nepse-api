@@ -140,9 +140,12 @@ class LsCapitalChecker extends IpoResultChecker {
         value: script.value
       }));
 
+      const normalizedInputName = this._normalizeCompanyName(companyName);
+      const normalizedInputShareType = shareType.toLowerCase();
+
       const matchingScript = scripts.find(script =>
-        this._normalizeCompanyName(companyName) === script.companyName &&
-        script.shareType === shareType
+        normalizedInputName === script.companyName &&
+        script.shareType === normalizedInputShareType
       );
 
       if (!matchingScript) {
