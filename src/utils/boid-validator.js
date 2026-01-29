@@ -16,8 +16,8 @@ function validateBoid(boid) {
     };
   }
 
-  // Convert to string if number
-  const boidStr = String(boid);
+  // Convert to string and trim if it's a string
+  const boidStr = String(boid).trim();
 
   // Check if it's exactly 16 digits
   if (boidStr.length !== 16) {

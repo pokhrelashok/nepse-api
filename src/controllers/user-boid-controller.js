@@ -57,14 +57,18 @@ exports.addBoid = async (req, res) => {
       return res.status(400).json(formatError('BOID is required', 400));
     }
 
+    // Trim BOID and other string fields
+    const normalizedBoid = String(boid).trim();
+    const normalizedName = String(name).trim();
+
     // Validate BOID format
-    const boidValidation = validateBoid(boid);
+    const boidValidation = validateBoid(normalizedBoid);
     if (!boidValidation.valid) {
       return res.status(400).json(formatError(boidValidation.error, 400));
     }
 
     // Add BOID
-    const newBoid = await addUserBoid(userId, name, boid, isPrimary || false);
+    const newBoid = await addUserBoid(userId, normalizedName, normalizedBoid, isPrimary || false);
 
     logger.info(`BOID added for user ${userId}: ${name} (${boid})`);
 
