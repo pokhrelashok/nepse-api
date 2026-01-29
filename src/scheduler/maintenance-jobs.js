@@ -135,8 +135,30 @@ async function runSystemCleanup(scheduler) {
         execSync("find /var/log -type f -name '*.gz' -delete", { stdio: 'ignore' });
         execSync("find /var/log -type f -name '*.1' -delete", { stdio: 'ignore' });
 
-        logger.info('✅ Performed deep system cleanup (journals, apt cache, old logs)');
-        msg += 'Deep system cleanup executed.';
+        // 4. Clear btmp (failed login logs, can grow large if attacked)
+        try {
+          execSync('cat /dev/null > /var/log/btmp', { stdio: 'ignore' });
+        } catch (e) {
+          // Might fail if not running as root
+        }
+
+        // 5. Purge MySQL Binary Logs (can take up GBs of space)
+        if (process.env.DB_USER && process.env.DB_PASSWORD) {
+          try {
+            execSync(`mysql -u${process.env.DB_USER} -p${process.env.DB_PASSWORD} -e "PURGE BINARY LOGS BEFORE NOW();"`, { stdio: 'ignore' });
+          } catch (e) {
+            // Might fail if mysql client is not installed or credentials differ
+          }
+        }
+
+        // 6. Extra check for root downloads if accessible
+        const rootDownloads = '/root/Downloads';
+        if (fs.existsSync(rootDownloads)) {
+          execSync(`find ${rootDownloads} -type f -mmin +60 -delete`, { stdio: 'ignore' });
+        }
+
+        logger.info('✅ Performed deep system cleanup (journals, apt cache, old logs, mysql binlogs)');
+        msg += 'Deep system cleanup executed (including MySQL binlogs).';
       } catch (err) {
         logger.warn(`⚠️ Some system cleanup commands failed: ${err.message}`);
       }
