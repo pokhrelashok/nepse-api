@@ -277,5 +277,9 @@ module.exports = {
   findIpoByCompanyAndShareType,
   getPublishedIpos,
   insertIpoResult,
-  findIpoResult
+  findIpoResult,
+  insertIpo,
+  getIpos,
+  updateIpoPublishedStatus,
+  getUnpublishedIpos
 };

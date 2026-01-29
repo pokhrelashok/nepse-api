@@ -1,4 +1,4 @@
-const BrowserManager = require('../../utils/browser-manager');
+const axios = require('axios');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
 
@@ -9,14 +9,14 @@ const logger = require('../../utils/logger');
 class NmbCapitalChecker extends IpoResultChecker {
   constructor() {
     super('nmb-capital', 'NMB Capital Limited');
-    this.baseUrl = 'https://nmbcl.com.np/ipo';
+    this.baseUrl = 'https://www.nmbcl.com.np/frontapi/en';
   }
 
   /**
    * Normalize company name for matching
-   * Removes Ltd/Limited, parentheses content, share type indicators, and normalizes case
    */
   _normalizeCompanyName(name) {
+    if (!name) return '';
     return name
       .replace(/\s*\(.*?\)\s*/g, '') // Remove parentheses and content
       .replace(/\s*-\s*(Public|Foreign Employment|Locals|Foreign|Employees|General Public)\.?$/i, '') // Remove share type suffixes
@@ -30,242 +30,152 @@ class NmbCapitalChecker extends IpoResultChecker {
 
   /**
    * Extract share type from company name
-   * Maps NMB-specific terms to our normalized types
    */
   _extractShareType(name) {
+    if (!name) return 'ordinary';
     const lowerName = name.toLowerCase();
 
     // Check for share type indicators in parentheses or text
-    if (lowerName.includes('(public)') || lowerName.includes('- public')) {
-      return 'local';
-    }
-    if (lowerName.includes('(foreign employment)') || lowerName.includes('foreign employment')) {
-      return 'migrant_workers';
-    }
-    if (lowerName.includes('(foreign)') || lowerName.includes('- foreign')) {
-      return 'foreign';
-    }
-    if (lowerName.includes('(mutual fund)') || lowerName.includes('fund')) {
-      return 'mutual_fund';
-    }
-    if (lowerName.includes('(employees)')) {
-      return 'employees';
-    }
-    if (lowerName.includes('fpo') || lowerName.includes('ipo')) {
-      return 'ordinary';
-    }
+    if (lowerName.includes('(public)') || lowerName.includes('- public')) return 'local';
+    if (lowerName.includes('(foreign employment)') || lowerName.includes('foreign employment')) return 'migrant_workers';
+    if (lowerName.includes('(foreign)') || lowerName.includes('- foreign')) return 'foreign';
+    if (lowerName.includes('(mutual fund)') || lowerName.includes('fund')) return 'mutual_fund';
+    if (lowerName.includes('(employees)')) return 'employees';
+    if (lowerName.includes('fpo') || lowerName.includes('ipo')) return 'ordinary';
 
-    // Default to ordinary if no specific type found
     return 'ordinary';
   }
 
   /**
    * Get list of available IPO scripts from NMB Capital
-   * @returns {Promise<Array>} - Array of {rawName, companyName, shareType, value}
    */
   async getScripts() {
-    const browserManager = new BrowserManager();
-    let browser;
     try {
-      await browserManager.init();
-      browser = browserManager.getBrowser();
-
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 720 });
-
-      logger.info('Navigating to NMB Capital IPO page...');
-      await page.goto(this.baseUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
+      const response = await axios.get(`${this.baseUrl}/ipo`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0',
+          'Accept': 'application/json, text/plain, */*',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
       });
 
-      // Wait for company dropdown to be populated
-      await page.waitForSelector('select#company', { timeout: 10000 });
+      if (!Array.isArray(response.data)) {
+        logger.warn('NMB Capital API returned unexpected format for companies');
+        return [];
+      }
 
-      // Extract company options
-      const scripts = await page.evaluate(() => {
-        const select = document.querySelector('select#company');
-        if (!select) return [];
+      const scripts = response.data.map(item => ({
+        rawName: item.name,
+        companyName: this._normalizeCompanyName(item.name),
+        shareType: this._extractShareType(item.name),
+        value: item.id // Use ID as value
+      }));
 
-        const options = Array.from(select.querySelectorAll('option'));
-        return options
-          .filter(opt => opt.value && opt.value !== '')
-          .map(opt => ({
-            rawName: opt.textContent.trim(),
-            value: opt.value
-          }));
-      });
-
-      // Parse and normalize each script
-      const parsedScripts = scripts.map(script => {
-        const companyName = this._normalizeCompanyName(script.rawName);
-        const shareType = this._extractShareType(script.rawName);
-
-        return {
-          rawName: script.rawName,
-          companyName: companyName,
-          shareType: shareType,
-          value: script.value
-        };
-      });
-
-      logger.info(`Fetched ${parsedScripts.length} IPO scripts from NMB Capital`);
-
-      return parsedScripts;
-
+      return scripts;
     } catch (error) {
-      logger.error('Error fetching scripts from NMB Capital:', error);
-      throw error;
-    } finally {
-      await browserManager.close();
+      logger.error('Error fetching scripts from NMB Capital API:', error.message);
+      return [];
     }
   }
 
   /**
    * Check IPO result for given BOID and company
-   * @param {string} boid - 16-digit BOID
-   * @param {string} companyName - Company name
-   * @param {string} shareType - Share type
-   * @returns {Promise<Object>} - Result object
    */
   async checkResult(boid, companyName, shareType) {
-    const browserManager = new BrowserManager();
-    let browser;
     try {
-      logger.info(`Checking IPO result for BOID: ${boid}, Company: ${companyName}, Share Type: ${shareType}`);
+      if (!companyName) {
+        return { success: false, message: 'Company name is required' };
+      }
 
-      await browserManager.init();
-      browser = browserManager.getBrowser();
-
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 720 });
-
-      // Navigate to IPO page
-      await page.goto(this.baseUrl, {
-        waitUntil: 'networkidle2',
-        timeout: 30000
-      });
-
-      // Wait for form elements
-      await page.waitForSelector('select#company', { timeout: 10000 });
-      await page.waitForSelector('input#boidNumber', { timeout: 10000 });
-
-      // Get all available companies from the current page to find the right one (optimized to reuse browser)
-      const scriptsData = await page.evaluate(() => {
-        const select = document.querySelector('select#company');
-        if (!select) return [];
-        return Array.from(select.querySelectorAll('option'))
-          .filter(opt => opt.value && opt.value !== '')
-          .map(opt => ({ rawName: opt.textContent.trim(), value: opt.value }));
-      });
-
-      const scripts = scriptsData.map(script => ({
-        rawName: script.rawName,
-        companyName: this._normalizeCompanyName(script.rawName),
-        shareType: this._extractShareType(script.rawName),
-        value: script.value
-      }));
-
-      // Normalize input company name and share type for robust matching
+      // Resolve company ID
+      const scripts = await this.getScripts();
       const normalizedInputName = this._normalizeCompanyName(companyName);
-      const normalizedInputShareType = shareType.toLowerCase();
 
-      // Find matching company
-      const matchingScript = scripts.find(script =>
-        script.companyName === normalizedInputName &&
-        script.shareType === normalizedInputShareType
-      );
+      const matchedScript = scripts.find(s => s.companyName === normalizedInputName);
 
-      if (!matchingScript) {
-        logger.warn(`No matching company found for: ${companyName} (${shareType})`);
+      if (!matchedScript) {
+        logger.warn(`Company not found in NMB Capital list: ${companyName}`);
         return {
-          success: false,
+          success: true,
           allotted: false,
           units: null,
-          message: `Company not found in NMB Capital: ${companyName} (${shareType})`
+          message: `Company not found: ${companyName}`
         };
       }
 
-      logger.info(`Found matching company: ${matchingScript.rawName} (value: ${matchingScript.value})`);
+      logger.info(`Checking IPO result for BOID: ${boid}, Company: ${companyName} (ID: ${matchedScript.value})`);
 
-      // Select company
-      await page.select('select#company', matchingScript.value);
+      const url = `${this.baseUrl}/ipo/filter?companyId=${matchedScript.value}&boidNumber=${boid}`;
 
-      // Enter BOID
-      await page.type('input#boidNumber', boid);
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0',
+          'Accept': 'application/json, text/plain, */*',
+          'X-Requested-With': 'XMLHttpRequest'
+        }
+      });
 
-      // Click submit button
-      await page.click('button.btn-warning');
+      const result = response.data;
 
-      // Wait for result element to appear (h6 with text-success or text-danger class)
-      try {
-        await page.waitForSelector('h6.text-success, h6.text-danger', { timeout: 10000 });
-      } catch (error) {
-        logger.warn('Result element did not appear within timeout');
+      // Handle Failure Case
+      if (result.error === true) {
         return {
-          success: false,
+          success: true,
+          boid: boid,
           allotted: false,
           units: null,
-          message: 'Result did not load'
+          message: 'Not Allotted'
         };
       }
 
-      // Extract result from the h6 element
-      const result = await page.evaluate(() => {
-        // Look for the result in h6 tags
-        const successElement = document.querySelector('h6.text-success');
-        const dangerElement = document.querySelector('h6.text-danger');
+      // Handle Success Case
+      if (result.error === false && result.data && result.data.allotments) {
+        const allotment = result.data.allotments;
+        const units = allotment.alloted_kitta ? parseInt(allotment.alloted_kitta) : 0;
 
-        if (successElement) {
-          // Success case: "Congratulations! Share alloted. Alloted Quantity : 20"
-          const text = successElement.innerText.trim();
-
-          // Extract quantity
-          const quantityMatch = text.match(/Alloted Quantity\s*:\s*(\d+)/i);
-          const units = quantityMatch ? parseInt(quantityMatch[1]) : null;
-
+        if (units > 0) {
           return {
+            success: true,
+            boid: boid,
             allotted: true,
             units: units,
-            message: units ? `Allotted ${units} units` : 'Allotted'
+            message: `Allotted ${units} units`
           };
-        }
-
-        if (dangerElement) {
-          // Failure case: "Sorry, Not Allotted for the entered BOID/Details"
+        } else {
           return {
+            success: true,
+            boid: boid,
             allotted: false,
-            units: null,
-            message: 'Not Allotted'
+            units: 0,
+            message: 'Allotted 0 units'
           };
         }
+      }
 
-        // Shouldn't reach here since we waited for the element
-        return {
-          allotted: false,
-          units: null,
-          message: 'Unable to determine result'
-        };
-      });
-
-      logger.info(`Result for BOID ${boid}: ${result.allotted ? 'Allotted' : 'Not Allotted'}`);
-
-      return {
-        success: true,
-        boid: boid,
-        ...result
-      };
-
-    } catch (error) {
-      logger.error(`Error checking result for BOID ${boid}:`, error);
+      // Unknown state
       return {
         success: false,
         allotted: false,
         units: null,
-        message: `Error: ${error.message}`
+        message: 'Unknown result state from API'
       };
-    } finally {
-      await browserManager.close();
+
+    } catch (error) {
+      if (error.response && error.response.status === 500) {
+        // Assuming consistent behavior with LS Capital (same platform)
+        return {
+          success: true,
+          boid: boid,
+          allotted: false,
+          units: null,
+          message: 'Sorry, not allotted (500)'
+        };
+      }
+      logger.error(`Error checking result in NMB Capital API: ${error.message}`);
+      return {
+        success: false,
+        message: 'Error connecting to NMB Capital API'
+      };
     }
   }
 }

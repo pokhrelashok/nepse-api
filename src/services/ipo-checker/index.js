@@ -1,6 +1,7 @@
 const NabilInvestChecker = require('./nabil-invest-checker');
 const NmbCapitalChecker = require('./nmb-capital-checker');
 const LsCapitalChecker = require('./ls-capital-checker');
+const GlobalImeCapitalChecker = require('./global-ime-capital-checker');
 
 /**
  * Registry of supported providers
@@ -26,6 +27,13 @@ const SUPPORTED_PROVIDERS = {
     displayName: 'Laxmi Sunrise Capital Limited',
     url: 'https://lscapital.com.np/ipo',
     checker: LsCapitalChecker
+  },
+  'global-ime-capital': {
+    id: 'global-ime-capital',
+    name: 'Global IME Capital',
+    displayName: 'Global IME Capital Limited',
+    url: 'https://globalimecapital.com/ipo-fpo-share-allotment-check',
+    checker: GlobalImeCapitalChecker
   }
 };
 
