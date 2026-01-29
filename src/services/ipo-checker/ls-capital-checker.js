@@ -8,7 +8,7 @@ const logger = require('../../utils/logger');
  */
 class LsCapitalChecker extends IpoResultChecker {
   constructor() {
-    super('ls-capital', 'LS Capital Limited');
+    super('ls-capital', 'LS Capital Limited', { isApiBased: true });
     this.baseUrl = 'https://lscapital.com.np/frontapi/en';
   }
 

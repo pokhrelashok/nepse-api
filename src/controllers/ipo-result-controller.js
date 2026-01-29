@@ -127,32 +127,21 @@ exports.checkIpoResultsBulk = async (req, res) => {
 
     logger.info(`IPO result check - User: ${userId}, IPO: ${ipoResult.company_name}, Provider: ${providerId}, BOIDs: ${userBoids.length}`);
 
-    // Check results for all user BOIDs sequentially to avoid server overload (especially with Puppeteer)
-    const results = [];
-    for (const boidEntry of userBoids) {
-      try {
-        logger.info(`Checking BOID ${boidEntry.boid} (${boidEntry.name}) for IPO ${ipoResult.company_name}`);
-        const result = await checker.checkResult(boidEntry.boid, ipoResult.company_name, formatShareType(ipoResult.share_type));
-        results.push({
-          name: boidEntry.name,
-          boid: boidEntry.boid,
-          isPrimary: boidEntry.is_primary,
-          ...result
-        });
-      } catch (error) {
-        logger.error(`Error checking BOID ${boidEntry.boid} for ${boidEntry.name}:`, error);
-        results.push({
-          name: boidEntry.name,
-          boid: boidEntry.boid,
-          isPrimary: boidEntry.is_primary,
-          success: false,
-          error: error.message,
-          allotted: false,
-          units: null,
-          message: `Failed to check result: ${error.message}`
-        });
-      }
-    }
+    // Check results for all user BOIDs
+    // This uses parallel calls for API-based checkers and browser-reuse for Puppeteer-based ones
+    const boids = userBoids.map(b => b.boid);
+    const bulkResults = await checker.checkResultBulk(boids, ipoResult.company_name, formatShareType(ipoResult.share_type));
+
+    // Map bulk results back to include user-specific names and primary status
+    const results = bulkResults.map((result, index) => {
+      const boidEntry = userBoids.find(b => b.boid === result.boid) || userBoids[index];
+      return {
+        name: boidEntry.name,
+        boid: boidEntry.boid,
+        isPrimary: boidEntry.is_primary,
+        ...result
+      };
+    });
 
     // Calculate summary
     const summary = {

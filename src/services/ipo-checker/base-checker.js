@@ -9,6 +9,7 @@ class IpoResultChecker {
     this.providerId = providerId;
     this.providerName = providerName;
     this.timeout = options.timeout || DEFAULT_TIMEOUT;
+    this.isApiBased = options.isApiBased || false;
   }
 
   /**
@@ -29,6 +30,29 @@ class IpoResultChecker {
    */
   async checkResult(boid, companyName, shareType) {
     throw new Error('checkResult() must be implemented by subclass');
+  }
+
+  /**
+   * Check IPO results for multiple BOIDs
+   * Default implementation for API-based checkers uses Promise.all
+   * Puppeteer-based checkers should override this to reuse browser
+   * @param {Array<string>} boids - Array of 16-digit BOIDs
+   * @param {string} companyName - Company name
+   * @param {string} shareType - Share type (normalized)
+   * @returns {Promise<Array>} - Array of result objects
+   */
+  async checkResultBulk(boids, companyName, shareType) {
+    if (this.isApiBased) {
+      // For API-based, we can safely parallelize all requests
+      return Promise.all(boids.map(boid => this.checkResult(boid, companyName, shareType)));
+    } else {
+      // For Puppeteer-based (default if not overridden), run sequentially
+      const results = [];
+      for (const boid of boids) {
+        results.push(await this.checkResult(boid, companyName, shareType));
+      }
+      return results;
+    }
   }
 }
 

@@ -8,7 +8,7 @@ const logger = require('../../utils/logger');
  */
 class NmbCapitalChecker extends IpoResultChecker {
   constructor() {
-    super('nmb-capital', 'NMB Capital Limited');
+    super('nmb-capital', 'NMB Capital Limited', { isApiBased: true });
     this.baseUrl = 'https://www.nmbcl.com.np/frontapi/en';
   }
 

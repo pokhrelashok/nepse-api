@@ -237,6 +237,163 @@ class NabilInvestChecker extends IpoResultChecker {
       await browserManager.close();
     }
   }
+
+  /**
+   * Check IPO results for multiple BOIDs using a single browser instance
+   * @param {Array<string>} boids - Array of 16-digit BOIDs
+   * @param {string} companyName - Company name
+   * @param {string} shareType - Normalized share type
+   * @returns {Promise<Array>} - Array of result objects
+   */
+  async checkResultBulk(boids, companyName, shareType) {
+    const browserManager = new BrowserManager();
+    let browser;
+    const results = [];
+
+    try {
+      logger.info(`Bulk checking IPO results for ${boids.length} BOIDs from Nabil Invest`);
+      await browserManager.init();
+      browser = browserManager.getBrowser();
+      const page = await browser.newPage();
+
+      // Set timeout for all page operations
+      page.setDefaultTimeout(this.timeout);
+
+      // Helper to match script (only need to do this once)
+      let matchingScript = null;
+
+      const normalizedInputName = this._normalizeCompanyName(companyName);
+      const normalizedInputShareType = shareType.toLowerCase();
+
+      for (const boid of boids) {
+        try {
+          // Go to the search page if not already there or to reset the form
+          // We always go to the URL to ensure a clean state for each check
+          await page.goto(this.url, { waitUntil: 'networkidle2' });
+
+          // Find matching script if not already found
+          if (!matchingScript) {
+            const scriptsData = await page.evaluate(() => {
+              const select = document.querySelector('select[aria-label="company"]');
+              if (!select) return [];
+              return Array.from(select.querySelectorAll('option'))
+                .filter(opt => opt.value && opt.value !== '')
+                .map(opt => ({ rawName: opt.textContent.trim(), value: opt.value }));
+            });
+
+            const scripts = scriptsData.map(script => ({
+              rawName: script.rawName,
+              companyName: this._normalizeCompanyName(script.rawName),
+              shareType: this._extractShareType(script.rawName),
+              value: script.value
+            })).filter(s => s.shareType !== null);
+
+            matchingScript = scripts.find(script =>
+              script.companyName === normalizedInputName && script.shareType === normalizedInputShareType
+            );
+
+            if (!matchingScript) {
+              const available = scripts.map(s => `${s.companyName} (${s.shareType})`).join(', ');
+              throw new Error(`No matching IPO found for "${companyName}" (${shareType}). Available: ${available}`);
+            }
+            logger.info(`Found matching script for bulk check: ${matchingScript.rawName}`);
+          }
+
+          // Fill and submit
+          await page.select('select[aria-label="company"]', matchingScript.value);
+          await page.type('input[aria-label="boid"]', boid);
+
+          await Promise.all([
+            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.click('button.btn.bg-gradient-info')
+          ]);
+
+          // Parse result
+          const result = await page.evaluate(() => {
+            const successDiv = document.querySelector('div.alert.alert-success');
+            if (successDiv) {
+              const text = successDiv.textContent.trim();
+              const match = text.match(/allotted\s+(\d+)\s+units/i);
+              return { allotted: true, units: match ? parseInt(match[1]) : null, message: text };
+            }
+
+            const errorDiv = document.querySelector('div.alert.alert-danger');
+            if (errorDiv) {
+              return { allotted: false, units: null, message: errorDiv.textContent.trim() };
+            }
+
+            return { allotted: false, units: null, message: 'No result message found' };
+          });
+
+          results.push({
+            success: true,
+            provider: this.providerId,
+            providerName: this.providerName,
+            company: matchingScript.rawName,
+            boid: boid,
+            ...result
+          });
+
+        } catch (error) {
+          logger.error(`Error checking BOID ${boid} in bulk:`, error);
+          results.push({
+            success: false,
+            provider: this.providerId,
+            providerName: this.providerName,
+            boid: boid,
+            error: error.message,
+            allotted: false,
+            units: null,
+            message: `Failed: ${error.message}`
+          });
+
+          // Break early if it's a "No matching IPO" error as it won't change for other BOIDs
+          if (error.message.includes('No matching IPO found')) {
+            // Fill remaining with same error
+            const remainingBoids = boids.slice(results.length);
+            for (const rb of remainingBoids) {
+              results.push({
+                success: false,
+                provider: this.providerId,
+                providerName: this.providerName,
+                boid: rb,
+                error: error.message,
+                allotted: false,
+                units: null,
+                message: `Failed: ${error.message}`
+              });
+            }
+            break;
+          }
+        }
+      }
+
+      return results;
+
+    } catch (error) {
+      logger.error('Fatal error in Nabil Invest bulk check:', error);
+      // Return error for all if we couldn't even start properly
+      if (results.length < boids.length) {
+        const checkedBoids = results.map(r => r.boid);
+        const remainingBoids = boids.filter(b => !checkedBoids.includes(b));
+        for (const rboid of remainingBoids) {
+          results.push({
+            success: false,
+            provider: this.providerId,
+            providerName: this.providerName,
+            boid: rboid,
+            error: error.message,
+            allotted: false,
+            units: null,
+            message: 'Bulk check process failed'
+          });
+        }
+      }
+      return results;
+    } finally {
+      await browserManager.close();
+    }
+  }
 }
 
 module.exports = NabilInvestChecker;
