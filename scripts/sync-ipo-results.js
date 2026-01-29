@@ -11,15 +11,13 @@ async function runSync() {
     console.log('\n✅ Sync Complete!');
     console.log('-------------------');
     console.log(`Total Scripts Found: ${result.totalScriptsFound}`);
-    console.log(`Total Matched:       ${result.totalMatched}`);
-    console.log(`Total Updated:       ${result.totalUpdated}`);
+    console.log(`Total Saved:         ${result.totalSaved}`);
 
     // Log details per provider
     Object.entries(result.providers).forEach(([id, stats]) => {
       console.log(`\nprovder: ${stats.name} (${id})`);
       console.log(`  Scripts Found: ${stats.scriptsFound}`);
-      console.log(`  Matched:       ${stats.matched}`);
-      console.log(`  Updated:       ${stats.updated}`);
+      console.log(`  Saved:         ${stats.saved}`);
 
       if (stats.errors.length > 0) {
         console.log(`  Errors:        ${stats.errors.length}`);
@@ -27,12 +25,13 @@ async function runSync() {
       }
     });
 
-    if (result.matches.length > 0) {
-      console.log('\n📋 Matches Details:');
-      result.matches.forEach(m => {
-        console.log(`  - [${m.provider}] ${m.scriptName} -> IPO #${m.ipoId} (${m.companyName})`);
-      });
-    }
+    // Matches details are not currently returned by syncIpoResults
+    // if (result.matches && result.matches.length > 0) {
+    //   console.log('\n📋 Matches Details:');
+    //   result.matches.forEach(m => {
+    //     console.log(`  - [${m.provider}] ${m.scriptName} -> IPO #${m.ipoId} (${m.companyName})`);
+    //   });
+    // }
 
     process.exit(0);
   } catch (error) {

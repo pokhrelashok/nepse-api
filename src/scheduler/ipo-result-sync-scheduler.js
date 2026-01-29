@@ -58,7 +58,7 @@ async function syncIpoResults() {
               providerId: providerId,
               companyName: script.rawName, // Save the raw name as provided by the bank
               shareType: script.shareType,
-              value: script.value
+              value: script.value === undefined ? null : script.value
             });
 
             summary.totalSaved++;

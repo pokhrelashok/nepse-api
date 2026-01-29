@@ -2,10 +2,13 @@
  * Base class for IPO result checkers
  * All providers must implement this interface
  */
+const DEFAULT_TIMEOUT = 300000; // 5 minutes in milliseconds
+
 class IpoResultChecker {
-  constructor(providerId, providerName) {
+  constructor(providerId, providerName, options = {}) {
     this.providerId = providerId;
     this.providerName = providerName;
+    this.timeout = options.timeout || DEFAULT_TIMEOUT;
   }
 
   /**

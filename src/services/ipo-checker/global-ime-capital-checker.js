@@ -4,7 +4,7 @@ const logger = require('../../utils/logger');
 
 class GlobalImeCapitalChecker extends IpoResultChecker {
   constructor() {
-    super();
+    super('global-ime-capital', 'Global IME Capital Limited');
     this.name = 'Global IME Capital';
     this.baseUrl = 'https://globalimecapital.com/api/v1/public';
   }

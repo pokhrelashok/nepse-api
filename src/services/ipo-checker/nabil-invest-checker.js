@@ -67,7 +67,7 @@ class NabilInvestChecker extends IpoResultChecker {
       browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
-      await page.goto(this.url, { waitUntil: 'networkidle2', timeout: 30000 });
+      await page.goto(this.url, { waitUntil: 'networkidle2', timeout: this.timeout });
 
       // Extract company options from dropdown
       const scripts = await page.evaluate(() => {
@@ -124,7 +124,7 @@ class NabilInvestChecker extends IpoResultChecker {
       browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
-      await page.goto(this.url, { waitUntil: 'networkidle2', timeout: 30000 });
+      await page.goto(this.url, { waitUntil: 'networkidle2', timeout: this.timeout });
 
       // Get all scripts and find matching one
       // Note: We're calling getScripts recursively which creates another browser interaction.
@@ -174,7 +174,7 @@ class NabilInvestChecker extends IpoResultChecker {
 
       // Click search button and wait for navigation
       await Promise.all([
-        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 }),
+        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: this.timeout }),
         page.click('button.btn.bg-gradient-info')
       ]);
 

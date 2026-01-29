@@ -127,32 +127,32 @@ exports.checkIpoResultsBulk = async (req, res) => {
 
     logger.info(`IPO result check - User: ${userId}, IPO: ${ipoResult.company_name}, Provider: ${providerId}, BOIDs: ${userBoids.length}`);
 
-    // Check results for all user BOIDs in parallel
-    const results = await Promise.all(
-      userBoids.map(async (boidEntry) => {
-        try {
-          const result = await checker.checkResult(boidEntry.boid, ipoResult.company_name, formatShareType(ipoResult.share_type));
-          return {
-            name: boidEntry.name,
-            boid: boidEntry.boid,
-            isPrimary: boidEntry.is_primary,
-            ...result
-          };
-        } catch (error) {
-          logger.error(`Error checking BOID ${boidEntry.boid} for ${boidEntry.name}:`, error);
-          return {
-            name: boidEntry.name,
-            boid: boidEntry.boid,
-            isPrimary: boidEntry.is_primary,
-            success: false,
-            error: error.message,
-            allotted: false,
-            units: null,
-            message: `Failed to check result: ${error.message}`
-          };
-        }
-      })
-    );
+    // Check results for all user BOIDs sequentially to avoid server overload (especially with Puppeteer)
+    const results = [];
+    for (const boidEntry of userBoids) {
+      try {
+        logger.info(`Checking BOID ${boidEntry.boid} (${boidEntry.name}) for IPO ${ipoResult.company_name}`);
+        const result = await checker.checkResult(boidEntry.boid, ipoResult.company_name, formatShareType(ipoResult.share_type));
+        results.push({
+          name: boidEntry.name,
+          boid: boidEntry.boid,
+          isPrimary: boidEntry.is_primary,
+          ...result
+        });
+      } catch (error) {
+        logger.error(`Error checking BOID ${boidEntry.boid} for ${boidEntry.name}:`, error);
+        results.push({
+          name: boidEntry.name,
+          boid: boidEntry.boid,
+          isPrimary: boidEntry.is_primary,
+          success: false,
+          error: error.message,
+          allotted: false,
+          units: null,
+          message: `Failed to check result: ${error.message}`
+        });
+      }
+    }
 
     // Calculate summary
     const summary = {

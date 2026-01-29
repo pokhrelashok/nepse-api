@@ -114,6 +114,17 @@ app.use('/api/alerts', require('./routes/alerts'));
 app.use('/api/feedback', require('./routes/feedback'));
 app.use('/api/goals', require('./routes/goal'));
 
+// Set higher timeout for IPO check-result endpoints (5 minutes)
+const IPO_TIMEOUT = 300000;
+app.post('/api/ipo/check-result', (req, res, next) => {
+  req.setTimeout(IPO_TIMEOUT);
+  next();
+});
+app.post('/api/ipo/check-bulk', (req, res, next) => {
+  req.setTimeout(IPO_TIMEOUT);
+  next();
+});
+
 
 
 // All non-API routes serve the React app (SPA fallback)

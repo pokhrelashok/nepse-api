@@ -240,9 +240,9 @@ async function getPublishedIpos(limit = 100, offset = 0) {
       company_name,
       share_type,
       value,
-      DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i:%s') as published_at
+      DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as published_at
     FROM ipo_results
-    ORDER BY updated_at DESC
+    ORDER BY created_at DESC
     LIMIT ? OFFSET ?
   `;
 
