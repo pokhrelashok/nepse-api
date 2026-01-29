@@ -6,7 +6,7 @@ const { NepseScraper } = require('../scrapers/nepse-scraper');
 // Import all job modules
 const { updateMarketIndex, updatePricesAndStatus } = require('./market-jobs');
 const { updateCompanyDetails } = require('./company-jobs');
-const { runIpoScrape, runFpoScrape, runDividendScrape, runMergerScrape, runMarketIndicesHistoryScrape, runMutualFundScrape, runSipScrape } = require('./data-jobs');
+const { runIpoScrape, runFpoScrape, runDividendScrape, runMergerScrape, runMarketIndicesHistoryScrape, runMutualFundScrape, runSipScrape, runIpoResultSync } = require('./data-jobs');
 const { archiveDailyPrices, archiveMarketIndex } = require('./archive-jobs');
 const { runSystemCleanup, runDatabaseBackup, runNotificationCheck } = require('./maintenance-jobs');
 const { generateStockSummaries, generateDailyMarketBlog } = require('./ai-analysis-jobs');
@@ -145,6 +145,16 @@ class Scheduler extends BaseScheduler {
     });
     this.jobs.set('notification_check', notificationJob);
     notificationJob.start();
+
+    // IPO Result Sync (Daily at 10:30 AM)
+    const ipoResultSyncJob = cron.schedule('30 10 * * *', async () => {
+      await runIpoResultSync(this);
+    }, {
+      scheduled: false,
+      timezone: 'Asia/Kathmandu'
+    });
+    this.jobs.set('ipo_result_sync', ipoResultSyncJob);
+    ipoResultSyncJob.start();
 
     // Database Backup (Daily at 5:00 AM - after cleanup)
     const backupJob = cron.schedule('0 5 * * *', async () => {

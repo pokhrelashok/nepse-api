@@ -1,6 +1,5 @@
-const logger = require('../../utils/logger');
 const { pool } = require('../../database/database');
-const { sendIpoOpeningNotification, sendIpoClosingNotification } = require('./messaging');
+const { sendIpoOpeningNotification, sendIpoClosingNotification, sendIpoResultNotification } = require('./messaging');
 
 /**
  * Find IPOs opening TODAY and broadcast reminders to subscribed users
@@ -94,7 +93,41 @@ async function processIpoClosingReminders() {
   }
 }
 
+/**
+ * Process notifications for a newly published IPO result
+ * Finds users who want notifications for this specific type and sends them
+ * @param {Object} resultData - Result data (providerId, companyName, shareType, value)
+ */
+async function processIpoResultNotifications(resultData) {
+  try {
+    const { companyName, shareType } = resultData;
+
+    // Find users who have IPO notifications enabled AND are interested in this specific share type
+    // This matches the logic used for opening/closing reminders
+    const [rows] = await pool.execute(`
+      SELECT DISTINCT nt.fcm_token 
+      FROM notification_tokens nt 
+      JOIN users u ON u.id = nt.user_id 
+      WHERE u.notify_ipos = TRUE
+      AND JSON_CONTAINS(u.ipo_notification_types, JSON_QUOTE(?))
+    `, [shareType]);
+
+    const tokens = rows.map(r => r.fcm_token);
+    if (tokens.length === 0) {
+      logger.info(`No users subscribed to ${shareType} notifications (IPO result: ${companyName}).`);
+      return;
+    }
+
+    logger.info(`Sending IPO result notifications for ${companyName} (${shareType}) to ${tokens.length} users.`);
+    await sendIpoResultNotification(resultData, tokens);
+
+  } catch (error) {
+    logger.error('Error processing IPO result notifications:', error);
+  }
+}
+
 module.exports = {
   processIpoOpeningReminders,
-  processIpoClosingReminders
+  processIpoClosingReminders,
+  processIpoResultNotifications
 };

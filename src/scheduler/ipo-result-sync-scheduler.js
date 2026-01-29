@@ -2,6 +2,7 @@ const { getAllCheckers } = require('../services/ipo-checker');
 const {
   insertIpoResult
 } = require('../database/queries/ipo-queries');
+const { processIpoResultNotifications } = require('../services/notifications/ipo-alerts');
 const logger = require('../utils/logger');
 
 /**
@@ -54,12 +55,23 @@ async function syncIpoResults() {
             }
 
             // Save result to ipo_results table
-            await insertIpoResult({
+            const result = await insertIpoResult({
               providerId: providerId,
               companyName: script.rawName, // Save the raw name as provided by the bank
               shareType: script.shareType,
               value: script.value === undefined ? null : script.value
             });
+
+            if (result.isNew) {
+              logger.info(`New IPO result detected: ${script.rawName} (${script.shareType}). Sending notifications...`);
+              // Use non-blocking call for notifications to not delay the scraping loop
+              processIpoResultNotifications({
+                providerId: providerId,
+                companyName: script.rawName,
+                shareType: script.shareType,
+                value: script.value
+              }).catch(err => logger.error('Error in processIpoResultNotifications:', err));
+            }
 
             summary.totalSaved++;
             summary.providers[providerId].saved++;

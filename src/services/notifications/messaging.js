@@ -311,6 +311,50 @@ async function sendPriceAlertNotification(alert) {
 }
 
 /**
+ * Send broadcast notification for a newly published IPO result
+ */
+async function sendIpoResultNotification(result, tokens) {
+  const title = `IPO Result Published: ${result.companyName}`;
+  const formattedType = formatShareType(result.shareType);
+  const body = `The ${formattedType} result for ${result.companyName} is now out. Check your allotment status now!`;
+
+  const message = {
+    notification: { title, body },
+    android: {
+      notification: {
+        icon: 'ic_notification',
+        color: '#1976D2'
+      }
+    },
+    data: {
+      type: 'ipo_result',
+      route: 'ipo_result_check',
+      company_name: result.companyName,
+      share_type: result.shareType,
+      provider_id: result.providerId
+    },
+    tokens: tokens
+  };
+
+  try {
+    const BATCH_SIZE = 500;
+    for (let i = 0; i < tokens.length; i += BATCH_SIZE) {
+      const batchTokens = tokens.slice(i, i + BATCH_SIZE);
+      const batchMessage = { ...message, tokens: batchTokens };
+
+      const response = await admin.messaging().sendEachForMulticast(batchMessage);
+      logger.info(`Sent IPO Result notification for ${result.companyName} to ${response.successCount} devices.`);
+
+      if (response.failureCount > 0) {
+        await handleFailedTokens(response.responses, batchTokens);
+      }
+    }
+  } catch (error) {
+    logger.error(`Failed to send IPO Result notification for ${result.companyName}:`, error);
+  }
+}
+
+/**
  * Clean up invalid FCM tokens from failed sends
  */
 async function handleFailedTokens(responses, tokens) {
@@ -340,5 +384,6 @@ module.exports = {
   sendIpoClosingNotification,
   sendDividendNotification,
   sendRightShareNotification,
-  sendPriceAlertNotification
+  sendPriceAlertNotification,
+  sendIpoResultNotification
 };

@@ -210,7 +210,7 @@ async function findIpoByCompanyAndShareType(companyName, shareType) {
 /**
  * Insert or update IPO result from bank website
  * @param {Object} resultData - Result data (provider_id, company_name, share_type, value)
- * @returns {Promise} - Insert result
+ * @returns {Promise<Object>} - Status of operation { affectedRows, isNew }
  */
 async function insertIpoResult(resultData) {
   const sql = `
@@ -223,7 +223,12 @@ async function insertIpoResult(resultData) {
 
   const { providerId, companyName, shareType, value } = resultData;
   const [result] = await pool.execute(sql, [providerId, companyName, shareType, value]);
-  return result;
+
+  // affectedRows is 1 for insert, 2 for update in MySQL ON DUPLICATE KEY UPDATE
+  return {
+    affectedRows: result.affectedRows,
+    isNew: result.affectedRows === 1
+  };
 }
 
 /**

@@ -274,6 +274,32 @@ async function runSipScrape(scheduler) {
   }
 }
 
+/**
+ * Syncs IPO results from all providers
+ * Called daily at 10:30 AM (as requested)
+ */
+async function runIpoResultSync(scheduler) {
+  const jobKey = 'ipo_result_sync';
+  if (scheduler.isJobRunning.get(jobKey)) return;
+
+  scheduler.isJobRunning.set(jobKey, true);
+  scheduler.updateStatus(jobKey, 'START', 'Starting IPO result sync...');
+
+  logger.info('Starting scheduled IPO result sync...');
+
+  try {
+    const { syncIpoResults } = require('./ipo-result-sync-scheduler');
+    const summary = await syncIpoResults();
+
+    scheduler.updateStatus(jobKey, 'SUCCESS', `IPO result sync completed. Saved: ${summary.totalSaved}`);
+  } catch (error) {
+    logger.error('Scheduled IPO result sync failed:', error);
+    scheduler.updateStatus(jobKey, 'FAIL', error.message);
+  } finally {
+    scheduler.isJobRunning.set(jobKey, false);
+  }
+}
+
 module.exports = {
   runIpoScrape,
   runFpoScrape,
@@ -281,5 +307,6 @@ module.exports = {
   runMergerScrape,
   runMarketIndicesHistoryScrape,
   runMutualFundScrape,
-  runSipScrape
+  runSipScrape,
+  runIpoResultSync
 };
