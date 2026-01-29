@@ -32,17 +32,16 @@ class LsCapitalChecker extends IpoResultChecker {
     if (!name) return 'ordinary';
     const lowerName = name.toLowerCase();
 
-    if (lowerName.includes('(public)')) return 'local'; // Based on previous mapping, though typically public = ordinary. Keeping logic consistent with observations or standardizing.
-    // The previous implementation mapped "Public" to "local" which seems odd, usually "Public" is "ordinary".
-    // Looking at the company list: "Mabilung Energy Limited (Public)" vs "(local)".
-    // Usually "Public" means General Public -> Ordinary.
-    // Let's refine based on typical keywords.
-
-    if (lowerName.includes('public') || lowerName.includes('general public')) return 'ordinary';
-    if (lowerName.includes('local') || lowerName.includes('affected')) return 'local';
+    // Specific LS Capital naming patterns
+    if (lowerName.includes('(public)') || lowerName.includes('general public')) return 'ordinary';
+    if (lowerName.includes('(local)') || lowerName.includes('local residents') || lowerName.includes('affected')) return 'local';
     if (lowerName.includes('foreign') || lowerName.includes('migrant')) return 'foreign_employment';
     if (lowerName.includes('staff') || lowerName.includes('employee')) return 'promoter';
     if (lowerName.includes('mutual fund')) return 'mutual_fund';
+
+    // Fallback to general keywords if specific patterns didn't match
+    if (lowerName.includes('public')) return 'ordinary';
+    if (lowerName.includes('local')) return 'local';
 
     return 'ordinary';
   }
