@@ -123,12 +123,24 @@ class BrowserManager {
         // Configure download behavior to use temp directory
         const pages = await this.browser.pages();
         if (pages.length > 0) {
-          const client = await pages[0].target().createCDPSession();
+          const page = pages[0];
+          const client = await page.target().createCDPSession();
           await client.send('Browser.setDownloadBehavior', {
             behavior: 'allow',
             downloadPath: this.userDataDir
           });
           console.log(`📥 Download path set to: ${this.userDataDir}`);
+
+          // Set up request interception for all future pages
+          await this.browser.on('targetcreated', async (target) => {
+            if (target.type() === 'page') {
+              const newPage = await target.page();
+              await this._setupRequestInterception(newPage);
+            }
+          });
+
+          // Setup for initial page
+          await this._setupRequestInterception(page);
         }
 
         // Reset if browser disconnects
@@ -189,6 +201,28 @@ class BrowserManager {
 
   getUserAgent() {
     return this.userAgent;
+  }
+
+  /**
+   * Set up request interception to block images, CSS, and fonts
+   * @param {Object} page - Puppeteer page instance
+   * @private
+   */
+  async _setupRequestInterception(page) {
+    try {
+      if (!page) return;
+      await page.setRequestInterception(true);
+      page.on('request', (request) => {
+        const resourceType = request.resourceType();
+        if (['image', 'stylesheet', 'font', 'media'].includes(resourceType)) {
+          request.abort();
+        } else {
+          request.continue();
+        }
+      });
+    } catch (err) {
+      console.warn(`⚠️ Failed to setup request interception: ${err.message}`);
+    }
   }
 }
 

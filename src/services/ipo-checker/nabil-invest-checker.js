@@ -67,7 +67,7 @@ class NabilInvestChecker extends IpoResultChecker {
       browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
-      await page.goto(this.url, { waitUntil: 'networkidle2', timeout: this.timeout });
+      await page.goto(this.url, { waitUntil: 'domcontentloaded', timeout: this.timeout });
 
       // Extract company options from dropdown
       const scripts = await page.evaluate(() => {
@@ -124,7 +124,7 @@ class NabilInvestChecker extends IpoResultChecker {
       browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
-      await page.goto(this.url, { waitUntil: 'networkidle2', timeout: this.timeout });
+      await page.goto(this.url, { waitUntil: 'domcontentloaded', timeout: this.timeout });
 
       // Get all scripts and find matching one
       // Note: We're calling getScripts recursively which creates another browser interaction.
@@ -174,7 +174,7 @@ class NabilInvestChecker extends IpoResultChecker {
 
       // Click search button and wait for navigation
       await Promise.all([
-        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: this.timeout }),
+        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: this.timeout }),
         page.click('button.btn.bg-gradient-info')
       ]);
 
@@ -261,17 +261,23 @@ class NabilInvestChecker extends IpoResultChecker {
 
       // Helper to match script (only need to do this once)
       let matchingScript = null;
-
       const normalizedInputName = this._normalizeCompanyName(companyName);
       const normalizedInputShareType = shareType.toLowerCase();
 
+      // Load the page once initially
+      await page.goto(this.url, { waitUntil: 'domcontentloaded' });
+
       for (const boid of boids) {
         try {
-          // Go to the search page if not already there or to reset the form
-          // We always go to the URL to ensure a clean state for each check
-          await page.goto(this.url, { waitUntil: 'networkidle2' });
+          // If the page is not on the search URL (e.g. after a result check), 
+          // we stay there because Nabil Invest result page also contains the search form.
+          // However, if we're not at the search page for some reason, we go there.
+          const currentUrl = page.url();
+          if (!currentUrl.includes(this.url)) {
+            await page.goto(this.url, { waitUntil: 'domcontentloaded' });
+          }
 
-          // Find matching script if not already found
+          // Find matching script if not already found or if dropdown needs refreshing
           if (!matchingScript) {
             const scriptsData = await page.evaluate(() => {
               const select = document.querySelector('select[aria-label="company"]');
@@ -299,12 +305,17 @@ class NabilInvestChecker extends IpoResultChecker {
             logger.info(`Found matching script for bulk check: ${matchingScript.rawName}`);
           }
 
-          // Fill and submit
+          // Fill and submit (Clear BOID first)
+          await page.evaluate(() => {
+            const boidInput = document.querySelector('input[aria-label="boid"]');
+            if (boidInput) boidInput.value = '';
+          });
+
           await page.select('select[aria-label="company"]', matchingScript.value);
           await page.type('input[aria-label="boid"]', boid);
 
           await Promise.all([
-            page.waitForNavigation({ waitUntil: 'networkidle2' }),
+            page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
             page.click('button.btn.bg-gradient-info')
           ]);
 
