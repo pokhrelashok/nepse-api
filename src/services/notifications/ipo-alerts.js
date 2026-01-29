@@ -1,5 +1,6 @@
 const { pool } = require('../../database/database');
 const { sendIpoOpeningNotification, sendIpoClosingNotification, sendIpoResultNotification } = require('./messaging');
+const logger = require('../../utils/logger');
 
 /**
  * Find IPOs opening TODAY and broadcast reminders to subscribed users
