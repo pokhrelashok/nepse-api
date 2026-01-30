@@ -1,6 +1,7 @@
 const axios = require('axios');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
+const { extractShareType } = require('./share-type-utils');
 
 /**
  * LS Capital IPO Result Checker
@@ -18,10 +19,10 @@ class LsCapitalChecker extends IpoResultChecker {
   _normalizeCompanyName(name) {
     if (!name) return '';
     return name
-      .replace(/\s*\(.*?\)\s*/g, '') // Remove parentheses and content
+      .replace(/\s*\(.*?\)\s*/g, ' ') // Remove parentheses and content
       .replace(/\s+(Ltd\.?|Limited|Pvt\.?|Private)\s*$/i, '') // Remove Ltd/Limited
-      .replace(/\s+(Public|General Public|Foreign Employment|Locals|Foreign|Employees)\.?$/i, '') // Remove trailing share type
       .trim()
+      .replace(/\s+/g, ' ') // Normalize spaces
       .toLowerCase();
   }
 
@@ -29,21 +30,7 @@ class LsCapitalChecker extends IpoResultChecker {
    * Extract share type from company name
    */
   _extractShareType(name) {
-    if (!name) return 'ordinary';
-    const lowerName = name.toLowerCase();
-
-    // Specific LS Capital naming patterns
-    if (lowerName.includes('(public)') || lowerName.includes('general public')) return 'ordinary';
-    if (lowerName.includes('(local)') || lowerName.includes('local residents') || lowerName.includes('affected')) return 'local';
-    if (lowerName.includes('foreign') || lowerName.includes('migrant')) return 'foreign_employment';
-    if (lowerName.includes('staff') || lowerName.includes('employee')) return 'promoter';
-    if (lowerName.includes('mutual fund')) return 'mutual_fund';
-
-    // Fallback to general keywords if specific patterns didn't match
-    if (lowerName.includes('public')) return 'ordinary';
-    if (lowerName.includes('local')) return 'local';
-
-    return 'ordinary';
+    return extractShareType(name);
   }
 
   /**

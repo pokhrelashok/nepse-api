@@ -1,6 +1,7 @@
 const BrowserManager = require('../../utils/browser-manager');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
+const { extractShareType } = require('./share-type-utils');
 
 /**
  * Nabil Invest IPO Result Checker
@@ -19,9 +20,10 @@ class NabilInvestChecker extends IpoResultChecker {
    */
   _normalizeCompanyName(name) {
     return name
-      .replace(/\s*\(.*?\)\s*/g, '') // Remove parentheses and content
+      .replace(/\s*\(.*?\)\s*/g, ' ') // Remove parentheses and content
       .replace(/\s+(Ltd\.?|Limited|Pvt\.?|Private)\s*$/i, '') // Remove Ltd/Limited
       .trim()
+      .replace(/\s+/g, ' ') // Normalize spaces
       .toLowerCase();
   }
 
@@ -36,23 +38,7 @@ class NabilInvestChecker extends IpoResultChecker {
    * @returns {string|null} - Normalized share type
    */
   _extractShareType(name) {
-    const match = name.match(/\((.*?)\)/);
-    if (!match) return null;
-
-    const shareTypeText = match[1].trim().toLowerCase();
-
-    // Map Nabil Invest share types to database format
-    const shareTypeMap = {
-      'general public': 'ordinary',
-      'public': 'local',
-      'foreign employment': 'migrant_workers',
-      'foreign': 'foreign',
-      'mutual fund': 'mutual_fund',
-      'employees': 'employees',
-      'project affected': 'local'
-    };
-
-    return shareTypeMap[shareTypeText] || null;
+    return extractShareType(name);
   }
 
   /**

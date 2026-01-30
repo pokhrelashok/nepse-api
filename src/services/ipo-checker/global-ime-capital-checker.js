@@ -1,6 +1,7 @@
 const axios = require('axios');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
+const { extractShareType } = require('./share-type-utils');
 
 class GlobalImeCapitalChecker extends IpoResultChecker {
   constructor() {
@@ -17,10 +18,9 @@ class GlobalImeCapitalChecker extends IpoResultChecker {
   _normalizeCompanyName(name) {
     if (!name) return '';
     return name
-      .replace(/\(.*?\)/g, '') // Remove parentheses and content
+      .replace(/\s*\(.*?\)\s*/g, ' ') // Remove parentheses and content
       .replace(/[-–]/g, ' ') // Replace hyphens with spaces
       .replace(/\s+(Ltd\.?|Limited|Pvt\.?|Private)/gi, '') // Remove Ltd/Limited globally
-      .replace(/\s+(Public|General Public|Foreign Employment|Locals|Foreign|Employees)\.?$/i, '') // Remove trailing share type
       .trim()
       .replace(/\s+/g, ' ') // Collapse multiple spaces
       .toLowerCase();
@@ -32,22 +32,7 @@ class GlobalImeCapitalChecker extends IpoResultChecker {
    * @returns {string}
    */
   _extractShareType(name) {
-    if (!name) return 'ordinary'; // Default
-    const lowerName = name.toLowerCase();
-
-    if (lowerName.includes('foreign') || lowerName.includes('remittance') || lowerName.includes('migrant')) { // Expanded keywords
-      return 'foreign_employment'; // Standardize to match DB enum if possible
-    }
-    if (lowerName.includes('local') || lowerName.includes('affected')) {
-      return 'local';
-    }
-    if (lowerName.includes('staff') || lowerName.includes('employee')) {
-      return 'promoter'; // Or staff/employee if supported
-    }
-    if (lowerName.includes('mutual fund')) {
-      return 'mutual_fund';
-    }
-    return 'ordinary';
+    return extractShareType(name);
   }
 
   /**

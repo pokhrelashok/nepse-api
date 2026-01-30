@@ -1,12 +1,17 @@
 const { syncIpoResults } = require('../src/scheduler/ipo-result-sync-scheduler');
-const logger = require('../src/utils/logger'); // Assuming logger is available
+const logger = require('../src/utils/logger');
 
 async function runSync() {
   try {
+    // Basic argument parsing for --no-notifications or --silent
+    const args = process.argv.slice(2);
+    const sendNotifications = !args.includes('--no-notifications') && !args.includes('--silent');
+
     console.log('🚀 Starting manual IPO result sync...');
+    console.log(`Notifications: ${sendNotifications ? 'Enabled' : 'Disabled'}`);
     console.log('Fetching scripts from all providers and matching with local database...\n');
 
-    const result = await syncIpoResults();
+    const result = await syncIpoResults({ sendNotifications });
 
     console.log('\n✅ Sync Complete!');
     console.log('-------------------');

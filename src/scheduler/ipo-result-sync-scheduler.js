@@ -8,10 +8,13 @@ const logger = require('../utils/logger');
 /**
  * Sync IPO results from all providers
  * Fetches scripts from each provider and stores them in ipo_results table
+ * @param {Object} options - Sync options
+ * @param {boolean} options.sendNotifications - Whether to send notifications for new results
  * @returns {Promise<Object>} - Summary of sync operation
  */
-async function syncIpoResults() {
-  logger.info('Starting IPO result sync...');
+async function syncIpoResults(options = {}) {
+  const sendNotifications = options.sendNotifications !== false;
+  logger.info(`Starting IPO result sync (Notifications: ${sendNotifications ? 'enabled' : 'disabled'})...`);
 
   const summary = {
     totalScriptsFound: 0,
@@ -63,14 +66,20 @@ async function syncIpoResults() {
             });
 
             if (result.isNew) {
-              logger.info(`New IPO result detected: ${script.rawName} (${script.shareType}). Sending notifications...`);
-              // Use non-blocking call for notifications to not delay the scraping loop
-              processIpoResultNotifications({
-                providerId: providerId,
-                companyName: script.rawName,
-                shareType: script.shareType,
-                value: script.value
-              }).catch(err => logger.error('Error in processIpoResultNotifications:', err));
+              logger.info(`New IPO result detected: ${script.rawName} (${script.shareType}).`);
+
+              if (sendNotifications) {
+                logger.info('Sending notifications...');
+                // Use non-blocking call for notifications to not delay the scraping loop
+                processIpoResultNotifications({
+                  providerId: providerId,
+                  companyName: script.rawName,
+                  shareType: script.shareType,
+                  value: script.value
+                }).catch(err => logger.error('Error in processIpoResultNotifications:', err));
+              } else {
+                logger.info('Notifications skipped due to flag.');
+              }
             }
 
             summary.totalSaved++;

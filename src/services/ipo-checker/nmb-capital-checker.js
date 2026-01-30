@@ -1,6 +1,7 @@
 const axios = require('axios');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
+const { extractShareType } = require('./share-type-utils');
 
 /**
  * NMB Capital IPO Result Checker
@@ -18,9 +19,7 @@ class NmbCapitalChecker extends IpoResultChecker {
   _normalizeCompanyName(name) {
     if (!name) return '';
     return name
-      .replace(/\s*\(.*?\)\s*/g, '') // Remove parentheses and content
-      .replace(/\s*-\s*(Public|Foreign Employment|Locals|Foreign|Employees|General Public)\.?$/i, '') // Remove share type suffixes
-      .replace(/\s+(for|-)?\s*(General Public|Public|Foreign Employment|Locals|Foreign|Employees)\.?$/i, '') // Remove trailing share type
+      .replace(/\s*\(.*?\)\s*/g, ' ') // Remove parentheses and content
       .replace(/\s+(Ltd\.?|Limited|Pvt\.?|Private|FPO|IPO)\.?$/i, '') // Remove company suffixes
       .replace(/Re-Insurance/gi, 'reinsurance') // Normalize Re-Insurance to reinsurance
       .replace(/\s+/g, ' ') // Normalize multiple spaces to single space
@@ -32,18 +31,7 @@ class NmbCapitalChecker extends IpoResultChecker {
    * Extract share type from company name
    */
   _extractShareType(name) {
-    if (!name) return 'ordinary';
-    const lowerName = name.toLowerCase();
-
-    // Check for share type indicators in parentheses or text
-    if (lowerName.includes('(public)') || lowerName.includes('- public')) return 'local';
-    if (lowerName.includes('(foreign employment)') || lowerName.includes('foreign employment')) return 'migrant_workers';
-    if (lowerName.includes('(foreign)') || lowerName.includes('- foreign')) return 'foreign';
-    if (lowerName.includes('(mutual fund)') || lowerName.includes('fund')) return 'mutual_fund';
-    if (lowerName.includes('(employees)')) return 'employees';
-    if (lowerName.includes('fpo') || lowerName.includes('ipo')) return 'ordinary';
-
-    return 'ordinary';
+    return extractShareType(name);
   }
 
   /**
