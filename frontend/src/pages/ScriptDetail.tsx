@@ -59,6 +59,9 @@ const Chart = ({ data }: { data: HistoryData[] }) => {
 export default function ScriptDetail() {
   const { slug } = useParams({ strict: false }) as any
   const symbol = slug?.split('-')[0].toUpperCase()
+  // Extract company name from slug if possible (fallback for initial render)
+  const slugName = slug?.split('-').slice(1).join(' ').replace(/-/g, ' ') || ''
+
   const [details, setDetails] = useState<any>(null)
   const [history, setHistory] = useState<HistoryData[]>([])
   const [range, setRange] = useState('1M')
@@ -156,13 +159,7 @@ export default function ScriptDetail() {
   //   fetchAiData()
   // }, [symbol])
 
-  if (loading && !details) {
-    return <div className="loading-state">Loading script details...</div>
-  }
 
-  if (!details) {
-    return <div className="error-state">Script not found.</div>
-  }
 
   const formatCurrency = (val: any) => {
     if (!val) return 'N/A'
@@ -179,11 +176,12 @@ export default function ScriptDetail() {
     return isNaN(num) ? '0.00' : num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
   }
 
-  const ltp = details.ltp || details.last_traded_price || 0
-  const change = details.price_change || 0
-  const pctChange = details.percentage_change || 0
-  const companyName = details.company_name || details.name || symbol
-
+  // Use details if available, otherwise fallback to slug data for SEO
+  const ltp = details?.ltp || details?.last_traded_price || 0
+  const change = details?.price_change || 0
+  const pctChange = details?.percentage_change || 0
+  const companyName = details?.company_name || details?.name || slugName || symbol
+  const sectorName = details?.sector_name || details?.nepali_sector_name || 'Stock Market'
 
   const currentSlug = `${symbol}-${slugify(companyName)}`;
 
@@ -192,7 +190,7 @@ export default function ScriptDetail() {
       if (navigator.share) {
         await navigator.share({
           title: `${symbol} - ${companyName} | Nepse Portfolio`,
-          text: `Check out ${companyName} (${symbol}) stock price and AI analysis on Nepse Portfolio Tracker.`,
+          text: `Check out ${companyName} (${symbol}) stock price and analysis on Nepse Portfolio Tracker.`,
           url: window.location.href,
         });
       } else {
@@ -204,98 +202,109 @@ export default function ScriptDetail() {
     }
   }
 
+  // Initial SEO Meta Tags (Rendered immediately)
+  // We render Helmet here to ensure title/meta exists even during loading state
+  const MetaTags = () => (
+    <Helmet>
+      {/* Primary Meta Tags */}
+      <title>{`${symbol} Stock Price - ${companyName} Live Chart, Analysis & Financials | NEPSE`}</title>
+      <meta name="title" content={`${symbol} Stock Price - ${companyName} Live Chart & Analysis`} />
+      <meta name="description" content={`Live stock price of ${companyName} (${symbol}) is Rs. ${ltp ? formatNumber(ltp) : '...'}. ${ltp ? `Has ${change >= 0 ? 'gained' : 'lost'} ${Math.abs(change).toFixed(2)} points today.` : ''} View real-time charts, technical analysis, dividend history, and financial reports for ${companyName} on Nepal Stock Exchange (NEPSE).`} />
+      <meta name="keywords" content={`${symbol}, ${companyName}, ${symbol} share price, ${symbol} analysis, ${companyName} news, nepse ${symbol}, nepal stock market, ${symbol} dividend`} />
+      <link rel="canonical" href={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
+
+      {/* Open Graph / Facebook */}
+      <meta property="og:type" content="website" />
+      <meta property="og:url" content={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
+      <meta property="og:title" content={`${symbol} - ${companyName} Stock Price & Analysis`} />
+      <meta property="og:description" content={`Live price Rs. ${ltp ? formatNumber(ltp) : '...'} ${pctChange ? `(${pctChange.toFixed(2)}%)` : ''}. Get real-time charts, AI analysis, and financial data for ${companyName}.`} />
+      <meta property="og:image" content={`https://nepseportfoliotracker.app/og-stock-${symbol}.png`} />
+      <meta property="og:site_name" content="Nepse Portfolio Tracker" />
+
+      {/* Twitter */}
+      <meta name="twitter:card" content="summary_large_image" />
+      <meta name="twitter:url" content={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
+      <meta name="twitter:title" content={`${symbol} - ${companyName} Stock Price`} />
+      <meta name="twitter:description" content={`Rs. ${ltp ? formatNumber(ltp) : '...'} - Live charts & AI analysis for ${companyName}`} />
+      <meta name="twitter:image" content={`https://nepseportfoliotracker.app/og-stock-${symbol}.png`} />
+
+      {/* Additional SEO */}
+      <meta name="robots" content="index, follow, max-image-preview:large" />
+
+      {/* Structured Data - Stock */}
+      <script type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Corporation",
+          "name": companyName,
+          "tickerSymbol": symbol,
+          "description": `${companyName} (${symbol}) stock information and analysis on Nepal Stock Exchange`,
+          "url": `https://nepseportfoliotracker.app/script/${currentSlug}`,
+          "sameAs": [
+            `https://merolagani.com/CompanyDetail.aspx?symbol=${symbol}`,
+            `https://www.sharesansar.com/company/${symbol}`
+          ]
+        })}
+      </script>
+
+      {/* Breadcrumb */}
+      <script type="application/ld+json">
+        {JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          "itemListElement": [
+            {
+              "@type": "ListItem",
+              "position": 1,
+              "name": "Home",
+              "item": "https://nepseportfoliotracker.app"
+            },
+            {
+              "@type": "ListItem",
+              "position": 2,
+              "name": "Stocks",
+              "item": "https://nepseportfoliotracker.app/stocks"
+            },
+            {
+              "@type": "ListItem",
+              "position": 3,
+              "name": symbol,
+              "item": `https://nepseportfoliotracker.app/script/${currentSlug}`
+            }
+          ]
+        })}
+      </script>
+    </Helmet>
+  )
+
+  if (loading && !details) {
+    return (
+      <>
+        <MetaTags />
+        <div className="min-h-screen bg-gray-50/50 flex flex-col justify-center items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-nepse-primary mb-4"></div>
+          <div className="text-gray-500 font-medium animate-pulse">Loading {symbol} details...</div>
+        </div>
+      </>
+    )
+  }
+
+  if (!details) {
+    return (
+      <div className="min-h-screen bg-gray-50/50 flex flex-col justify-center items-center">
+        <Helmet>
+          <title>{`${symbol} - Not Found | Nepse Portfolio`}</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
+        <div className="text-xl font-bold text-gray-800 mb-2">Script not found</div>
+        <p className="text-gray-500">We couldn't find any data for {symbol}.</p>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
-      <Helmet>
-        {/* Primary Meta Tags */}
-        <title>{`${symbol} Stock Price - ${companyName} Live Chart, Analysis & Financials | NEPSE`}</title>
-        <meta name="title" content={`${symbol} Stock Price - ${companyName} Live Chart & Analysis`} />
-        <meta name="description" content={`${symbol} (${companyName}) live stock price Rs. ${formatNumber(ltp)} with ${change >= 0 ? '+' : ''}${change.toFixed(2)} (${pctChange.toFixed(2)}%) change. Real-time charts, AI-powered analysis, financial reports, dividend history, and key metrics for ${companyName} on Nepal Stock Exchange (NEPSE).`} />
-        <meta name="keywords" content={`${symbol}, ${companyName}, ${symbol} stock price, ${symbol} NEPSE, ${companyName} share price, ${symbol} live price, ${symbol} chart, ${symbol} analysis, ${symbol} dividend, ${symbol} financials, Nepal stock ${symbol}`} />
-        <link rel="canonical" href={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
-
-        {/* Open Graph / Facebook */}
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
-        <meta property="og:title" content={`${symbol} - ${companyName} Stock Price & Analysis`} />
-        <meta property="og:description" content={`Live price Rs. ${formatNumber(ltp)} (${change >= 0 ? '+' : ''}${pctChange.toFixed(2)}%). Get real-time charts, AI analysis, and financial data for ${companyName}.`} />
-        <meta property="og:image" content={`https://nepseportfoliotracker.app/og-stock-${symbol}.png`} />
-        <meta property="og:site_name" content="Nepse Portfolio Tracker" />
-
-        {/* Twitter */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:url" content={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
-        <meta name="twitter:title" content={`${symbol} - ${companyName} Stock Price`} />
-        <meta name="twitter:description" content={`Rs. ${formatNumber(ltp)} (${change >= 0 ? '+' : ''}${pctChange.toFixed(2)}%) - Live charts & AI analysis`} />
-        <meta name="twitter:image" content={`https://nepseportfoliotracker.app/og-stock-${symbol}.png`} />
-
-        {/* Additional SEO */}
-        <meta name="robots" content="index, follow, max-image-preview:large" />
-
-        {/* Structured Data - Stock */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Corporation",
-            "name": companyName,
-            "tickerSymbol": symbol,
-            "description": `${companyName} (${symbol}) stock information and analysis on Nepal Stock Exchange`,
-            "url": `https://nepseportfoliotracker.app/script/${currentSlug}`,
-            "sameAs": [
-              `https://merolagani.com/CompanyDetail.aspx?symbol=${symbol}`,
-              `https://www.sharesansar.com/company/${symbol}`
-            ]
-          })}
-        </script>
-
-        {/* Structured Data - Financial Quote */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "FinancialProduct",
-            "name": `${symbol} Stock`,
-            "description": `${companyName} stock trading on Nepal Stock Exchange`,
-            "provider": {
-              "@type": "Organization",
-              "name": "Nepal Stock Exchange (NEPSE)"
-            },
-            "offers": {
-              "@type": "Offer",
-              "price": ltp,
-              "priceCurrency": "NPR",
-              "availability": "https://schema.org/InStock"
-            }
-          })}
-        </script>
-
-        {/* Breadcrumb */}
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "BreadcrumbList",
-            "itemListElement": [
-              {
-                "@type": "ListItem",
-                "position": 1,
-                "name": "Home",
-                "item": "https://nepseportfoliotracker.app"
-              },
-              {
-                "@type": "ListItem",
-                "position": 2,
-                "name": "Stocks",
-                "item": "https://nepseportfoliotracker.app/#market-dashboard"
-              },
-              {
-                "@type": "ListItem",
-                "position": 3,
-                "name": symbol,
-                "item": `https://nepseportfoliotracker.app/script/${currentSlug}`
-              }
-            ]
-          })}
-        </script>
-      </Helmet>
+      <MetaTags />
       {/* Header */}
       <div className="bg-white border-b border-gray-100 sticky top-[99px] md:top-[65px] z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-4 md:py-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -304,17 +313,21 @@ export default function ScriptDetail() {
               {symbol?.substring(0, 2).toUpperCase()}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl md:text-3xl font-black text-nepse-primary tracking-tight">{symbol}</h1>
+              <div className="flex flex-col md:flex-row md:items-end gap-1 md:gap-3">
+                <h1 className="text-2xl md:text-3xl font-black text-nepse-primary tracking-tight">
+                  {symbol} <span className="text-gray-400 font-bold text-lg md:text-xl align-middle hidden md:inline-block">-</span> <span className="text-lg md:text-xl font-bold text-gray-500 align-middle block md:inline">{companyName}</span>
+                </h1>
                 <button
                   onClick={handleShare}
-                  className="p-2 text-gray-400 hover:text-nepse-primary transition-colors"
+                  className="p-1 mb-1 text-gray-400 hover:text-nepse-primary transition-colors hidden md:block"
                   title="Share"
                 >
                   <i className="fa-solid fa-share-nodes"></i>
                 </button>
               </div>
-              <div className="text-sm font-bold text-gray-400 uppercase tracking-widest leading-none">{companyName}</div>
+              <div className="text-xs md:text-sm font-bold text-gray-400 uppercase tracking-widest leading-none mt-1">
+                {sectorName} • NEPSE: {symbol}
+              </div>
             </div>
           </div>
 
@@ -503,6 +516,32 @@ export default function ScriptDetail() {
                 <p className="text-xs text-gray-400 font-bold uppercase tracking-widest italic leading-relaxed">No dividend data recorded.</p>
               </div>
             )}
+          </DashboardCard>
+
+          {/* About Company - SEO Content */}
+          <DashboardCard
+            title={`About ${companyName}`}
+            icon="fa-solid fa-building"
+          >
+            <div className="prose prose-sm max-w-none text-gray-600 leading-relaxed">
+              <p>
+                <strong>{companyName} ({symbol})</strong> is a publicly traded company listed on the Nepal Stock Exchange (NEPSE).
+                The stock is currently trading at a price of <strong>Rs. {formatNumber(ltp)}</strong>, reflecting a
+                <span className={change >= 0 ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                  {' '}{change >= 0 ? 'gain' : 'loss'} of {Math.abs(change).toFixed(2)} ({Math.abs(pctChange).toFixed(2)}%)
+                </span> from the previous close.
+              </p>
+              <p className="mt-2">
+                Investors can view the latest live stock price, technical analysis charts, and financial reports for {symbol} on Nepse Portfolio Tracker.
+                The detailed analysis includes earnings per share (EPS), P/E ratio, dividend history, and market capitalization, helping you make informed investment decisions in the {sectorName} sector.
+              </p>
+              <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2 text-xs">
+                <span className="bg-gray-100 px-2 py-1 rounded text-gray-500">#{symbol}</span>
+                <span className="bg-gray-100 px-2 py-1 rounded text-gray-500">#{companyName.replace(/\s+/g, '')}</span>
+                <span className="bg-gray-100 px-2 py-1 rounded text-gray-500">#NEPSE</span>
+                <span className="bg-gray-100 px-2 py-1 rounded text-gray-500">#StockMarketNepal</span>
+              </div>
+            </div>
           </DashboardCard>
         </div>
       </div>
