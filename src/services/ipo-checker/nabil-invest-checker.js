@@ -110,19 +110,11 @@ class NabilInvestChecker extends IpoResultChecker {
       browser = browserManager.getBrowser();
 
       const page = await browser.newPage();
-      await page.goto(this.url, { waitUntil: 'domcontentloaded', timeout: this.timeout });
+      page.setDefaultTimeout(this.timeout);
 
-      // Get all scripts and find matching one
-      // Note: We're calling getScripts recursively which creates another browser interaction.
-      // This is slightly inefficient but safer for isolation. 
-      // Ideally we should cache scripts or reuse browser if possible but getScripts closes its browser.
-      // Let's just call getScripts first before opening this browser to be safe or just call it here?
-      // Actually calling this.getScripts() here will instantiate ANOTHER BrowserManager and browser.
-      // That's fine, Puppeteer can handle multiple browsers, but sequential is better.
-      // However, checkResult flow implies we are already inside a task.
+      await page.goto(this.url, { waitUntil: 'domcontentloaded' });
 
-      // OPTIMIZATION: Manually fetch scripts using the CURRENT browser page to avoid double launch
-      // Extract company options from dropdown (Reusing logic from getScripts)
+      // Extract company options from dropdown (Reuse logic)
       const scriptsData = await page.evaluate(() => {
         const select = document.querySelector('select[aria-label="company"]');
         if (!select) return [];
@@ -138,11 +130,9 @@ class NabilInvestChecker extends IpoResultChecker {
         value: script.value
       })).filter(s => s.shareType !== null);
 
-      // Normalize input company name and share type for matching
       const normalizedInputName = this._normalizeCompanyName(companyName);
       const normalizedInputShareType = shareType.toLowerCase();
 
-      // Find matching script by company name and share type
       const matchingScript = scripts.find(script =>
         script.companyName === normalizedInputName && script.shareType === normalizedInputShareType
       );
@@ -154,47 +144,28 @@ class NabilInvestChecker extends IpoResultChecker {
 
       logger.info(`Found matching script: ${matchingScript.rawName}`);
 
-      // Fill the form and submit
       await page.select('select[aria-label="company"]', matchingScript.value);
       await page.type('input[aria-label="boid"]', boid);
 
-      // Click search button and wait for navigation
-      await Promise.all([
-        page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: this.timeout }),
-        page.click('button.btn.bg-gradient-info')
-      ]);
+      await page.click('button.btn.bg-gradient-info');
 
-      // Parse the result
+      // Wait for success or error alert
+      await page.waitForSelector('.alert-success, .alert-danger', { visible: true, timeout: this.timeout });
+
       const result = await page.evaluate(() => {
-        // Check for success message
         const successDiv = document.querySelector('div.alert.alert-success');
-        if (successDiv) {
+        if (successDiv && successDiv.offsetParent !== null) {
           const text = successDiv.textContent.trim();
           const match = text.match(/allotted\s+(\d+)\s+units/i);
-          const units = match ? parseInt(match[1]) : null;
-
-          return {
-            allotted: true,
-            units: units,
-            message: text
-          };
+          return { allotted: true, units: match ? parseInt(match[1]) : null, message: text };
         }
 
-        // Check for failure message
         const errorDiv = document.querySelector('div.alert.alert-danger');
-        if (errorDiv) {
-          return {
-            allotted: false,
-            units: null,
-            message: errorDiv.textContent.trim()
-          };
+        if (errorDiv && errorDiv.offsetParent !== null) {
+          return { allotted: false, units: null, message: errorDiv.textContent.trim() };
         }
 
-        return {
-          allotted: false,
-          units: null,
-          message: 'No result message found on page'
-        };
+        return { allotted: false, units: null, message: 'No result message found' };
       });
 
       logger.info(`IPO result check completed: ${JSON.stringify(result)}`);
@@ -225,7 +196,7 @@ class NabilInvestChecker extends IpoResultChecker {
   }
 
   /**
-   * Check IPO results for multiple BOIDs using a single browser instance
+   * Check IPO results for multiple BOIDs using parallel pages
    * @param {Array<string>} boids - Array of 16-digit BOIDs
    * @param {string} companyName - Company name
    * @param {string} shareType - Normalized share type
@@ -233,160 +204,170 @@ class NabilInvestChecker extends IpoResultChecker {
    */
   async checkResultBulk(boids, companyName, shareType) {
     const browserManager = new BrowserManager();
+    const CONCURRENCY = 3;
     let browser;
-    const results = [];
+    let allResults = [];
 
     try {
-      logger.info(`Bulk checking IPO results for ${boids.length} BOIDs from Nabil Invest`);
+      logger.info(`Bulk checking IPO results for ${boids.length} BOIDs from Nabil Invest with concurrency ${CONCURRENCY}`);
       await browserManager.init();
       browser = browserManager.getBrowser();
-      const page = await browser.newPage();
 
-      // Set timeout for all page operations
-      page.setDefaultTimeout(this.timeout);
+      const chunks = [];
+      const chunkSize = Math.ceil(boids.length / CONCURRENCY);
+      for (let i = 0; i < boids.length; i += chunkSize) {
+        chunks.push(boids.slice(i, i + chunkSize));
+      }
 
-      // Helper to match script (only need to do this once)
-      let matchingScript = null;
-      const normalizedInputName = this._normalizeCompanyName(companyName);
-      const normalizedInputShareType = shareType.toLowerCase();
+      const processChunk = async (chunkBoids) => {
+        if (chunkBoids.length === 0) return [];
 
-      // Load the page once initially
-      await page.goto(this.url, { waitUntil: 'domcontentloaded' });
+        const page = await browser.newPage();
+        page.setDefaultTimeout(this.timeout);
+        const chunkResults = [];
 
-      for (const boid of boids) {
         try {
-          // If the page is not on the search URL (e.g. after a result check), 
-          // we stay there because Nabil Invest result page also contains the search form.
-          // However, if we're not at the search page for some reason, we go there.
-          const currentUrl = page.url();
-          if (!currentUrl.includes(this.url)) {
-            await page.goto(this.url, { waitUntil: 'domcontentloaded' });
-          }
+          await page.goto(this.url, { waitUntil: 'domcontentloaded' });
 
-          // Find matching script if not already found or if dropdown needs refreshing
-          if (!matchingScript) {
-            const scriptsData = await page.evaluate(() => {
-              const select = document.querySelector('select[aria-label="company"]');
-              if (!select) return [];
-              return Array.from(select.querySelectorAll('option'))
-                .filter(opt => opt.value && opt.value !== '')
-                .map(opt => ({ rawName: opt.textContent.trim(), value: opt.value }));
-            });
-
-            const scripts = scriptsData.map(script => ({
-              rawName: script.rawName,
-              companyName: this._normalizeCompanyName(script.rawName),
-              shareType: this._extractShareType(script.rawName),
-              value: script.value
-            })).filter(s => s.shareType !== null);
-
-            matchingScript = scripts.find(script =>
-              script.companyName === normalizedInputName && script.shareType === normalizedInputShareType
-            );
-
-            if (!matchingScript) {
-              const available = scripts.map(s => `${s.companyName} (${s.shareType})`).join(', ');
-              throw new Error(`No matching IPO found for "${companyName}" (${shareType}). Available: ${available}`);
-            }
-            logger.info(`Found matching script for bulk check: ${matchingScript.rawName}`);
-          }
-
-          // Fill and submit (Clear BOID first)
-          await page.evaluate(() => {
-            const boidInput = document.querySelector('input[aria-label="boid"]');
-            if (boidInput) boidInput.value = '';
+          const scriptsData = await page.evaluate(() => {
+            const select = document.querySelector('select[aria-label="company"]');
+            if (!select) return [];
+            return Array.from(select.querySelectorAll('option'))
+              .filter(opt => opt.value && opt.value !== '')
+              .map(opt => ({ rawName: opt.textContent.trim(), value: opt.value }));
           });
+
+          const scripts = scriptsData.map(script => ({
+            rawName: script.rawName,
+            companyName: this._normalizeCompanyName(script.rawName),
+            shareType: this._extractShareType(script.rawName),
+            value: script.value
+          })).filter(s => s.shareType !== null);
+
+          const normalizedInputName = this._normalizeCompanyName(companyName);
+          const normalizedInputShareType = shareType.toLowerCase();
+
+          const matchingScript = scripts.find(script =>
+            script.companyName === normalizedInputName && script.shareType === normalizedInputShareType
+          );
+
+          if (!matchingScript) {
+            return chunkBoids.map(boid => ({
+              success: false,
+              provider: this.providerId,
+              providerName: this.providerName,
+              boid: boid,
+              error: `No matching IPO found`,
+              allotted: false,
+              units: null,
+              message: `No matching IPO found for "${companyName}"`
+            }));
+          }
 
           await page.select('select[aria-label="company"]', matchingScript.value);
-          await page.type('input[aria-label="boid"]', boid);
 
-          await Promise.all([
-            page.waitForNavigation({ waitUntil: 'domcontentloaded' }),
-            page.click('button.btn.bg-gradient-info')
-          ]);
+          for (const boid of chunkBoids) {
+            try {
+              if (!page.url().includes(this.url)) {
+                await page.goto(this.url, { waitUntil: 'domcontentloaded' });
+                await page.select('select[aria-label="company"]', matchingScript.value);
+              }
 
-          // Parse result
-          const result = await page.evaluate(() => {
-            const successDiv = document.querySelector('div.alert.alert-success');
-            if (successDiv) {
-              const text = successDiv.textContent.trim();
-              const match = text.match(/allotted\s+(\d+)\s+units/i);
-              return { allotted: true, units: match ? parseInt(match[1]) : null, message: text };
-            }
+              await page.evaluate(() => {
+                const input = document.querySelector('input[aria-label="boid"]');
+                if (input) input.value = '';
+              });
 
-            const errorDiv = document.querySelector('div.alert.alert-danger');
-            if (errorDiv) {
-              return { allotted: false, units: null, message: errorDiv.textContent.trim() };
-            }
+              await page.type('input[aria-label="boid"]', boid);
 
-            return { allotted: false, units: null, message: 'No result message found' };
-          });
+              const previousMessage = await page.evaluate(() => {
+                const el = document.querySelector('.alert-success, .alert-danger');
+                return el ? el.textContent.trim() : null;
+              });
 
-          results.push({
-            success: true,
-            provider: this.providerId,
-            providerName: this.providerName,
-            company: matchingScript.rawName,
-            boid: boid,
-            ...result
-          });
+              await page.click('button.btn.bg-gradient-info');
 
-        } catch (error) {
-          logger.error(`Error checking BOID ${boid} in bulk:`, error);
-          results.push({
-            success: false,
-            provider: this.providerId,
-            providerName: this.providerName,
-            boid: boid,
-            error: error.message,
-            allotted: false,
-            units: null,
-            message: `Failed: ${error.message}`
-          });
+              await page.waitForFunction((prevMsg) => {
+                const el = document.querySelector('.alert-success, .alert-danger');
+                if (!el) return false;
+                if (!prevMsg) return true;
+                return el.textContent.trim() !== prevMsg;
+              }, { timeout: this.timeout }, previousMessage).catch(() => true);
 
-          // Break early if it's a "No matching IPO" error as it won't change for other BOIDs
-          if (error.message.includes('No matching IPO found')) {
-            // Fill remaining with same error
-            const remainingBoids = boids.slice(results.length);
-            for (const rb of remainingBoids) {
-              results.push({
+              const result = await page.evaluate(() => {
+                const successDiv = document.querySelector('div.alert.alert-success');
+                if (successDiv) {
+                  const text = successDiv.textContent.trim();
+                  const match = text.match(/allotted\s+(\d+)\s+units/i);
+                  return { allotted: true, units: match ? parseInt(match[1]) : null, message: text };
+                }
+                const errorDiv = document.querySelector('div.alert.alert-danger');
+                if (errorDiv) {
+                  return { allotted: false, units: null, message: errorDiv.textContent.trim() };
+                }
+                return { allotted: false, units: null, message: 'No result message found' };
+              });
+
+              chunkResults.push({
+                success: true,
+                provider: this.providerId,
+                providerName: this.providerName,
+                company: matchingScript.rawName,
+                boid: boid,
+                ...result
+              });
+
+            } catch (err) {
+              chunkResults.push({
                 success: false,
                 provider: this.providerId,
                 providerName: this.providerName,
-                boid: rb,
-                error: error.message,
+                boid: boid,
+                error: err.message,
                 allotted: false,
                 units: null,
-                message: `Failed: ${error.message}`
+                message: `Failed: ${err.message}`
               });
             }
-            break;
           }
+        } catch (err) {
+          logger.error(`Worker failed processing chunk: ${err.message}`);
+          const processedBoids = chunkResults.map(r => r.boid);
+          const remaining = chunkBoids.filter(b => !processedBoids.includes(b));
+          remaining.forEach(b => {
+            chunkResults.push({
+              success: false,
+              provider: this.providerId,
+              providerName: this.providerName,
+              boid: b,
+              error: err.message,
+              allotted: false,
+              units: null,
+              message: `Worker Failed: ${err.message}`
+            });
+          });
+        } finally {
+          await page.close().catch(() => { });
         }
-      }
+        return chunkResults;
+      };
 
-      return results;
+      const chunksResults = await Promise.all(chunks.map(chunk => processChunk(chunk)));
+      allResults = chunksResults.flat();
+      return allResults;
 
     } catch (error) {
       logger.error('Fatal error in Nabil Invest bulk check:', error);
-      // Return error for all if we couldn't even start properly
-      if (results.length < boids.length) {
-        const checkedBoids = results.map(r => r.boid);
-        const remainingBoids = boids.filter(b => !checkedBoids.includes(b));
-        for (const rboid of remainingBoids) {
-          results.push({
-            success: false,
-            provider: this.providerId,
-            providerName: this.providerName,
-            boid: rboid,
-            error: error.message,
-            allotted: false,
-            units: null,
-            message: 'Bulk check process failed'
-          });
-        }
-      }
-      return results;
+      return boids.map(b => ({
+        success: false,
+        provider: this.providerId,
+        providerName: this.providerName,
+        boid: b,
+        error: error.message,
+        allotted: false,
+        units: null,
+        message: 'Bulk check process failed'
+      }));
     } finally {
       await browserManager.close();
     }
