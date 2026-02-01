@@ -3,6 +3,8 @@ const NmbCapitalChecker = require('./nmb-capital-checker');
 const LsCapitalChecker = require('./ls-capital-checker');
 const GlobalImeCapitalChecker = require('./global-ime-capital-checker');
 const KumariCapitalChecker = require('./kumari-capital-checker');
+const SanimaCapitalChecker = require('./sanima-capital-checker');
+const NepalSbiChecker = require('./nepal-sbi-checker');
 
 /**
  * Registry of supported providers
@@ -42,6 +44,20 @@ const SUPPORTED_PROVIDERS = {
     displayName: 'Kumari Capital Limited',
     url: 'https://kumaricapital.com/ipo', // Assuming generic URL
     checker: KumariCapitalChecker
+  },
+  'sanima-capital': {
+    id: 'sanima-capital',
+    name: 'Sanima Capital',
+    displayName: 'Sanima Capital Limited',
+    url: 'https://www.sanima.capital/ipo',
+    checker: SanimaCapitalChecker
+  },
+  'nepal-sbi': {
+    id: 'nepal-sbi',
+    name: 'Nepal SBI',
+    displayName: 'Nepal SBI Merchant Banking Limited',
+    url: 'https://www.nsmbl.com.np/ipo',
+    checker: NepalSbiChecker
   }
 };
 

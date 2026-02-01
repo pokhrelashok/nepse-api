@@ -12,7 +12,8 @@ const SHARE_TYPES = {
   MUTUAL_FUND: 'mutual_fund',
   EMPLOYEES: 'employees',
   PROMOTER: 'promoter',
-  FOREIGN: 'foreign'
+  FOREIGN: 'foreign',
+  RIGHT_SHARE: 'right_share'
 };
 
 /**
@@ -30,9 +31,18 @@ function extractShareType(name) {
   if (
     lowerName.includes('foreign employment') ||
     lowerName.includes('migrant') ||
-    lowerName.includes('remittance')
+    lowerName.includes('remittance') ||
+    lowerName.includes('nepalese employed abroad') // Specific for Nepal SBI
   ) {
     return SHARE_TYPES.MIGRANT_WORKERS;
+  }
+
+  // 1.5 Right Share
+  if (
+    lowerName.includes('right share') ||
+    lowerName.includes('rights share')
+  ) {
+    return SHARE_TYPES.RIGHT_SHARE;
   }
 
   // 2. Local Residents / Project Affected
