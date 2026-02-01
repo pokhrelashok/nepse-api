@@ -166,14 +166,29 @@ class KumariCapitalChecker extends IpoResultChecker {
       const scripts = await this.getScripts();
       const normalizedInputName = this._normalizeCompanyName(companyName);
 
-      let matchedScript = scripts.find(s => s.companyName === normalizedInputName && s.shareType === shareType);
+      // Debug log
+      logger.info(`Kumari Check: Input="${companyName}" (Norm="${normalizedInputName}"), ShareType="${shareType}"`);
+
+      // Try to find match - handle case insensitive share type match
+      let matchedScript = scripts.find(s => {
+        const nameMatch = s.companyName === normalizedInputName;
+        const typeMatch = s.shareType.toLowerCase() === shareType.toLowerCase();
+        return nameMatch && typeMatch;
+      });
 
       if (!matchedScript) {
+        logger.warn(`Kumari Check: Exact match failed for "${normalizedInputName}" + "${shareType}". Scripts found: ${scripts.length}`);
+
+        // Fallback: Try just name match if exact shareType match fails
         matchedScript = scripts.find(s => s.companyName === normalizedInputName);
+        if (matchedScript) {
+          logger.info(`Kumari Check: Fallback match found: "${matchedScript.rawName}" (${matchedScript.shareType})`);
+        }
       }
 
       if (!matchedScript) {
         logger.warn(`Company not found in Kumari Capital list: ${companyName}`);
+        logger.debug(`Available scripts: ${JSON.stringify(scripts.map(s => `${s.companyName} (${s.shareType})`), null, 2)}`);
         return {
           success: true,
           allotted: false,
@@ -182,6 +197,7 @@ class KumariCapitalChecker extends IpoResultChecker {
         };
       }
 
+      logger.info(`Kumari Check: Matched Script - ID=${matchedScript.value}`);
       return await this._checkWithId(boid, matchedScript.value);
 
     } catch (error) {
@@ -206,14 +222,25 @@ class KumariCapitalChecker extends IpoResultChecker {
       const scripts = await this.getScripts();
       const normalizedInputName = this._normalizeCompanyName(companyName);
 
-      let matchedScript = scripts.find(s => s.companyName === normalizedInputName && s.shareType === shareType);
+      logger.info(`Kumari Bulk Check: Input="${companyName}" (Norm="${normalizedInputName}"), ShareType="${shareType}"`);
+
+      // Try to find match - handle case insensitive share type match
+      let matchedScript = scripts.find(s => {
+        const nameMatch = s.companyName === normalizedInputName;
+        const typeMatch = s.shareType.toLowerCase() === shareType.toLowerCase();
+        return nameMatch && typeMatch;
+      });
 
       if (!matchedScript) {
         matchedScript = scripts.find(s => s.companyName === normalizedInputName);
+        if (matchedScript) {
+          logger.info(`Kumari Bulk Check: Fallback match found: "${matchedScript.rawName}" (${matchedScript.shareType})`);
+        }
       }
 
       if (!matchedScript) {
         logger.warn(`Company not found in Kumari Capital list (Bulk): ${companyName}`);
+        logger.debug(`Available scripts: ${JSON.stringify(scripts.map(s => `${s.companyName} (${s.shareType})`), null, 2)}`);
         return boids.map(b => ({
           success: true,
           boid: b,
@@ -224,6 +251,7 @@ class KumariCapitalChecker extends IpoResultChecker {
       }
 
       const searchTypeId = matchedScript.value;
+      logger.info(`Kumari Bulk Check: Using SearchTypeID=${searchTypeId} for ${boids.length} BOIDs`);
 
       // Execute checks in parallel
       return await Promise.all(boids.map(boid => this._checkWithId(boid, searchTypeId)));

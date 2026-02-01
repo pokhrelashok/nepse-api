@@ -127,6 +127,10 @@ exports.checkIpoResultsBulk = async (req, res) => {
 
     logger.info(`IPO result check - User: ${userId}, IPO: ${ipoResult.company_name} (ID: ${ipoId}, Value: ${ipoResult.value}), Provider: ${providerId}, BOIDs: ${userBoids.length}`);
 
+    // Log parameters being passed to checker
+    const shareTypePassed = formatShareType(ipoResult.share_type);
+    logger.info(`Calling checker with: Company="${ipoResult.company_name}", ShareType="${shareTypePassed}" (Raw: "${ipoResult.share_type}")`);
+
     // Check results for all user BOIDs
     // This uses parallel calls for API-based checkers and browser-reuse for Puppeteer-based ones
     const boids = userBoids.map(b => b.boid);
