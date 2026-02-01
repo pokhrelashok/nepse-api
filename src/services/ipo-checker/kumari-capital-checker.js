@@ -107,45 +107,10 @@ class KumariCapitalChecker extends IpoResultChecker {
   }
 
   /**
-   * Check IPO result for given BOID and company
+   * Internal method to check using ID
    */
-  async checkResult(boid, companyName, shareType) {
+  async _checkWithId(boid, searchTypeId) {
     try {
-      if (!companyName) {
-        return { success: false, message: 'Company name is required' };
-      }
-
-      // We need to resolve the IPO ID (value) which is specific to the "search_details_search_type".
-      // Since we don't store it persistently in the checker instance, we need to fetch scripts again
-      // or hope it was meant to be passed. The base interface only passes boid, companyName, shareType.
-      // Typical implementation (like Global IME) re-fetches scripts to map name -> ID.
-      // This is slightly inefficient (N+1) but robust.
-
-      const scripts = await this.getScripts();
-      const normalizedInputName = this._normalizeCompanyName(companyName);
-
-      // Find matching script
-      // Note: We might have multiple IPOs for same company (e.g. Mutual Fund vs Ordinary).
-      // shareType should help disambiguate.
-
-      let matchedScript = scripts.find(s => s.companyName === normalizedInputName && s.shareType === shareType);
-
-      if (!matchedScript) {
-        // Fallback: Try just name match if exact shareType match fails or wasn't provided well
-        matchedScript = scripts.find(s => s.companyName === normalizedInputName);
-      }
-
-      if (!matchedScript) {
-        logger.warn(`Company not found in Kumari Capital list: ${companyName}`);
-        return {
-          success: true,
-          allotted: false,
-          units: null,
-          message: `Company not found: ${companyName}`
-        };
-      }
-
-      const searchTypeId = matchedScript.value;
       const url = `${this.baseUrl}/sharedetails/search-details?holderId=${boid}&type=2&share_details_search_type=${searchTypeId}`;
 
       const response = await axios.get(url, {
@@ -158,7 +123,6 @@ class KumariCapitalChecker extends IpoResultChecker {
 
       const data = response.data.data;
 
-      // Logic: if data array has items and allotted_kitta > 0, it's allotted.
       if (Array.isArray(data) && data.length > 0) {
         const result = data[0];
         const units = result.allotted_kitta ? parseFloat(result.allotted_kitta) : 0;
@@ -181,13 +145,96 @@ class KumariCapitalChecker extends IpoResultChecker {
         units: null,
         message: 'Sorry, not allotted'
       };
-
     } catch (error) {
       logger.error(`Error checking result in Kumari Capital API: ${error.message}`);
       return {
         success: false,
         message: `Error connecting to Kumari Capital API: ${error.message}`
       };
+    }
+  }
+
+  /**
+   * Check IPO result for given BOID and company
+   */
+  async checkResult(boid, companyName, shareType) {
+    try {
+      if (!companyName) {
+        return { success: false, message: 'Company name is required' };
+      }
+
+      const scripts = await this.getScripts();
+      const normalizedInputName = this._normalizeCompanyName(companyName);
+
+      let matchedScript = scripts.find(s => s.companyName === normalizedInputName && s.shareType === shareType);
+
+      if (!matchedScript) {
+        matchedScript = scripts.find(s => s.companyName === normalizedInputName);
+      }
+
+      if (!matchedScript) {
+        logger.warn(`Company not found in Kumari Capital list: ${companyName}`);
+        return {
+          success: true,
+          allotted: false,
+          units: null,
+          message: `Company not found: ${companyName}`
+        };
+      }
+
+      return await this._checkWithId(boid, matchedScript.value);
+
+    } catch (error) {
+      logger.error(`Error in checkResult: ${error.message}`);
+      return {
+        success: false,
+        message: `Error connecting to Kumari Capital API: ${error.message}`
+      };
+    }
+  }
+
+  /**
+   * Bulk check - optimized to fetch scripts only once
+   */
+  async checkResultBulk(boids, companyName, shareType) {
+    try {
+      if (!companyName) {
+        return boids.map(b => ({ success: false, boid: b, message: 'Company name is required' }));
+      }
+
+      // Fetch scripts once
+      const scripts = await this.getScripts();
+      const normalizedInputName = this._normalizeCompanyName(companyName);
+
+      let matchedScript = scripts.find(s => s.companyName === normalizedInputName && s.shareType === shareType);
+
+      if (!matchedScript) {
+        matchedScript = scripts.find(s => s.companyName === normalizedInputName);
+      }
+
+      if (!matchedScript) {
+        logger.warn(`Company not found in Kumari Capital list (Bulk): ${companyName}`);
+        return boids.map(b => ({
+          success: true,
+          boid: b,
+          allotted: false,
+          units: null,
+          message: `Company not found: ${companyName}`
+        }));
+      }
+
+      const searchTypeId = matchedScript.value;
+
+      // Execute checks in parallel
+      return await Promise.all(boids.map(boid => this._checkWithId(boid, searchTypeId)));
+
+    } catch (error) {
+      logger.error(`Error in checkResultBulk: ${error.message}`);
+      return boids.map(b => ({
+        success: false,
+        boid: b,
+        message: `Error processing bulk check: ${error.message}`
+      }));
     }
   }
 }

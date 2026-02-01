@@ -98,7 +98,7 @@ exports.checkIpoResultsBulk = async (req, res) => {
 
     // Get result details from ipo_results database
     const [resultsFromDb] = await pool.query(
-      'SELECT provider_id, company_name, share_type FROM ipo_results WHERE id = ?',
+      'SELECT provider_id, company_name, share_type, value FROM ipo_results WHERE id = ?',
       [ipoId]
     );
 
@@ -125,7 +125,7 @@ exports.checkIpoResultsBulk = async (req, res) => {
       return res.status(500).json(formatError(`Provider ${providerId} not supported`, 500));
     }
 
-    logger.info(`IPO result check - User: ${userId}, IPO: ${ipoResult.company_name}, Provider: ${providerId}, BOIDs: ${userBoids.length}`);
+    logger.info(`IPO result check - User: ${userId}, IPO: ${ipoResult.company_name} (ID: ${ipoId}, Value: ${ipoResult.value}), Provider: ${providerId}, BOIDs: ${userBoids.length}`);
 
     // Check results for all user BOIDs
     // This uses parallel calls for API-based checkers and browser-reuse for Puppeteer-based ones
