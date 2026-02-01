@@ -58,6 +58,13 @@ const SUPPORTED_PROVIDERS = {
     displayName: 'Nepal SBI Merchant Banking Limited',
     url: 'https://www.nsmbl.com.np/ipo',
     checker: NepalSbiChecker
+  },
+  'nimb-ace-capital': {
+    id: 'nimb-ace-capital',
+    name: 'NIMB Ace Capital',
+    displayName: 'NIMB Ace Capital Limited',
+    url: 'https://result.nimbacecapital.com',
+    checker: require('./nimb-ace-capital-checker')
   }
 };
 
