@@ -2,6 +2,11 @@ const NepalSbiChecker = require('../../src/services/ipo-checker/nepal-sbi-checke
 const axios = require('axios');
 
 jest.mock('axios');
+jest.mock('../../src/utils/logger', () => ({
+  info: jest.fn(),
+  warn: jest.fn(),
+  error: jest.fn()
+}));
 
 describe('NepalSbiChecker', () => {
   let checker;
