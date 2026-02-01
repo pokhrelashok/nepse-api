@@ -43,8 +43,11 @@ class NepalSbiChecker extends IpoResultChecker {
       logger.info(`Nepal SBI: Fetching scripts from ${this.baseUrl}/ipo ...`);
       const response = await axios.get(`${this.baseUrl}/ipo`, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': 'https://www.nsmbl.com.np/ipo',
+          'Origin': 'https://www.nsmbl.com.np',
           'X-Requested-With': 'XMLHttpRequest'
         },
         timeout: 30000 // 30 seconds timeout
@@ -108,8 +111,11 @@ class NepalSbiChecker extends IpoResultChecker {
 
       const response = await axios.get(url, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0',
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           'Accept': 'application/json, text/plain, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Referer': 'https://www.nsmbl.com.np/ipo',
+          'Origin': 'https://www.nsmbl.com.np',
           'X-Requested-With': 'XMLHttpRequest'
         },
         timeout: 30000 // 30s timeout
