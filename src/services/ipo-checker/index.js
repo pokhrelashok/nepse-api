@@ -2,6 +2,7 @@ const NabilInvestChecker = require('./nabil-invest-checker');
 const NmbCapitalChecker = require('./nmb-capital-checker');
 const LsCapitalChecker = require('./ls-capital-checker');
 const GlobalImeCapitalChecker = require('./global-ime-capital-checker');
+const KumariCapitalChecker = require('./kumari-capital-checker');
 
 /**
  * Registry of supported providers
@@ -34,6 +35,13 @@ const SUPPORTED_PROVIDERS = {
     displayName: 'Global IME Capital Limited',
     url: 'https://globalimecapital.com/ipo-fpo-share-allotment-check',
     checker: GlobalImeCapitalChecker
+  },
+  'kumari-capital': {
+    id: 'kumari-capital',
+    name: 'Kumari Capital',
+    displayName: 'Kumari Capital Limited',
+    url: 'https://kumaricapital.com/ipo', // Assuming generic URL
+    checker: KumariCapitalChecker
   }
 };
 
