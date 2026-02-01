@@ -40,13 +40,17 @@ class NepalSbiChecker extends IpoResultChecker {
    */
   async getScripts() {
     try {
+      logger.info(`Nepal SBI: Fetching scripts from ${this.baseUrl}/ipo ...`);
       const response = await axios.get(`${this.baseUrl}/ipo`, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0',
           'Accept': 'application/json, text/plain, */*',
           'X-Requested-With': 'XMLHttpRequest'
-        }
+        },
+        timeout: 30000 // 30 seconds timeout
       });
+
+      logger.info(`Nepal SBI: Received response (Status: ${response.status})`);
 
       if (!Array.isArray(response.data)) {
         logger.warn('Nepal SBI API returned unexpected format for companies');
@@ -60,8 +64,12 @@ class NepalSbiChecker extends IpoResultChecker {
         value: item.id // Use ID as value
       }));
 
+      logger.info(`Nepal SBI: Found ${scripts.length} scripts`);
       return scripts;
     } catch (error) {
+      if (error.code === 'ECONNABORTED') {
+        logger.error(`Nepal SBI: Request timed out after 30s`);
+      }
       logger.error('Error fetching scripts from Nepal SBI API:', error.message);
       return [];
     }
@@ -96,13 +104,18 @@ class NepalSbiChecker extends IpoResultChecker {
 
       const url = `${this.baseUrl}/ipo/filter?companyId=${matchedScript.value}&boidNumber=${boid}`;
 
+      logger.info(`Nepal SBI: Checking result via URL: ${url}`);
+
       const response = await axios.get(url, {
         headers: {
           'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:146.0) Gecko/20100101 Firefox/146.0',
           'Accept': 'application/json, text/plain, */*',
           'X-Requested-With': 'XMLHttpRequest'
-        }
+        },
+        timeout: 30000 // 30s timeout
       });
+
+      logger.info(`Nepal SBI: Check response status: ${response.status}`);
 
       const result = response.data;
 
@@ -150,6 +163,13 @@ class NepalSbiChecker extends IpoResultChecker {
       };
 
     } catch (error) {
+      if (error.code === 'ECONNABORTED') {
+        logger.error(`Nepal SBI: Check result request timed out for BOID ${boid}`);
+        return {
+          success: false,
+          message: 'Connection timed out'
+        };
+      }
       if (error.response && error.response.status === 500) {
         return {
           success: true,
