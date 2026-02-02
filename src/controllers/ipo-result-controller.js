@@ -178,10 +178,9 @@ exports.checkIpoResultsBulk = async (req, res) => {
  */
 exports.getPublishedIpos = async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 100;
-    const offset = parseInt(req.query.offset) || 0;
+    const search = req.query.search || null;
 
-    const ipos = await getPublishedIpos(limit, offset);
+    const ipos = await getPublishedIpos(search);
 
     res.json(formatResponse(ipos, 'Published IPOs retrieved successfully'));
 

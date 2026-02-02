@@ -237,8 +237,13 @@ async function insertIpoResult(resultData) {
  * @param {number} offset - Offset for pagination
  * @returns {Promise<Array>} - Array of published IPOs
  */
-async function getPublishedIpos(limit = 100, offset = 0) {
-  const sql = `
+/**
+ * Get published IPOs (from ipo_results table)
+ * @param {string} search - Optional search term
+ * @returns {Promise<Array>} - Array of published IPOs
+ */
+async function getPublishedIpos(search = null) {
+  let sql = `
     SELECT 
       id,
       provider_id,
@@ -247,11 +252,19 @@ async function getPublishedIpos(limit = 100, offset = 0) {
       value,
       DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as published_at
     FROM ipo_results
-    ORDER BY created_at DESC
-    LIMIT ? OFFSET ?
+    WHERE 1=1
   `;
 
-  const [rows] = await pool.execute(sql, [String(limit), String(offset)]);
+  const params = [];
+
+  if (search) {
+    sql += ` AND company_name LIKE ? `;
+    params.push(`%${search}%`);
+  }
+
+  sql += ` ORDER BY created_at DESC `;
+
+  const [rows] = await pool.execute(sql, params);
 
   // Format share_type for display
   return rows.map(row => ({
