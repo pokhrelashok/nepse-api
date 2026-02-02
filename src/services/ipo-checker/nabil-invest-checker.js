@@ -1,3 +1,4 @@
+const axios = require('axios');
 const BrowserManager = require('../../utils/browser-manager');
 const IpoResultChecker = require('./base-checker');
 const logger = require('../../utils/logger');
@@ -6,6 +7,7 @@ const { extractShareType } = require('./share-type-utils');
 /**
  * Nabil Invest IPO Result Checker
  * Uses Puppeteer to scrape results from result.nabilinvest.com.np
+ * OPTIMIZED: Uses Puppeteer for session init, then direct API calls for bulk checking
  */
 class NabilInvestChecker extends IpoResultChecker {
   constructor() {
@@ -56,6 +58,12 @@ class NabilInvestChecker extends IpoResultChecker {
       await page.goto(this.url, { waitUntil: 'domcontentloaded', timeout: this.timeout });
 
       // Extract company options from dropdown
+      try {
+        await page.waitForSelector('input[name="_token"]', { timeout: 10000 });
+      } catch (e) {
+        logger.warn('Token input not found in getScripts, continuing...');
+      }
+
       const scripts = await page.evaluate(() => {
         const select = document.querySelector('select[aria-label="company"]');
         if (!select) return [];
@@ -113,6 +121,13 @@ class NabilInvestChecker extends IpoResultChecker {
       page.setDefaultTimeout(this.timeout);
 
       await page.goto(this.url, { waitUntil: 'domcontentloaded' });
+
+      // Wait for captcha/redirect
+      try {
+        await page.waitForSelector('input[name="_token"]', { timeout: 10000 });
+      } catch (e) {
+        logger.warn('Token input not found in checkResult, continuing...');
+      }
 
       // Extract company options from dropdown (Reuse logic)
       const scriptsData = await page.evaluate(() => {
@@ -196,165 +211,186 @@ class NabilInvestChecker extends IpoResultChecker {
   }
 
   /**
-   * Check IPO results for multiple BOIDs using parallel pages
+   * Check IPO results for multiple BOIDs using parallel API requests
+   * Optimized: Uses Puppeteer to bypass bot check, then Axios for speed
    * @param {Array<string>} boids - Array of 16-digit BOIDs
    * @param {string} companyName - Company name
    * @param {string} shareType - Normalized share type
    * @returns {Promise<Array>} - Array of result objects
    */
   async checkResultBulk(boids, companyName, shareType) {
+    const CONCURRENCY = 10;
     const browserManager = new BrowserManager();
-    const CONCURRENCY = 3;
     let browser;
-    let allResults = [];
 
     try {
-      logger.info(`Bulk checking IPO results for ${boids.length} BOIDs from Nabil Invest with concurrency ${CONCURRENCY}`);
+      logger.info(`Bulk checking IPO results for ${boids.length} BOIDs from Nabil Invest (Hybrid)`);
+
+      // 1. Get Session via Puppeteer to bypass protection
+      logger.info('Initializing browser to bypass security check...');
       await browserManager.init();
       browser = browserManager.getBrowser();
+      const page = await browser.newPage();
 
-      const chunks = [];
-      const chunkSize = Math.ceil(boids.length / CONCURRENCY);
-      for (let i = 0; i < boids.length; i += chunkSize) {
-        chunks.push(boids.slice(i, i + chunkSize));
+      await page.goto(this.url, { waitUntil: 'domcontentloaded', timeout: this.timeout });
+
+      // Wait for the token input to verify page loaded/redirected
+      try {
+        await page.waitForSelector('input[name="_token"]', { timeout: 10000 });
+      } catch (e) {
+        logger.warn('Token input not found, maybe still on captcha page?');
       }
 
-      const processChunk = async (chunkBoids) => {
-        if (chunkBoids.length === 0) return [];
+      // Extract Data from DOM
+      const pageData = await page.evaluate(() => {
+        const tokenInput = document.querySelector('input[name="_token"]');
+        const token = tokenInput ? tokenInput.value : null;
 
-        const page = await browser.newPage();
-        page.setDefaultTimeout(this.timeout);
-        const chunkResults = [];
+        const select = document.querySelector('select[aria-label="company"]');
+        const options = select ? Array.from(select.querySelectorAll('option'))
+          .map(opt => ({
+            rawName: opt.textContent.trim(),
+            value: opt.value
+          })) : [];
 
-        try {
-          await page.goto(this.url, { waitUntil: 'domcontentloaded' });
+        return { token, options, userAgent: navigator.userAgent };
+      });
 
-          const scriptsData = await page.evaluate(() => {
-            const select = document.querySelector('select[aria-label="company"]');
-            if (!select) return [];
-            return Array.from(select.querySelectorAll('option'))
-              .filter(opt => opt.value && opt.value !== '')
-              .map(opt => ({ rawName: opt.textContent.trim(), value: opt.value }));
-          });
+      const cookies = await page.cookies();
+      const cookieHeader = cookies.map(c => `${c.name}=${c.value}`).join('; ');
 
-          const scripts = scriptsData.map(script => ({
-            rawName: script.rawName,
-            companyName: this._normalizeCompanyName(script.rawName),
-            shareType: this._extractShareType(script.rawName),
-            value: script.value
-          })).filter(s => s.shareType !== null);
+      // Close browser early - we don't need it for the requests
+      await browserManager.close();
+      browser = null; // Mark as closed
 
-          const normalizedInputName = this._normalizeCompanyName(companyName);
-          const normalizedInputShareType = shareType.toLowerCase();
+      if (!pageData.token) {
+        throw new Error('Failed to extract CSRF token via Puppeteer');
+      }
 
-          const matchingScript = scripts.find(script =>
-            script.companyName === normalizedInputName && script.shareType === normalizedInputShareType
-          );
+      // Parse Options
+      const scripts = pageData.options
+        .filter(opt => opt.value && opt.value !== '')
+        .map(opt => ({
+          ...opt,
+          companyName: this._normalizeCompanyName(opt.rawName),
+          shareType: this._extractShareType(opt.rawName)
+        }));
 
-          if (!matchingScript) {
-            return chunkBoids.map(boid => ({
+      // Find Matching Company
+      const normalizedInputName = this._normalizeCompanyName(companyName);
+      const normalizedInputShareType = shareType.toLowerCase();
+
+      const matchingScript = scripts.find(script =>
+        script.companyName === normalizedInputName && script.shareType === normalizedInputShareType
+      );
+
+      if (!matchingScript) {
+        logger.error(`Company not found: ${companyName} (${shareType})`);
+        return boids.map(boid => ({
+          success: false,
+          provider: this.providerId,
+          providerName: this.providerName,
+          boid: boid,
+          error: `No matching IPO found`,
+          allotted: false,
+          units: null,
+          message: `No matching IPO found for "${companyName}"`
+        }));
+      }
+
+      logger.info(`Found matching script: ${matchingScript.rawName}`);
+
+      // Extract XSRF for header
+      const xsrfCookie = cookies.find(c => c.name === 'XSRF-TOKEN');
+      const xsrfToken = xsrfCookie ? decodeURIComponent(xsrfCookie.value) : null;
+
+      // 2. Process BOIDs
+      const results = [];
+      for (let i = 0; i < boids.length; i += CONCURRENCY) {
+        const chunk = boids.slice(i, i + CONCURRENCY);
+        const chunkPromises = chunk.map(async (boid) => {
+          try {
+            const params = new URLSearchParams();
+            params.append('_token', pageData.token);
+            params.append('company', matchingScript.value);
+            params.append('boid', boid);
+
+            const headers = {
+              'Cookie': cookieHeader,
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': pageData.userAgent, // Critical: Use exact UA from Puppeteer
+              'Referer': this.url,
+              'Origin': 'https://result.nabilinvest.com.np',
+              'X-Requested-With': 'XMLHttpRequest'
+            };
+
+            if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken;
+
+            const response = await axios.post(this.url, params, {
+              headers,
+              timeout: this.timeout
+            });
+
+            const html = response.data;
+            let result = { allotted: false, units: null, message: 'Unknown result' };
+
+            if (html.includes('alert-success')) {
+              const unitsMatch = html.match(/allotted\s+(\d+)\s+units/i);
+              const msgMatch = html.match(/<div[^>]*class="[^"]*alert-success[^"]*"[^>]*>([^<]+)<\/div>/i) ||
+                html.match(/class="alert alert-success"[^>]*>\s*([^<]+)\s*<\/div>/);
+
+              const cleanMsg = msgMatch ? msgMatch[1].trim() : (unitsMatch ? `Allotted ${unitsMatch[1]} units` : "Allotted");
+
+              result = {
+                allotted: true,
+                units: unitsMatch ? parseInt(unitsMatch[1]) : 10,
+                message: cleanMsg
+              };
+            } else if (html.includes('alert-danger') || html.includes('not been allotted') || html.includes('Sorry')) {
+              const msgMatch = html.match(/<div[^>]*class="[^"]*alert-danger[^"]*"[^>]*>([^<]+)<\/div>/i);
+              result = {
+                allotted: false,
+                units: null,
+                message: msgMatch ? msgMatch[1].trim() : "Sorry! You have not been allotted."
+              };
+            } else {
+              // DEBUG: Log unknown HTML
+              logger.warn(`Unknown HTML for BOID ${boid}: ${html.substring(0, 500)}...`);
+            }
+
+            return {
+              success: true,
+              provider: this.providerId,
+              providerName: this.providerName,
+              company: matchingScript.rawName,
+              boid: boid,
+              ...result
+            };
+
+          } catch (err) {
+            logger.error(`Error checking BOID ${boid}: ${err.message}`);
+            return {
               success: false,
               provider: this.providerId,
               providerName: this.providerName,
               boid: boid,
-              error: `No matching IPO found`,
-              allotted: false,
-              units: null,
-              message: `No matching IPO found for "${companyName}"`
-            }));
-          }
-
-          await page.select('select[aria-label="company"]', matchingScript.value);
-
-          for (const boid of chunkBoids) {
-            try {
-              if (!page.url().includes(this.url)) {
-                await page.goto(this.url, { waitUntil: 'domcontentloaded' });
-                await page.select('select[aria-label="company"]', matchingScript.value);
-              }
-
-              await page.evaluate(() => {
-                const input = document.querySelector('input[aria-label="boid"]');
-                if (input) input.value = '';
-              });
-
-              await page.type('input[aria-label="boid"]', boid);
-
-              const previousMessage = await page.evaluate(() => {
-                const el = document.querySelector('.alert-success, .alert-danger');
-                return el ? el.textContent.trim() : null;
-              });
-
-              await page.click('button.btn.bg-gradient-info');
-
-              await page.waitForFunction((prevMsg) => {
-                const el = document.querySelector('.alert-success, .alert-danger');
-                if (!el) return false;
-                if (!prevMsg) return true;
-                return el.textContent.trim() !== prevMsg;
-              }, { timeout: this.timeout }, previousMessage).catch(() => true);
-
-              const result = await page.evaluate(() => {
-                const successDiv = document.querySelector('div.alert.alert-success');
-                if (successDiv) {
-                  const text = successDiv.textContent.trim();
-                  const match = text.match(/allotted\s+(\d+)\s+units/i);
-                  return { allotted: true, units: match ? parseInt(match[1]) : null, message: text };
-                }
-                const errorDiv = document.querySelector('div.alert.alert-danger');
-                if (errorDiv) {
-                  return { allotted: false, units: null, message: errorDiv.textContent.trim() };
-                }
-                return { allotted: false, units: null, message: 'No result message found' };
-              });
-
-              chunkResults.push({
-                success: true,
-                provider: this.providerId,
-                providerName: this.providerName,
-                company: matchingScript.rawName,
-                boid: boid,
-                ...result
-              });
-
-            } catch (err) {
-              chunkResults.push({
-                success: false,
-                provider: this.providerId,
-                providerName: this.providerName,
-                boid: boid,
-                error: err.message,
-                allotted: false,
-                units: null,
-                message: `Failed: ${err.message}`
-              });
-            }
-          }
-        } catch (err) {
-          logger.error(`Worker failed processing chunk: ${err.message}`);
-          const processedBoids = chunkResults.map(r => r.boid);
-          const remaining = chunkBoids.filter(b => !processedBoids.includes(b));
-          remaining.forEach(b => {
-            chunkResults.push({
-              success: false,
-              provider: this.providerId,
-              providerName: this.providerName,
-              boid: b,
               error: err.message,
               allotted: false,
               units: null,
-              message: `Worker Failed: ${err.message}`
-            });
-          });
-        } finally {
-          await page.close().catch(() => { });
-        }
-        return chunkResults;
-      };
+              message: `Failed: ${err.message}`
+            };
+          }
+        });
 
-      const chunksResults = await Promise.all(chunks.map(chunk => processChunk(chunk)));
-      allResults = chunksResults.flat();
-      return allResults;
+        const chunkResults = await Promise.all(chunkPromises);
+        results.push(...chunkResults);
+
+        if (i + CONCURRENCY < boids.length) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
+
+      return results;
 
     } catch (error) {
       logger.error('Fatal error in Nabil Invest bulk check:', error);
@@ -369,7 +405,7 @@ class NabilInvestChecker extends IpoResultChecker {
         message: 'Bulk check process failed'
       }));
     } finally {
-      await browserManager.close();
+      if (browser) await browserManager.close();
     }
   }
 }
