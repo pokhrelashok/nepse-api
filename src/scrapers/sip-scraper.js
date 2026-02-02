@@ -1,4 +1,4 @@
-const BrowserManager = require('./nepse/browser-manager');
+const BrowserManager = require('../utils/browser-manager');
 const logger = require('../utils/logger');
 
 class SipScraper {
