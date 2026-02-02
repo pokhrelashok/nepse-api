@@ -160,7 +160,7 @@ async function sendDividendNotification(dividend) {
 
   const tokens = holders.map(h => h.fcm_token);
   const title = `Dividend Announcement: ${dividend.symbol}`;
-  const body = `Bonus: ${dividend.bonus_share}%, Cash: ${dividend.cash_dividend}%. Book Close: ${formatDate(dividend.book_close_date)}`;
+  const body = `Bonus: ${dividend.bonus_share || 0}%, Cash: ${dividend.cash_dividend || 0}%. Book Close: ${formatDate(dividend.book_close_date)}`;
 
   const message = {
     notification: { title, body },

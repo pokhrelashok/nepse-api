@@ -20,6 +20,18 @@ async function processNewDividends() {
     logger.info(`Found ${newDividends.length} new/updated dividends.`);
 
     for (const dividend of newDividends) {
+      // Skip if book closure date is in the past
+      if (dividend.book_close_date) {
+        const bookCloseDate = new Date(dividend.book_close_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (bookCloseDate < today) {
+          logger.info(`Skipping dividend notification for ${dividend.symbol} - Book Close Date (${dividend.book_close_date}) is in the past`);
+          continue;
+        }
+      }
+
       await sendDividendNotification(dividend);
     }
 
