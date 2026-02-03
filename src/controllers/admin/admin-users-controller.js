@@ -6,6 +6,7 @@ const {
 } = require('../../database/admin/admin-queries');
 const { formatResponse, formatError } = require('../../utils/formatter');
 const logger = require('../../utils/logger');
+const { getNepaliStartOfDay } = require('../../utils/date-utils');
 
 /**
  * Get all users for admin panel
@@ -103,7 +104,8 @@ exports.getAllUsers = async (req, res) => {
  */
 exports.getStats = async (req, res) => {
   try {
-    const stats = await getUserStatsForAdmin();
+    const todayStart = getNepaliStartOfDay();
+    const stats = await getUserStatsForAdmin(todayStart);
     res.json(formatResponse(stats));
   } catch (error) {
     logger.error('Admin User Stats Error:', error);

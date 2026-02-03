@@ -285,17 +285,31 @@ async function getUserCountForAdmin() {
   return rows[0].total;
 }
 
-async function getUserStatsForAdmin() {
+async function getUserStatsForAdmin(todayStart) {
+  // If todayStart is provided, use it. Otherwise fall back to 24h (though controller should provide it)
+  // Converting date to MySQL compatible format (YYYY-MM-DD HH:MM:SS) if it's a Date object
+  const dateParam = todayStart instanceof Date ? todayStart.toISOString().slice(0, 19).replace('T', ' ') : todayStart;
+
   const sql = `
     SELECT 
       (SELECT COUNT(*) FROM users) as total_users,
       (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as users_this_week,
-      (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)) as users_today,
+      (SELECT COUNT(*) FROM users WHERE created_at >= ?) as users_today,
       (SELECT COUNT(*) FROM notification_tokens) as total_active_devices,
       (SELECT COUNT(*) FROM price_alerts WHERE triggered_at >= CURDATE()) as alerts_triggered_today,
       (SELECT COUNT(*) FROM price_alerts WHERE is_active = TRUE) as total_active_alerts
   `;
-  const [rows] = await pool.execute(sql);
+
+  // If no date provided, we'll default to 24 hours ago (maintain backward compatibility/safety)
+  const params = dateParam ? [dateParam] : [];
+
+  // Adjust query if no param (though we expect one)
+  let finalSql = sql;
+  if (!dateParam) {
+    finalSql = sql.replace('?', 'DATE_SUB(NOW(), INTERVAL 24 HOUR)');
+  }
+
+  const [rows] = await pool.execute(finalSql, params);
   return rows[0];
 }
 

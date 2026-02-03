@@ -1,4 +1,4 @@
-const NmbCapitalChecker = require('../../src/services/ipo-checker/nmb-capital-checker');
+ const NmbCapitalChecker = require('../../src/services/ipo-checker/nmb-capital-checker');
 
 describe('NMB Capital Checker', () => {
   let checker;
