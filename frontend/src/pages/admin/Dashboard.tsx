@@ -137,7 +137,7 @@ export default function Dashboard() {
         />
         <CompactStatCard
           title="New Users"
-          value={userStats?.users_this_week || 0}
+          value={userStats?.users_today || 0}
           subtitle="Joined today"
           icon={UserPlus}
           iconColor="text-violet-500"
