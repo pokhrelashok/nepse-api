@@ -51,6 +51,15 @@ process.on('unhandledRejection', async (reason, promise) => {
 app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' })); // Increased limit for base64 images
 
+// Ezoic ads.txt redirect
+app.get('/ads.txt', (req, res) => {
+  let domain = req.hostname;
+  if (domain.startsWith('www.')) {
+    domain = domain.substring(4);
+  }
+  res.redirect(301, `https://srv.adstxtmanager.com/19390/${domain}`);
+});
+
 // Serve static assets from public folder (images, icons, etc.)
 app.use(express.static('public'));
 // Serve React app build files
