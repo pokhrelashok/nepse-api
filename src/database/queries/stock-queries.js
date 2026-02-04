@@ -646,6 +646,27 @@ async function getLatestPricesWithMutualFunds(symbols) {
 }
 
 
+async function getStocksHistory(symbols, startDate) {
+  if (!symbols || symbols.length === 0) {
+    return [];
+  }
+
+  const placeholders = symbols.map(() => '?').join(',');
+  const sql = `
+      SELECT
+        symbol,
+        CAST(business_date AS CHAR) as business_date,
+        close_price
+      FROM stock_price_history
+      WHERE symbol IN (${placeholders}) AND business_date >= ?
+      ORDER BY business_date ASC
+    `;
+
+  const params = [...symbols, startDate];
+  const [rows] = await pool.execute(sql, params);
+  return rows;
+}
+
 module.exports = {
   getAllSecurityIds,
   getSecurityIdsWithoutDetails,
@@ -657,6 +678,7 @@ module.exports = {
   getLatestPricesWithMutualFunds,
   getIntradayData,
   insertTodayPrices,
-  getStockHistory
+  getStockHistory,
+  getStocksHistory
 };
 
