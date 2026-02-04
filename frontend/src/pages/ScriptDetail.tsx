@@ -207,10 +207,10 @@ export default function ScriptDetail() {
   const MetaTags = () => (
     <Helmet>
       {/* Primary Meta Tags */}
-      <title>{`${symbol} Stock Price - ${companyName} Live Chart, Analysis & Financials | NEPSE`}</title>
-      <meta name="title" content={`${symbol} Stock Price - ${companyName} Live Chart & Analysis`} />
-      <meta name="description" content={`Live stock price of ${companyName} (${symbol}) is Rs. ${ltp ? formatNumber(ltp) : '...'}. ${ltp ? `Has ${change >= 0 ? 'gained' : 'lost'} ${Math.abs(change).toFixed(2)} points today.` : ''} View real-time charts, technical analysis, dividend history, and financial reports for ${companyName} on Nepal Stock Exchange (NEPSE).`} />
-      <meta name="keywords" content={`${symbol}, ${companyName}, ${symbol} share price, ${symbol} analysis, ${companyName} news, nepse ${symbol}, nepal stock market, ${symbol} dividend`} />
+      <title>{`${companyName} (${symbol}) Share Price, Floorsheet, News, History & Analysis | NEPSE`}</title>
+      <meta name="title" content={`${companyName} (${symbol}) Share Price, Floorsheet, News, History & Analysis`} />
+      <meta name="description" content={`Get the latest ${companyName} (${symbol}) share price, floorsheet, breaking news, history, and analysis. View dividend history, bonus shares, book closure dates, and financial reports on Nepal Stock Exchange (NEPSE).`} />
+      <meta name="keywords" content={`${symbol}, ${companyName}, ${symbol} share price, ${symbol} floorsheet, ${symbol} news, ${symbol} analysis, ${symbol} dividend, ${symbol} bonus share, nepal stock market, nepse, ${symbol} history`} />
       <link rel="canonical" href={`https://nepseportfoliotracker.app/script/${currentSlug}`} />
 
       {/* Open Graph / Facebook */}
@@ -532,7 +532,7 @@ export default function ScriptDetail() {
                 </span> from the previous close.
               </p>
               <p className="mt-2">
-                Investors can view the latest live stock price, technical analysis charts, and financial reports for {symbol} on Nepse Portfolio Tracker.
+                Investors can view the latest live <strong>share price</strong>, <strong>floorsheet</strong>, <strong>news</strong>, and technical analysis charts for {symbol} on Nepse Portfolio Tracker.
                 The detailed analysis includes earnings per share (EPS), P/E ratio, dividend history, and market capitalization, helping you make informed investment decisions in the {sectorName} sector.
               </p>
               <div className="mt-4 pt-4 border-t border-gray-100 flex flex-wrap gap-2 text-xs">
