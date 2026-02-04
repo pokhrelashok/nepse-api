@@ -82,6 +82,10 @@ export default function PrivacyPolicyPage() {
 
           <h2 style={styles.h2}>9. Contact</h2>
           <p style={styles.p}>If you have questions, contact us at <a href="mailto:portfolionepse@gmail.com" style={styles.link}>portfolionepse@gmail.com</a>.</p>
+
+          <h2 style={styles.h2}>10. Advertising Disclosures</h2>
+          <p style={styles.p}>We use Ezoic to provide personalization and analytic services on this website, as such Ezoic's privacy policy is in effect and can be reviewed here.</p>
+          <span id="ezoic-privacy-policy-embed"></span>
         </div>
       </div>
     </div>
