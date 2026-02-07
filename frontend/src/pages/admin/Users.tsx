@@ -61,6 +61,8 @@ export default function UsersPage() {
     })
   }
 
+  return (
+    <div className="space-y-6">
       <div className="flex justify-between items-center bg-card p-4 rounded-md border">
         <div className="flex items-center gap-4">
           <Select value={filter} onValueChange={(val) => {
@@ -90,7 +92,7 @@ export default function UsersPage() {
           <div className="h-8 w-[1px] bg-border/50"></div>
           <div className="flex flex-col items-end">
             <span className="font-bold text-lg">{data?.total || 0}</span>
-             <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Users</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Users</span>
           </div>
         </div>
       </div>
@@ -159,26 +161,26 @@ export default function UsersPage() {
         </Table>
       </div>
 
-  {/* Pagination Control */ }
-  <div className="flex items-center justify-end space-x-2 py-4">
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setPage((p) => Math.max(0, p - 1))}
-      disabled={page === 0}
-    >
-      Previous
-    </Button>
-    <div className="text-sm">Page {page + 1}</div>
-    <Button
-      variant="outline"
-      size="sm"
-      onClick={() => setPage((p) => p + 1)}
-      disabled={users.length < limit}
-    >
-      Next
-    </Button>
-  </div>
-    </div >
+      {/* Pagination Control */}
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPage((p) => Math.max(0, p - 1))}
+          disabled={page === 0}
+        >
+          Previous
+        </Button>
+        <div className="text-sm">Page {page + 1}</div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setPage((p) => p + 1)}
+          disabled={users.length < limit}
+        >
+          Next
+        </Button>
+      </div>
+    </div>
   )
 }
