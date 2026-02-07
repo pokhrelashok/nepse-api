@@ -311,6 +311,8 @@ async function getUserStatsForAdmin(todayStart) {
       (SELECT COUNT(*) FROM users) as total_users,
       (SELECT COUNT(*) FROM users WHERE created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as users_this_week,
       (SELECT COUNT(*) FROM users WHERE created_at >= ?) as users_today,
+      (SELECT COUNT(*) FROM users WHERE last_active_at >= CURDATE()) as active_users_today,
+      (SELECT COUNT(*) FROM users WHERE last_active_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)) as active_users_this_week,
       (SELECT COUNT(*) FROM notification_tokens) as total_active_devices,
       (SELECT COUNT(*) FROM price_alerts WHERE triggered_at >= CURDATE()) as alerts_triggered_today,
       (SELECT COUNT(*) FROM price_alerts WHERE is_active = TRUE) as total_active_alerts

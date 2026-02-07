@@ -32,13 +32,24 @@ export default function UsersPage() {
   // Safe access
   const users = data?.users || []
 
+  // Fetch stats separately
+  const { data: stats } = useQuery({
+    queryKey: ['admin-users-stats'],
+    queryFn: async () => {
+      const res = await api.get('/admin/users/stats')
+      return res.data?.data || {}
+    }
+  })
+
   // Function to format date
   const formatDate = (dateString: string) => {
     if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric'
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     })
   }
 
@@ -46,8 +57,17 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          Total Users: {data?.total || 0}
+        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+          <div className="flex flex-col items-end">
+            <span className="font-medium text-foreground">{stats?.active_users_today || 0}</span>
+            <span className="text-xs">Active Today</span>
+          </div>
+          <div className="flex flex-col items-end">
+            <span className="font-medium text-foreground">{stats?.active_users_this_week || 0}</span>
+            <span className="text-xs">Active 7 Days</span>
+          </div>
+          <div className="h-8 w-[1px] bg-border mx-2"></div>
+          <div>Total Users: {data?.total || 0}</div>
         </div>
       </div>
 
