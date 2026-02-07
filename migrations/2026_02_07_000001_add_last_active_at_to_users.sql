@@ -1,0 +1,2 @@
+ALTER TABLE users
+ADD COLUMN last_active_at TIMESTAMP NULL DEFAULT NULL AFTER updated_at;

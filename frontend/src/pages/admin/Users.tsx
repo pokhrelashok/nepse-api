@@ -58,6 +58,7 @@ export default function UsersPage() {
               <TableHead>User</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Joined</TableHead>
+              <TableHead>Last Active</TableHead>
               <TableHead className="text-center">Portfolios</TableHead>
               <TableHead className="text-center">Total Investment</TableHead>
               <TableHead className="text-center">Transactions</TableHead>
@@ -70,6 +71,7 @@ export default function UsersPage() {
                 <TableRow key={i}>
                   <TableCell><div className="flex items-center gap-2"><Skeleton className="h-8 w-8 rounded-full" /><Skeleton className="h-4 w-[100px]" /></div></TableCell>
                   <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[40px] mx-auto" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px] mx-auto" /></TableCell>
@@ -91,6 +93,7 @@ export default function UsersPage() {
                   </TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{formatDate(user.created_at)}</TableCell>
+                  <TableCell>{formatDate(user.last_active_at)}</TableCell>
                   <TableCell className="text-center">{user.portfolio_count}</TableCell>
                   <TableCell className="text-center">
                     {user.total_investment ? (

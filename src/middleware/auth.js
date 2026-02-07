@@ -24,6 +24,10 @@ const verifyToken = async (req, res, next) => {
 
       if (rows.length > 0) {
         req.currentUser = rows[0];
+
+        // Update last_active_at (fire and forget to not block response)
+        pool.execute('UPDATE users SET last_active_at = NOW() WHERE google_id = ?', [decodedToken.uid])
+          .catch(err => logger.error('Error updating last_active_at:', err));
       }
     } catch (dbError) {
       logger.error('Database error in auth middleware', dbError);

@@ -248,14 +248,23 @@ async function deleteApiKey(id) {
 
 // ==================== USERS ====================
 
-async function getUsersForAdmin(limit = 20, offset = 0) {
+async function getUsersForAdmin(limit = 20, offset = 0, filter = 'all') {
+  let whereClause = '';
+
+  if (filter === 'active_today') {
+    whereClause = 'WHERE u.last_active_at >= CURDATE()';
+  } else if (filter === 'active_this_week') {
+    whereClause = 'WHERE u.last_active_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  }
+
   const sql = `
     SELECT 
-      u.id, u.google_id, u.email, u.display_name, u.avatar_url, u.created_at,
+      u.id, u.google_id, u.email, u.display_name, u.avatar_url, u.created_at, u.last_active_at,
       (SELECT COUNT(*) FROM portfolios WHERE user_id = u.id) as portfolio_count,
       (SELECT COUNT(*) FROM price_alerts WHERE user_id = u.id) as alert_count,
       (SELECT COUNT(*) FROM transactions t JOIN portfolios p ON t.portfolio_id = p.id WHERE p.user_id = u.id) as transaction_count
     FROM users u
+    ${whereClause}
     ORDER BY u.created_at DESC 
     LIMIT ? OFFSET ?
   `;
@@ -279,8 +288,15 @@ async function getTransactionsForAdminUsers(userIds) {
   return rows;
 }
 
-async function getUserCountForAdmin() {
-  const sql = 'SELECT COUNT(*) as total FROM users';
+async function getUserCountForAdmin(filter = 'all') {
+  let sql = 'SELECT COUNT(*) as total FROM users u';
+
+  if (filter === 'active_today') {
+    sql += ' WHERE u.last_active_at >= CURDATE()';
+  } else if (filter === 'active_this_week') {
+    sql += ' WHERE u.last_active_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)';
+  }
+
   const [rows] = await pool.execute(sql);
   return rows[0].total;
 }

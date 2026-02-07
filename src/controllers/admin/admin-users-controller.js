@@ -16,10 +16,11 @@ exports.getAllUsers = async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 20;
     const offset = parseInt(req.query.offset) || 0;
+    const filter = req.query.filter || 'all';
 
     const [users, total] = await Promise.all([
-      getUsersForAdmin(limit, offset),
-      getUserCountForAdmin()
+      getUsersForAdmin(limit, offset, filter),
+      getUserCountForAdmin(filter)
     ]);
 
     // Calculate total investment for each user
