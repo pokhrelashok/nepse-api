@@ -12,15 +12,23 @@ import { Button } from "@/components/ui/button"
 import { useState } from "react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 export default function UsersPage() {
   const [page, setPage] = useState(0)
+  const [filter, setFilter] = useState('all')
   const limit = 20
 
   const { data, isLoading } = useQuery({
-    queryKey: ['admin-users', page],
+    queryKey: ['admin-users', page, filter],
     queryFn: async () => {
-      const res = await api.get(`/admin/users?limit=${limit}&offset=${page * limit}`)
+      const res = await api.get(`/admin/users?limit=${limit}&offset=${page * limit}&filter=${filter}`)
       return {
         users: res.data?.data?.users || [],
         total: res.data?.data?.pagination?.total || 0
@@ -53,21 +61,37 @@ export default function UsersPage() {
     })
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold tracking-tight">Users</h1>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
+      <div className="flex justify-between items-center bg-card p-4 rounded-md border">
+        <div className="flex items-center gap-4">
+          <Select value={filter} onValueChange={(val) => {
+            setFilter(val)
+            setPage(0) // Reset to first page on filter change
+          }}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Filter users" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Users</SelectItem>
+              <SelectItem value="active_today">Active Today</SelectItem>
+              <SelectItem value="active_this_week">Active This Week</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center gap-6 text-sm">
           <div className="flex flex-col items-end">
-            <span className="font-medium text-foreground">{stats?.active_users_today || 0}</span>
-            <span className="text-xs">Active Today</span>
+            <span className="font-bold text-lg">{stats?.active_users_today || 0}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">Active Today</span>
           </div>
+          <div className="h-8 w-[1px] bg-border/50"></div>
           <div className="flex flex-col items-end">
-            <span className="font-medium text-foreground">{stats?.active_users_this_week || 0}</span>
-            <span className="text-xs">Active 7 Days</span>
+            <span className="font-bold text-lg">{stats?.active_users_this_week || 0}</span>
+            <span className="text-xs text-muted-foreground uppercase tracking-wider">Active 7 Days</span>
           </div>
-          <div className="h-8 w-[1px] bg-border mx-2"></div>
-          <div>Total Users: {data?.total || 0}</div>
+          <div className="h-8 w-[1px] bg-border/50"></div>
+          <div className="flex flex-col items-end">
+            <span className="font-bold text-lg">{data?.total || 0}</span>
+             <span className="text-xs text-muted-foreground uppercase tracking-wider">Total Users</span>
+          </div>
         </div>
       </div>
 
@@ -135,26 +159,26 @@ export default function UsersPage() {
         </Table>
       </div>
 
-      {/* Pagination Control */}
-      <div className="flex items-center justify-end space-x-2 py-4">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setPage((p) => Math.max(0, p - 1))}
-          disabled={page === 0}
-        >
-          Previous
-        </Button>
-        <div className="text-sm">Page {page + 1}</div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setPage((p) => p + 1)}
-          disabled={users.length < limit}
-        >
-          Next
-        </Button>
-      </div>
-    </div>
+  {/* Pagination Control */ }
+  <div className="flex items-center justify-end space-x-2 py-4">
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setPage((p) => Math.max(0, p - 1))}
+      disabled={page === 0}
+    >
+      Previous
+    </Button>
+    <div className="text-sm">Page {page + 1}</div>
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => setPage((p) => p + 1)}
+      disabled={users.length < limit}
+    >
+      Next
+    </Button>
+  </div>
+    </div >
   )
 }
